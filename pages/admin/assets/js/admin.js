@@ -754,6 +754,24 @@ class AdminDashboard {
     }
 }
 
+// Tambahkan kode ini di dalam file admin.js setelah data tickets dimuat
+function updateTableForMobile() {
+  const tableCells = document.querySelectorAll('#ticketsTableBody td');
+  const headers = document.querySelectorAll('#ticketsTable th');
+  
+  tableCells.forEach((cell, index) => {
+    const headerIndex = index % headers.length;
+    const headerText = headers[headerIndex].textContent;
+    cell.setAttribute('data-label', headerText);
+  });
+}
+
+// Panggil fungsi ini setelah mengisi tabel dengan data
+updateTableForMobile();
+
+// Juga panggil saat window di-resize untuk menangani orientasi perubahan
+window.addEventListener('resize', updateTableForMobile);
+
 // Initialize admin dashboard ketika DOM siap
 document.addEventListener('DOMContentLoaded', function() {
     const adminDashboard = new AdminDashboard();
@@ -766,5 +784,6 @@ window.addEventListener('beforeunload', function() {
         window.adminDashboard.destroy();
     }
 });
+
 
 export default AdminDashboard;
