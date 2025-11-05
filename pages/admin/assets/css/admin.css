@@ -1442,4 +1442,113 @@
     width: 100%;
     justify-content: center;
   }
+
+}
+
+/* ===== MOBILE CARD STYLES ===== */
+@media (max-width: 768px) {
+  .tickets-table-container {
+    overflow-x: visible;
+  }
+
+  .tickets-table {
+    display: block;
+  }
+
+  .tickets-table thead {
+    display: none;
+  }
+
+  .tickets-table tbody,
+  .tickets-table tr,
+  .tickets-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .tickets-table tr {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border: 1px solid var(--gray-200);
+    position: relative;
+  }
+
+  .tickets-table td {
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .tickets-table td:last-child {
+    border-bottom: none;
+    padding-top: 1rem;
+    margin-top: 0.5rem;
+    border-top: 1px solid var(--gray-200);
+  }
+
+  .tickets-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--gray-600);
+    font-size: 0.875rem;
+    margin-right: 1rem;
+    flex-shrink: 0;
+  }
+
+  .tickets-table td:last-child::before {
+    display: none;
+  }
+
+  .action-buttons {
+    width: 100%;
+    justify-content: center;
+  }
+
+  /* Stats grid mobile optimization */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .stat-card {
+    padding: 1rem;
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .stat-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.25rem;
+  }
+
+  .stat-number {
+    font-size: 1.5rem;
+  }
+
+  /* Section header mobile optimization */
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  .section-actions {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .filter-group {
+    justify-content: space-between;
+  }
+
+  .filter-group select {
+    flex: 1;
+  }
 }
