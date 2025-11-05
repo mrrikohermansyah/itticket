@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Register - IT Support</title>
+
+  <!-- Gunakan auth.css -->
+  <link rel="stylesheet" href="../../assets/css/base/styles.css" />
+  <link rel="stylesheet" href="../../assets/css/pages/auth.css" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+</head>
+
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo-container">
+        <img src="../../assets/images/meitech-logo.png" alt="Company Logo" />
+        <h2>User Registration</h2>
+        <p>IT Support Ticketing System</p>
+      </div>
+
+      <form id="registerForm" class="auth-form">
+        <!-- Form fields tetap sama -->
+        <div class="form-row">
+          <div class="form-group">
+            <label for="employee_id">Employee ID *</label>
+            <input type="text" id="employee_id" name="employee_id" required placeholder="EMP001" />
+          </div>
+          <div class="form-group">
+            <label for="full_name">Full Name *</label>
+            <input type="text" id="full_name" name="full_name" required placeholder="Your full name" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email Address *</label>
+          <input type="email" id="email" name="email" required placeholder="email@company.com" />
+        </div>
+
+        <div class="form-group">
+          <label for="phone">Phone Number</label>
+          <input type="tel" id="phone" name="phone" placeholder="+62 XXX-XXXX-XXXX" />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="department">Department *</label>
+            <select id="department" name="department" required>
+              <option value="">Select Department</option>
+              <option value="Civil">Civil</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Completion">Completion</option>
+              <option value="DC">Dimentional Control (DC)</option>
+              <option value="Document Control">Document Control</option>
+              <option value="Engineer">Engineering</option>
+              <option value="Finance">Finance</option>
+              <option value="HR">Human Resources (HRD)</option>
+              <option value="HSE">HSE</option>
+              <option value="IT">IT</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="Management">Management</option>
+              <option value="Procurement">Procurement</option>
+              <option value="QC">Quality Control (QC)</option>
+              <option value="Vendor">Vendor</option>
+              <option value="Warehouse">Warehouse</option>
+              <option value="Lainlain">Other Department</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="location">Location *</label>
+            <select id="location" name="location" required>
+              <option value="">Select Location</option>
+              <option value="Blue Office">Blue Office</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Control Room">Control Room</option>
+              <option value="Dark Room">Dark Room</option>
+              <option value="Green Office">Green Office</option>
+              <option value="HRD">HR Department</option>
+              <option value="HSE Yard">HSE Yard</option>
+              <option value="IT Server">IT Server</option>
+              <option value="IT Store">IT Store</option>
+              <option value="Multi Purposes Building">Multi Purposes Building</option>
+              <option value="Red Office">Red Office</option>
+              <option value="Security">Security</option>
+              <option value="White Office">White Office</option>
+              <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+              <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+              <option value="Welding School">Welding School</option>
+              <option value="Workshop9">Workshop 9</option>
+              <option value="Workshop10">Workshop 10</option>
+              <option value="Workshop11">Workshop 11</option>
+              <option value="Workshop12">Workshop 12</option>
+              <option value="Yard">Yard</option>
+              <option value="Lainlain">Other Location</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="password">Password *</label>
+            <input type="password" id="password" name="password" required minlength="6"
+              placeholder="Minimum 6 characters" />
+          </div>
+
+          <div class="form-group">
+            <label for="confirm_password">Confirm Password *</label>
+            <input type="password" id="confirm_password" name="confirm_password" required
+              placeholder="Confirm your password" />
+          </div>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none"></div>
+        <div id="successMessage" class="success-message" style="display: none"></div>
+        
+        <button type="submit" class="btn-auth" data-original-text="Create Account">Create Account</button>
+        </form>
+        
+        <div class="auth-link">
+          Already have an account? <a href="login.html">Login here</a>
+        </div>
+        </div>
+        </div>
+        
+        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+        <script type="module" src="../../assets/js/pages/auth.js"></script>
+        </body>
+        
+        </html>

@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard - IT Support</title>
+    <!-- Tambahkan di head -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="../../assets/css/base/styles.css">
+    <link rel="stylesheet" href="../../assets/css/pages/dashboard.css">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- SweetAlert2 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+</head>
+
+<body class="dashboard-body">
+    <!-- Header -->
+    <header class="dashboard-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="dashboard-logo">
+                <div class="header-text">
+                    <h1>IT Support Ticketing System</h1>
+                    <p>User Dashboard</p>
+                </div>
+            </div>
+
+            <div class="user-menu">
+                <div class="user-info">
+                    <div class="user-name" id="userName">Loading...</div>
+                    <div class="user-email" id="userEmail">Loading...</div>
+                </div>
+                <div class="header-actions">
+                    <button class="btn-profile" id="profileBtn">
+                        <i class="fas fa-user-edit"></i>
+                        Edit Profile
+                    </button>
+                    <button class="btn-logout" id="logoutBtn">
+                        <i class="fas fa-sign-out-alt"></i>
+                        Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+        <div class="dashboard-container">
+            <!-- Profile Edit Modal -->
+            <div id="profileModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+                        <button class="modal-close" id="closeProfileModal">&times;</button>
+                    </div>
+                    <form id="profileForm" class="profile-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_employee_id">Employee ID</label>
+                                <input type="text" id="edit_employee_id" name="employee_id" readonly
+                                    class="readonly-field">
+                            </div>
+                            <div class="form-group">
+                                <label for="edit_full_name">Full Name *</label>
+                                <input type="text" id="edit_full_name" name="full_name" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_email">Email Address *</label>
+                            <input type="email" id="edit_email" name="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="edit_phone">Phone Number</label>
+                            <input type="tel" id="edit_phone" name="phone" placeholder="+62 XXX-XXXX-XXXX">
+                        </div>
+
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="edit_department">Department *</label>
+                                <select id="edit_department" name="department" required>
+                                    <option value="">Select Department</option>
+                                    <option value="Civil">Civil</option>
+                                    <option value="Clinic">Clinic</option>
+                                    <option value="Completion">Completion</option>
+                                    <option value="DC">Dimentional Control (DC)</option>
+                                    <option value="Document Control">Document Control</option>
+                                    <option value="Engineer">Engineering</option>
+                                    <option value="Finance">Finance</option>
+                                    <option value="HR">Human Resources (HRD)</option>
+                                    <option value="HSE">HSE</option>
+                                    <option value="IT">IT</option>
+                                    <option value="Maintenance">Maintenance</option>
+                                    <option value="Management">Management</option>
+                                    <option value="Procurement">Procurement</option>
+                                    <option value="QC">Quality Control (QC)</option>
+                                    <option value="Vendor">Vendor</option>
+                                    <option value="Warehouse">Warehouse</option>
+                                    <option value="Lainlain">Other Department</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="edit_location">Location *</label>
+                                <select id="edit_location" name="location" required>
+                                    <option value="">Select Location</option>
+                                    <option value="Blue Office">Blue Office</option>
+                                    <option value="Clinic">Clinic</option>
+                                    <option value="Control Room">Control Room</option>
+                                    <option value="Dark Room">Dark Room</option>
+                                    <option value="Green Office">Green Office</option>
+                                    <option value="HRD">HR Department</option>
+                                    <option value="HSE Yard">HSE Yard</option>
+                                    <option value="IT Server">IT Server</option>
+                                    <option value="IT Store">IT Store</option>
+                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
+                                    <option value="Red Office">Red Office</option>
+                                    <option value="Security">Security</option>
+                                    <option value="White Office">White Office</option>
+                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+                                    <option value="Welding School">Welding School</option>
+                                    <option value="Workshop9">Workshop 9</option>
+                                    <option value="Workshop10">Workshop 10</option>
+                                    <option value="Workshop11">Workshop 11</option>
+                                    <option value="Workshop12">Workshop 12</option>
+                                    <option value="Yard">Yard</option>
+                                    <option value="Lainlain">Other Location</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-save"></i>
+                                Update Profile
+                            </button>
+                            <button type="button" class="btn-secondary" id="cancelProfileEdit">
+                                Cancel
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <div class="welcome-card">
+                    <div class="welcome-content">
+                        <h2>Welcome back, <span id="welcomeUserName">User</span>!</h2>
+                        <p>Create a new support ticket or check the status of your existing tickets.</p>
+                    </div>
+                    <div class="welcome-stats">
+                        <div class="stat-item">
+                            <div class="stat-number" id="openTickets">0</div>
+                            <div class="stat-label">Open Tickets</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number" id="resolvedTickets">0</div>
+                            <div class="stat-label">Resolved</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Ticket Form Section -->
+            <section class="ticket-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-plus-circle"></i> Create New Ticket</h2>
+                    <p>Report a technical issue to our IT support team</p>
+                </div>
+
+                <form id="ticketForm" class="ticket-form">
+                    <!-- Device Information -->
+                    <div class="form-section">
+                        <h3 class="section-title">Device Information</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="inventory">
+                                    <span class="required">Inventory Code</span>
+                                </label>
+                                <input type="text" name="inventory" id="inventory" required
+                                    placeholder="PCPRO-MEB001 / PC24001MEB / PRN24001MEB">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="device">
+                                    <span class="required">Device Type</span>
+                                </label>
+                                <select name="device" id="device" required>
+                                    <option value="" disabled selected>Select Device Type</option>
+                                    <option value="Backup Data">Backup Data</option>
+                                    <option value="Drone">Drone</option>
+                                    <option value="Laptop">Laptop</option>
+                                    <option value="Network">Network</option>
+                                    <option value="PC Hardware">PC Hardware</option>
+                                    <option value="PC Software">PC Software</option>
+                                    <option value="Printer">Printer</option>
+                                    <option value="Projector">Projector</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ticket Details -->
+                    <div class="form-section">
+                        <h3 class="section-title">Ticket Details</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="location">
+                                    <span class="required">Location</span>
+                                </label>
+                                <select name="location" id="location" required>
+                                    <option value="" disabled selected>Select Location</option>
+                                    <option value="Blue Office">Blue Office</option>
+                                    <option value="Clinic">Clinic</option>
+                                    <option value="Control Room">Control Room</option>
+                                    <option value="Dark Room">Dark Room</option>
+                                    <option value="Green Office">Green Office</option>
+                                    <option value="HRD">HR Department</option>
+                                    <option value="HSE Yard">HSE Yard</option>
+                                    <option value="IT Server">IT Server</option>
+                                    <option value="IT Store">IT Store</option>
+                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
+                                    <option value="Red Office">Red Office</option>
+                                    <option value="Security">Security</option>
+                                    <option value="White Office">White Office</option>
+                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+                                    <option value="Welding School">Welding School</option>
+                                    <option value="Workshop9">Workshop 9</option>
+                                    <option value="Workshop10">Workshop 10</option>
+                                    <option value="Workshop11">Workshop 11</option>
+                                    <option value="Workshop12">Workshop 12</option>
+                                    <option value="Yard">Yard</option>
+                                    <option value="Lainlain">Other Location</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="priority">
+                                    <span class="required">Priority Level</span>
+                                </label>
+                                <select name="priority" id="priority" required>
+                                    <option value="" disabled selected>Select Priority</option>
+                                    <option value="Low">Low - Minor issue</option>
+                                    <option value="Medium">Medium - Significant issue</option>
+                                    <option value="High">High - Critical issue</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Issue Description -->
+                    <div class="form-section">
+                        <h3 class="section-title">Issue Description</h3>
+                        <div class="form-group">
+                            <label for="subject">
+                                <span class="required">Issue Summary</span>
+                            </label>
+                            <input type="text" name="subject" id="subject" required
+                                placeholder="Brief summary of the issue">
+                        </div>
+
+                        <div class="form-group">
+                            <label for="message">
+                                <span class="required">Detailed Description</span>
+                            </label>
+                            <textarea name="message" id="message" rows="4" required
+                                placeholder="Describe the issue in detail including error messages, steps to reproduce, and when it started"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Hidden Fields -->
+                    <input type="hidden" name="user_id" id="user_id">
+                    <input type="hidden" name="user_name" id="user_name">
+                    <input type="hidden" name="user_email" id="user_email">
+                    <input type="hidden" name="user_department" id="user_department">
+                    <input type="hidden" name="status" value="Open">
+                    <input type="hidden" name="created_at" id="created_at">
+
+                    <!-- Messages -->
+                    <div id="ticketErrorMessage" class="error-message" style="display: none"></div>
+                    <div id="ticketSuccessMessage" class="success-message" style="display: none"></div>
+
+                    <!-- Submit Button -->
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="submitTicketBtn">
+                            <span class="btn-text">Submit Ticket</span>
+                            <div class="btn-loading" style="display: none">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Processing...
+                            </div>
+                        </button>
+                        <button type="reset" class="btn-secondary">
+                            Clear Form
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Recent Tickets Section -->
+            <section class="tickets-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-history"></i> Recent Tickets</h2>
+                    <p>Your recently submitted support tickets</p>
+                </div>
+
+                <div class="tickets-list" id="ticketsList">
+                    <div class="empty-state">
+                        <i class="fas fa-ticket-alt"></i>
+                        <h3>No tickets yet</h3>
+                        <p>Submit your first support ticket above</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="dashboard-footer">
+        <div class="footer-content">
+            <small>&copy; 2025 IT Support System 71001-04-8314</small>
+            <small>For urgent issues, please contact IT Support directly</small>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script type="module" src="../../assets/js/pages/dashboard.js"></script>
+</body>
+
+</html>

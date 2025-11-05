@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>MEITECH - Admin Portal</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link rel="icon" type="image/png" href="../imgs/meitech.png" />
+    <link rel="stylesheet" href="../css/login.css" />
+
+    <!-- Firebase CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../js/login.js"></script>
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-card">
+        <!-- Header dengan Logo Custom -->
+        <div class="login-header">
+          <div class="logo">
+            <img
+              src="../imgs/meitech-logo.png"
+              alt="MEITECH Logo"
+              class="logo-image"
+            />
+            <div class="logo-text">
+              <p>Admin System Access</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Login Form -->
+        <div class="login-form">
+          <form id="loginForm">
+            <div class="input-group">
+              <div class="input-field">
+                <i class="fas fa-user"></i>
+                <input
+                  type="email"
+                  id="loginEmail"
+                  placeholder="Email address"
+                  required
+                />
+                <div class="input-line"></div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <div class="input-field">
+                <i class="fas fa-lock"></i>
+                <input
+                  type="password"
+                  id="loginPassword"
+                  placeholder="Password"
+                  required
+                />
+                <div class="input-line"></div>
+              </div>
+            </div>
+
+            <button type="submit" id="loginEmailBtn" class="btn btn-primary">
+              <span>Sign In</span>
+              <i class="fas fa-arrow-right"></i>
+            </button>
+          </form>
+
+          <div class="divider">
+            <span>or</span>
+          </div>
+
+          <button type="button" id="loginGoogle" class="btn btn-google">
+            <i class="fab fa-google"></i>
+            <span>Continue with Google</span>
+          </button>
+        </div>
+
+        <!-- Footer -->
+        <div class="login-footer">
+          <a href="../index.html" class="back-link">
+            <i class="fas fa-arrow-left"></i>
+            Back to input Ticket
+          </a>
+          <div class="copyright">&copy; 2024 MEITECH Systems</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

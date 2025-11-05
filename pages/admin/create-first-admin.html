@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create First Admin</title>
+    <link rel="stylesheet" href="../../assets/css/base/styles.css">
+    <style>
+        .admin-setup {
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        input,
+        select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        .btn-primary {
+            width: 100%;
+            padding: 0.75rem;
+            background: #ef070a;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="admin-setup">
+        <h2>Create First Administrator</h2>
+        <form id="setupAdminForm">
+            <div class="form-group">
+                <label for="name">Full Name *</label>
+                <input type="text" id="name" name="name" required placeholder="System Administrator">
+            </div>
+            <div class="form-group">
+                <label for="email">Email *</label>
+                <input type="email" id="email" name="email" required placeholder="admin@meitech.com">
+            </div>
+            <div class="form-group">
+                <label for="password">Password *</label>
+                <input type="password" id="password" name="password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label for="role">Role *</label>
+                <select id="role" name="role" required>
+                    <option value="superadmin">Super Administrator</option>
+                    <option value="manager">IT Manager</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-primary">Create Admin Account</button>
+        </form>
+        <div id="message" style="margin-top: 1rem;"></div>
+    </div>
+
+    <script type="module">
+        import firebaseAuthService from '../../assets/js/services/firebase-auth-service.js';
+
+        const form = document.getElementById('setupAdminForm');
+        const message = document.getElementById('message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = 'Creating...';
+            submitBtn.disabled = true;
+
+            try {
+                const formData = new FormData(form);
+                const adminData = {
+                    name: formData.get('name'),
+                    email: formData.get('email'),
+                    password: formData.get('password'),
+                    role: formData.get('role'),
+                    department: 'IT',
+                    specialization: ['Network', 'Hardware', 'Software']
+                };
+
+                const result = await firebaseAuthService.createAdmin(adminData);
+
+                if (result.success) {
+                    message.innerHTML = `
+                        <div style="color: green; padding: 1rem; background: #f0fff4; border-radius: 6px;">
+                            <strong>Success!</strong> Admin account created successfully.<br>
+                            You can now <a href="login.html">login here</a>.
+                        </div>
+                    `;
+                    form.reset();
+                } else {
+                    throw new Error(result.message);
+                }
+            } catch (error) {
+                message.innerHTML = `
+                    <div style="color: red; padding: 1rem; background: #fff0f0; border-radius: 6px;">
+                        <strong>Error:</strong> ${error.message}
+                    </div>
+                `;
+            } finally {
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

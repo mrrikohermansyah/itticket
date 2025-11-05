@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Migrate Existing Admin</title>
+</head>
+
+<body>
+    <h2>Migrate Existing Admin to Firestore</h2>
+    <button onclick="migrateAdmin()">Migrate Admin</button>
+    <div id="result"></div>
+
+    <script type="module">
+        import {
+            doc,
+            setDoc,
+            getDoc
+        } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { auth, db } from '../../assets/js/utils/firebase-config.js';
+
+        async function migrateAdmin() {
+            const resultDiv = document.getElementById('result');
+
+            try {
+                // Get current user (harus sudah login sebagai admin)
+                const user = auth.currentUser;
+                if (!user) {
+                    resultDiv.innerHTML = '<p style="color: red;">Please login first as the admin user.</p>';
+                    return;
+                }
+
+                // Check if already exists in admins collection
+                const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+                if (adminDoc.exists()) {
+                    resultDiv.innerHTML = '<p style="color: orange;">Admin already exists in Firestore.</p>';
+                    return;
+                }
+
+                // Create admin record in Firestore
+                await setDoc(doc(db, 'admins', user.uid), {
+                    name: user.email.split('@')[0], // Default name from email
+                    email: user.email,
+                    role: 'superadmin',
+                    department: 'IT',
+                    specialization: ['Network', 'Hardware', 'Software'],
+                    is_active: true,
+                    created_at: new Date().toISOString(),
+                    created_by: 'system_migration'
+                });
+
+                resultDiv.innerHTML = `
+                    <p style="color: green;">
+                        <strong>Success!</strong> Admin migrated to Firestore.<br>
+                        You can now access <a href="manage-team.html">Manage Team</a>.
+                    </p>
+                `;
+
+            } catch (error) {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+
+</html>

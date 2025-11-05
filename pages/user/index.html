@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json" />
+
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#3b82f6" />
+
+    <!-- Apple Touch Icons (untuk iOS) -->
+    <link rel="apple-touch-icon" href="imgs/meitech.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="imgs/meitech.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="imgs/meitech.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="imgs/meitech.png" />
+
+    <!-- Apple Launch Screen (untuk iOS Splash Screen) -->
+    <link rel="apple-touch-startup-image" href="imgs/meitech.png" />
+
+    <!-- Meta untuk iOS -->
+    <!-- Untuk iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+
+    <!-- Untuk Android/Chrome -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="IT Ticket" />
+
+    <!-- Meta untuk Windows -->
+    <meta name="msapplication-TileImage" content="images/icon-144x144.png" />
+    <meta name="msapplication-TileColor" content="#3b82f6" />
+    <meta name="msapplication-config" content="browserconfig.xml" />
+
+    <!-- Favicon untuk browser biasa -->
+    <link rel="icon" type="image/x-icon" href="imgs/meitech.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="imgs/meitech.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="imgs/meitech.png" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>IT Support Ticketing System</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css" />
+    <link rel="stylesheet" href="css/dropdown.css" />
+    <link rel="stylesheet" href="css/logout.css" />
+    <link rel="icon" type="image/png" href="imgs/meitech.png" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <!-- SweetAlert2 CSS -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"
+    />
+    <!-- Font Awesome for icons -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+  </head>
+
+  <body>
+    <main class="container">
+      <!-- Header dengan tombol logout -->
+      <header class="header">
+        <div class="logo-container">
+          <img src="imgs/meitech-logo.png" alt="Company Logo" class="logo" />
+          <div class="header-text">
+            <h1>IT Support Ticketing System</h1>
+            <p>Report technical issues and get support from our IT team</p>
+          </div>
+        </div>
+
+        <div class="logout-container">
+          <div class="user-info">
+            <div class="user-name" id="userName">User Name</div>
+            <div class="user-email" id="userEmail">user@company.com</div>
+          </div>
+          <button type="button" id="logoutBtn" class="btn-logout">
+            <i class="fas fa-sign-out-alt"></i>
+            Logout
+          </button>
+        </div>
+      </header>
+
+      <!-- Main Form -->
+      <form id="ticketForm" class="card" autocomplete="on" novalidate>
+        <!-- Inventory & Device Section -->
+        <div class="form-section">
+          <h3 class="section-title">Device Information</h3>
+          <div class="form-row">
+            <label for="inventory">
+              <span class="required">Inventory Code</span>
+              <input
+                type="text"
+                name="inventory"
+                id="inventory"
+                required
+                placeholder="PCPRO-MEB001 / PC24001MEB / PRN24001MEB"
+              />
+              <div class="error-message">Please enter inventory code</div>
+            </label>
+
+            <label for="device">
+              <span class="required">Device Type</span>
+              <select name="device" id="device" required>
+                <option value="" disabled selected>Select Device Type</option>
+                <option value="Backup Data">Backup Data</option>
+                <option value="Drone">Drone</option>
+                <option value="Laptop">Laptop</option>
+                <option value="Network">Network</option>
+                <option value="PC Hardware">PC Hardware</option>
+                <option value="PC Software">PC Software</option>
+                <option value="Printer">Printer</option>
+                <option value="Projector">Projector</option>
+                <option value="Others">Others</option>
+              </select>
+              <div class="error-message">Please select device type</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Personal Information Section -->
+        <div class="form-section">
+          <h3 class="section-title">Personal Information</h3>
+          <div class="form-row">
+            <label for="name">
+              <span class="required">Full Name</span>
+              <input
+                type="text"
+                name="name"
+                id="name"
+                required
+                placeholder="Your full name"
+              />
+              <div class="error-message">Please enter your full name</div>
+            </label>
+
+            <label for="user_email">
+              <span class="required">Email Address</span>
+              <input
+                type="email"
+                name="user_email"
+                id="user_email"
+                required
+                placeholder="email@company.com"
+              />
+              <div class="error-message">
+                Please enter a valid email address
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Contact & Department Section -->
+        <div class="form-section">
+          <h3 class="section-title">Contact Details</h3>
+          <div class="form-row">
+            <label for="user_phone">
+              <span>Phone Number</span>
+              <input
+                type="tel"
+                name="user_phone"
+                id="user_phone"
+                placeholder="+62 XXX-XXXX-XXXX / 08XX-XXXX-XXXX"
+              />
+              <div class="helper-text">For urgent contact if needed</div>
+            </label>
+
+            <label for="department">
+              <span class="required">Department</span>
+              <select name="department" id="department" required>
+                <option value="" disabled selected>Select Department</option>
+                <option value="Civil">Civil</option>
+                <option value="Clinic">Clinic</option>
+                <option value="Client">Client</option>
+                <option value="Completion">Completion</option>
+                <option value="DC">Dimentional Control (DC)</option>
+                <option value="Document Control">Document Control</option>
+                <option value="Engineer">Engineering</option>
+                <option value="Finance">Finance</option>
+                <option value="HR">Human Resources (HRD)</option>
+                <option value="HSE">HSE</option>
+                <option value="IT">IT</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Management">Management</option>
+                <option value="Procurement">Procurement</option>
+                <option value="QC">Quality Control (QC)</option>
+                <option value="Vendor">Vendor</option>
+                <option value="Warehouse">Warehouse</option>
+                <option value="Lainlain">Other Department</option>
+              </select>
+              <div class="error-message">Please select your department</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Location & Priority Section -->
+        <div class="form-section">
+          <h3 class="section-title">Ticket Details</h3>
+          <div class="form-row">
+            <label for="location">
+              <span class="required">Location</span>
+              <select name="location" id="location" required>
+                <option value="" disabled selected>Select Location</option>
+                <option value="Blue Office">Blue Office</option>
+                <option value="Clinic">Clinic</option>
+                <option value="Control Room">Control Room</option>
+                <option value="Dark Room">Dark Room</option>
+                <option value="Green Office">Green Office</option>
+                <option value="HRD">HR Department</option>
+                <option value="HSE Yard">HSE Yard</option>
+                <option value="IT Server">IT Server</option>
+                <option value="IT Store">IT Store</option>
+                <option value="Multi Purposes Building">
+                  Multi Purposes Building
+                </option>
+                <option value="Red Office">Red Office</option>
+                <option value="Security">Security</option>
+                <option value="White Office">White Office</option>
+                <option value="White Office 2nd Fl">
+                  White Office 2nd Floor
+                </option>
+                <option value="White Office 3rd Fl">
+                  White Office 3rd Floor
+                </option>
+                <option value="Welding School">Welding School</option>
+                <option value="Workshop9">Workshop 9</option>
+                <option value="Workshop10">Workshop 10</option>
+                <option value="Workshop11">Workshop 11</option>
+                <option value="Workshop12">Workshop 12</option>
+                <option value="Yard">Yard</option>
+                <option value="Lainlain">Other Location</option>
+              </select>
+              <div class="error-message">Please select your location</div>
+            </label>
+
+            <label for="priority">
+              <span class="required">Priority Level</span>
+              <select name="priority" id="priority" required>
+                <option value="" disabled selected>Select Priority</option>
+                <option value="Low">Low - Minor issue</option>
+                <option value="Medium">Medium - Significant issue</option>
+                <option value="High">High - Critical issue</option>
+              </select>
+              <div class="error-message">Please select priority level</div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Issue Details Section -->
+        <div class="form-section">
+          <h3 class="section-title">Issue Description</h3>
+          <label for="subject">
+            <span class="required">Issue Summary</span>
+            <input
+              type="text"
+              name="subject"
+              id="subject"
+              required
+              placeholder="Brief summary of the issue"
+            />
+            <div class="error-message">Please enter issue summary</div>
+          </label>
+
+          <label for="message">
+            <span class="required">Detailed Description</span>
+            <textarea
+              name="message"
+              id="message"
+              rows="3"
+              required
+              placeholder="Describe the issue in detail including error messages, steps to reproduce, and when it started"
+            ></textarea>
+            <div class="error-message">Please describe the issue</div>
+          </label>
+        </div>
+
+        <!-- Auto-generated fields (hidden) -->
+        <input type="hidden" name="code" id="code" />
+        <input type="hidden" name="status_ticket" value="Open" />
+        <input type="hidden" name="qa" value="Pending" />
+
+        <div class="actions">
+          <button type="submit" id="submitBtn" class="btn-primary">
+            <span class="btn-text">Submit Ticket</span>
+            <div class="btn-loading" style="display: none">
+              <i class="fas fa-spinner fa-spin"></i>
+              Processing...
+            </div>
+          </button>
+          <button type="reset" id="resetBtn" class="btn-secondary">
+            Clear Form
+          </button>
+        </div>
+
+        <div id="status" role="status" aria-live="polite"></div>
+      </form>
+
+      <footer>
+        <small>&copy; 2025 IT Support System 71001-04-8314</small>
+        <small>For urgent issues, please contact IT Support directly</small>
+      </footer>
+    </main>
+
+    <!-- Floating Admin Bubble -->
+    <a
+      href="admin/index.html"
+      class="admin-bubble"
+      id="adminBubble"
+      target="_blank"
+      aria-label="Open Admin Panel"
+      aria-expanded="false"
+    >
+      <div class="bubble-icon">
+        <i class="fas fa-cog"></i>
+      </div>
+      <div class="bubble-text-wrapper">
+        <div class="bubble-content">
+          <span class="bubble-text">Admin Panel</span>
+          <span class="bubble-subtext">IT Support</span>
+        </div>
+      </div>
+    </a>
+
+    <!-- EmailJS -->
+    <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    <!-- SweetAlert2 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://smtpjs.com/v3/smtp.js"></script>
+    <script type="module" src="js/app.js"></script>
+    <script src="js/dropdown.js"></script>
+
+    <script>
+      // Fungsi untuk menangani logout
+      function handleLogout() {
+        Swal.fire({
+          title: "Logout Confirmation",
+          text: "Are you sure you want to logout?",
+          icon: "question",
+          showCancelButton: true,
+          confirmButtonColor: "#ef4444",
+          cancelButtonColor: "#6b7280",
+          confirmButtonText: "Yes, Logout",
+          cancelButtonText: "Cancel",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Hapus data user dari localStorage
+            localStorage.removeItem("userData");
+            localStorage.removeItem("userToken");
+
+            // Tampilkan pesan logout berhasil
+            Swal.fire({
+              title: "Logged Out",
+              text: "You have been successfully logged out.",
+              icon: "success",
+              confirmButtonColor: "#3b82f6",
+              confirmButtonText: "OK",
+            }).then(() => {
+              // Redirect ke halaman login
+              window.location.href = "userlogin.html";
+            });
+          }
+        });
+      }
+
+      // Fungsi untuk menampilkan informasi user
+      function displayUserInfo() {
+        // Ambil data user dari localStorage (asumsi data disimpan saat login)
+        const userData = localStorage.getItem("userData");
+
+        if (userData) {
+          const user = JSON.parse(userData);
+          document.getElementById("userName").textContent = user.name || "User";
+          document.getElementById("userEmail").textContent =
+            user.email || "user@company.com";
+        } else {
+          // Jika tidak ada data user, redirect ke halaman login
+          window.location.href = "userlogin.html";
+        }
+      }
+
+      // Event listener untuk tombol logout
+      document.addEventListener("DOMContentLoaded", function () {
+        // Tampilkan informasi user
+        displayUserInfo();
+
+        // Tambahkan event listener untuk tombol logout
+        document
+          .getElementById("logoutBtn")
+          .addEventListener("click", handleLogout);
+
+        // Kode untuk admin bubble (existing code)
+        const adminBubble = document.getElementById("adminBubble");
+        let isExpanded = false;
+        let autoCollapseTimer;
+
+        function expandBubble() {
+          if (!isExpanded) {
+            adminBubble.classList.add("expanded");
+            isExpanded = true;
+            adminBubble.setAttribute("aria-expanded", "true");
+            autoCollapseTimer = setTimeout(() => {
+              collapseBubble();
+            }, 4000);
+          }
+        }
+
+        function collapseBubble() {
+          if (isExpanded) {
+            adminBubble.classList.remove("expanded");
+            isExpanded = false;
+            adminBubble.setAttribute("aria-expanded", "false");
+            clearTimeout(autoCollapseTimer);
+          }
+        }
+
+        adminBubble.addEventListener("mouseenter", function () {
+          expandBubble();
+        });
+
+        adminBubble.addEventListener("mouseleave", function () {
+          setTimeout(() => collapseBubble(), 300);
+        });
+
+        document.addEventListener("click", function (e) {
+          if (isExpanded && !adminBubble.contains(e.target)) {
+            collapseBubble();
+          }
+        });
+
+        adminBubble.addEventListener("focus", function () {
+          expandBubble();
+        });
+        adminBubble.addEventListener("blur", function () {
+          collapseBubble();
+        });
+      });
+    </script>
+  </body>
+</html>

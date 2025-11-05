@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Team - IT Support</title>
+    <link rel="stylesheet" href="../../assets/css/base/styles.css">
+    <link rel="stylesheet" href="assets/css/admin.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+</head>
+
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="admin-logo">
+                <div class="header-text">
+                    <h1>IT Support Team Management</h1>
+                    <p>Add and manage IT support members</p>
+                </div>
+            </div>
+            <div class="admin-menu">
+                <a href="index.html" class="btn-secondary">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Dashboard
+                </a>
+                <button class="btn-logout" id="adminLogoutBtn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="admin-main">
+        <div class="admin-container">
+            <!-- Add New IT Support Form -->
+            <section class="form-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-user-plus"></i> Add New IT Support</h2>
+                </div>
+
+                <form id="addITForm" class="ticket-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="it_name">Full Name *</label>
+                            <input type="text" id="it_name" name="name" required placeholder="Enter full name">
+                        </div>
+                        <div class="form-group">
+                            <label for="it_email">Email Address *</label>
+                            <input type="email" id="it_email" name="email" required
+                                placeholder="it.support@meitech.com">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="it_role">Role *</label>
+                            <select id="it_role" name="role" required>
+                                <option value="">Select Role</option>
+                                <option value="superadmin">Super Administrator</option>
+                                <option value="manager">IT Manager</option>
+                                <option value="senior_support">Senior IT Support</option>
+                                <option value="junior_support">Junior IT Support</option>
+                                <option value="technician">IT Technician</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="it_department">Department *</label>
+                            <input type="text" id="it_department" name="department" required value="IT" readonly
+                                class="readonly-field">
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="it_specialization">Specialization</label>
+                        <div class="specialization-selector" id="it_specialization">
+                            <div class="specialization-options">
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Network" id="spec_network">
+                                    Network
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Hardware" id="spec_hardware">
+                                    Hardware
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Software" id="spec_software">
+                                    Software
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Printer" id="spec_printer">
+                                    Printer
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Projector" id="spec_projector">
+                                    Projector
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Server" id="spec_server">
+                                    Server
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="Data Backup" id="spec_backup">
+                                    Data Backup
+                                </label>
+                                <label class="specialization-checkbox">
+                                    <input type="checkbox" name="specialization" value="User Support" id="spec_support">
+                                    User Support
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="it_password">Temporary Password *</label>
+                            <input type="password" id="it_password" name="password" required
+                                placeholder="Set temporary password" minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label for="it_confirm_password">Confirm Password *</label>
+                            <input type="password" id="it_confirm_password" name="confirm_password" required
+                                placeholder="Confirm password">
+                        </div>
+                    </div>
+
+                    <div id="formMessage" class="error-message" style="display: none"></div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-user-plus"></i>
+                            Create IT Support Account
+                        </button>
+                        <button type="reset" class="btn-secondary">
+                            Clear Form
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Existing Team Members -->
+            <section class="team-section">
+                <div class="section-header">
+                    <h2><i class="fas fa-users"></i> Current IT Support Team</h2>
+                    <div class="section-actions">
+                        <button class="btn-primary" id="refreshTeamBtn">
+                            <i class="fas fa-sync-alt"></i>
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <div class="team-grid" id="teamGrid">
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading team members...</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script type="module" src="assets/js/manage-team.js"></script>
+</body>
+
+</html>

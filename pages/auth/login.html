@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - IT Support</title>
+
+    <!-- Gunakan auth.css -->
+    <link rel="stylesheet" href="../../assets/css/base/styles.css" />
+    <link rel="stylesheet" href="../../assets/css/pages/auth.css" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+</head>
+
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo-container">
+                <img src="../../assets/images/meitech-logo.png" alt="Company Logo" />
+                <h2>User Login</h2>
+                <p>IT Support Ticketing System</p>
+            </div>
+
+            <form id="loginForm" class="auth-form">
+                <div class="form-group">
+                    <label for="email">Email Address *</label>
+                    <input type="email" id="email" name="email" required placeholder="email@company.com" />
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password *</label>
+                    <input type="password" id="password" name="password" required placeholder="Your password" />
+                </div>
+
+                <div id="errorMessage" class="error-message" style="display: none"></div>
+                <div id="successMessage" class="success-message" style="display: none"></div>
+
+                <button type="submit" class="btn-auth" data-original-text="Login">Login</button>
+            </form>
+
+            <div class="auth-link">
+                Don't have an account? <a href="register.html">Register here</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script type="module" src="../../assets/js/pages/auth.js"></script>
+</body>
+
+</html>

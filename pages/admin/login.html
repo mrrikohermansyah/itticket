@@ -1,0 +1,50 @@
+<!-- Di pages/admin/login.html -->
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - IT Support</title>
+    <link rel="stylesheet" href="../../assets/css/base/styles.css">
+    <link rel="stylesheet" href="../admin/assets/css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+</head>
+
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-header">
+            <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="login-logo">
+            <h1>IT Support Admin</h1>
+            <p>Administrator Access Only</p>
+        </div>
+
+        <form id="adminLoginForm" class="login-form">
+            <div class="form-group">
+                <label for="admin_email">Admin Email</label>
+                <input type="email" id="admin_email" name="email" required placeholder="admin@meitech.com">
+            </div>
+
+            <div class="form-group">
+                <label for="admin_password">Password</label>
+                <input type="password" id="admin_password" name="password" required placeholder="Enter your password">
+            </div>
+
+            <button type="submit" class="btn-primary btn-login">
+                <i class="fas fa-sign-in-alt"></i>
+                Admin Login
+            </button>
+        </form>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+
+        <div class="login-footer">
+            <p><a href="../auth/login.html">User Login</a></p>
+        </div>
+    </div>
+
+    <!-- Load the admin auth script -->
+    <script type="module" src="assets/js/admin-auth.js"></script>
+</body>
+
+</html>
