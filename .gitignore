@@ -1,0 +1,82 @@
+# =====================
+# ENVIRONMENT VARIABLES
+# =====================
+.env
+.env.*
+!.env.example
+.env.local
+.env.development
+.env.production
+.env.test
+
+# =============
+# FIREBASE
+# =============
+.firebase/
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc
+
+# =============
+# NODE MODULES
+# =============
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# =============
+# BUILD OUTPUT
+# =============
+dist/
+build/
+.out/
+.next/
+
+# =============
+# OS FILES
+# =============
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =============
+# IDE FILES
+# =============
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# =============
+# LOGS
+# =============
+logs/
+*.log
+
+# =============
+# CONFIG FILES DENGAN SECRETS
+# =============
+*config*.js
+*config*.json
+*secret*
+*credential*
+
+# =============
+# FILE ANDA YANG SPESIFIK
+# =============
+assets/js/utils/firebase-config.js
+assets/js/pages/dashboard.js
+pages/admin/assets/js/admin.js
+
+# =============
+# CACHE & TEMP
+# =============
+.cache/
+.tmp/
+temp/
