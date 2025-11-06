@@ -6,124 +6,96 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Create First Admin</title>
     <link rel="stylesheet" href="../../assets/css/base/styles.css">
-    <style>
-        .admin-setup {
-            max-width: 500px;
-            margin: 50px auto;
-            padding: 2rem;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-
-        .form-group {
-            margin-bottom: 1rem;
-        }
-
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 500;
-        }
-
-        input,
-        select {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-        }
-
-        .btn-primary {
-            width: 100%;
-            padding: 0.75rem;
-            background: #ef070a;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/create-first-admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 
 <body>
     <div class="admin-setup">
-        <h2>Create First Administrator</h2>
-        <form id="setupAdminForm">
+        <div class="setup-header">
+            <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="setup-logo">
+            <h2>Create First Administrator</h2>
+            <p>Setup the initial admin account for IT Support System</p>
+        </div>
+
+        <!-- ✅ UBAH METHOD MENJADI POST -->
+        <form id="setupAdminForm" class="setup-form" method="post">
             <div class="form-group">
                 <label for="name">Full Name *</label>
                 <input type="text" id="name" name="name" required placeholder="System Administrator">
             </div>
+
             <div class="form-group">
                 <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required placeholder="admin@meitech.com">
+                <input type="email" id="email" name="email" required placeholder="admin@meitech.com" autocomplete="off" autocorrect="off">
             </div>
+
             <div class="form-group">
                 <label for="password">Password *</label>
-                <input type="password" id="password" name="password" required minlength="6">
+                <input type="password" id="password" name="password" required minlength="6"
+                    placeholder="Minimum 6 characters">
             </div>
+
             <div class="form-group">
-                <label for="role">Role *</label>
-                <select id="role" name="role" required>
-                    <option value="superadmin">Super Administrator</option>
-                    <option value="manager">IT Manager</option>
+                <label for="role">Administrator Role *</label>
+                <select id="role" name="role" required class="role-select">
+                    <option value="">Select Administrator Role</option>
+
+                    <!-- Super Admin Roles -->
+                    <optgroup label="Super Administrator">
+                        <option value="super_admin">Super Administrator (Full Access)</option>
+                        <option value="system_administrator">System Administrator</option>
+                        <option value="it_manager">IT Manager</option>
+                    </optgroup>
+
+                    <!-- Technical Team -->
+                    <optgroup label="Technical Team">
+                        <option value="senior_technician">Senior IT Technician</option>
+                        <option value="it_technician">IT Technician</option>
+                        <option value="support_specialist">Support Specialist</option>
+                        <option value="network_administrator">Network Administrator</option>
+                    </optgroup>
+
+                    <!-- Support Team -->
+                    <optgroup label="Support Team">
+                        <option value="helpdesk_supervisor">Helpdesk Supervisor</option>
+                        <option value="helpdesk_agent">Helpdesk Agent</option>
+                        <option value="service_desk_analyst">Service Desk Analyst</option>
+                    </optgroup>
+
+                    <!-- Departmental IT -->
+                    <optgroup label="Departmental IT">
+                        <option value="department_head">Department IT Head</option>
+                        <option value="team_lead">IT Team Lead</option>
+                        <option value="system_analyst">System Analyst</option>
+                    </optgroup>
                 </select>
             </div>
-            <button type="submit" class="btn-primary">Create Admin Account</button>
+
+            <div class="form-group">
+                <label for="department">Department</label>
+                <input type="text" id="department" name="department" placeholder="IT Department">
+            </div>
+
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-user-shield"></i>
+                Create Administrator Account
+            </button>
         </form>
-        <div id="message" style="margin-top: 1rem;"></div>
+
+        <div id="message" class="message-container"></div>
+
+        <div class="setup-footer">
+            <p><a href="login.html">Back to Admin Login</a></p>
+            <p><a href="../auth/login.html">User Login</a></p>
+        </div>
     </div>
 
-    <script type="module">
-        import firebaseAuthService from '../../assets/js/services/firebase-auth-service.js';
+    <!-- Load Font Awesome -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
 
-        const form = document.getElementById('setupAdminForm');
-        const message = document.getElementById('message');
-
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const submitBtn = form.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = 'Creating...';
-            submitBtn.disabled = true;
-
-            try {
-                const formData = new FormData(form);
-                const adminData = {
-                    name: formData.get('name'),
-                    email: formData.get('email'),
-                    password: formData.get('password'),
-                    role: formData.get('role'),
-                    department: 'IT',
-                    specialization: ['Network', 'Hardware', 'Software']
-                };
-
-                const result = await firebaseAuthService.createAdmin(adminData);
-
-                if (result.success) {
-                    message.innerHTML = `
-                        <div style="color: green; padding: 1rem; background: #f0fff4; border-radius: 6px;">
-                            <strong>Success!</strong> Admin account created successfully.<br>
-                            You can now <a href="login.html">login here</a>.
-                        </div>
-                    `;
-                    form.reset();
-                } else {
-                    throw new Error(result.message);
-                }
-            } catch (error) {
-                message.innerHTML = `
-                    <div style="color: red; padding: 1rem; background: #fff0f0; border-radius: 6px;">
-                        <strong>Error:</strong> ${error.message}
-                    </div>
-                `;
-            } finally {
-                submitBtn.innerHTML = originalText;
-                submitBtn.disabled = false;
-            }
-        });
-    </script>
+    <!-- Load JavaScript -->
+    <script type="module" src="assets/js/create-first-admin.js"></script>
 </body>
 
 </html>

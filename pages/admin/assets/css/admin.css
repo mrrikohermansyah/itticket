@@ -1679,3 +1679,57 @@
     padding: 3px 6px;
   }
 }
+
+/* Style untuk form select yang lebih baik */
+.form-select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: white;
+  transition: all 0.3s ease;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: #ef070a;
+  box-shadow: 0 0 0 3px rgba(239, 7, 10, 0.1);
+}
+
+.form-select optgroup {
+  font-weight: 600;
+  color: #374151;
+}
+
+.form-select option {
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* Success message */
+.success-message {
+  background-color: #d1fae5;
+  color: #065f46;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  border: 1px solid #a7f3d0;
+}
+
+/* Tambahkan di admin.css */
+.info-message {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  border: 1px solid #93c5fd;
+}
+
+.error-message,
+.success-message,
+.info-message {
+  text-align: center;
+  font-size: 14px;
+}
