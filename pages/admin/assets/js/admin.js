@@ -594,7 +594,142 @@ class AdminDashboard {
         }
     }
 
-    // ... (method-method lainnya seperti viewTicket, closeTicketModal, updateTicketStatus, deleteTicket tetap sama)
+    // ✅ METHOD UPDATE TICKET STATUS
+async updateTicketStatus(ticketId, newStatus) {
+    try {
+        console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+        
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        const updateData = {
+            status: newStatus,
+            last_updated: serverTimestamp(),
+            action_by: this.adminUser?.name || this.adminUser?.email || 'Admin'
+        };
+
+        // Add to updates array
+        const updateNote = {
+            status: newStatus,
+            notes: `Status changed to ${newStatus} by ${this.adminUser?.name || 'Admin'}`,
+            timestamp: new Date().toISOString(),
+            updatedBy: this.adminUser?.name || 'Admin'
+        };
+
+        // Get current ticket data to preserve updates array
+        const ticketDoc = await getDoc(ticketRef);
+        const currentData = ticketDoc.data();
+        
+        updateData.updates = [...(currentData.updates || []), updateNote];
+
+        await updateDoc(ticketRef, updateData);
+        
+        console.log(`✅ Ticket ${ticketId} updated to ${newStatus}`);
+        
+        await Swal.fire({
+            title: 'Success!',
+            text: `Ticket status updated to ${newStatus}`,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+        });
+
+    } catch (error) {
+        console.error('❌ Error updating ticket status:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: 'Failed to update ticket status',
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
+    }
+}
+
+// ✅ METHOD VIEW TICKET
+async viewTicket(ticketId) {
+    try {
+        console.log(`👀 Viewing ticket: ${ticketId}`);
+        
+        const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
+        
+        if (!ticketDoc.exists()) {
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Ticket not found',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+            return;
+        }
+
+        const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+        
+        // Show ticket details in modal (you need to implement this)
+        this.showTicketModal(ticket);
+        
+    } catch (error) {
+        console.error('❌ Error viewing ticket:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: 'Failed to load ticket details',
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
+    }
+}
+
+// ✅ METHOD DELETE TICKET
+async deleteTicket(ticketId) {
+    try {
+        const result = await Swal.fire({
+            title: 'Delete Ticket?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            cancelButtonColor: '#6b7280',
+            confirmButtonText: 'Yes, Delete',
+            cancelButtonText: 'Cancel'
+        });
+
+        if (result.isConfirmed) {
+            console.log(`🗑️ Deleting ticket: ${ticketId}`);
+            
+            await deleteDoc(doc(this.db, "tickets", ticketId));
+            
+            console.log(`✅ Ticket ${ticketId} deleted`);
+            
+            await Swal.fire({
+                title: 'Deleted!',
+                text: 'Ticket has been deleted',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    } catch (error) {
+        console.error('❌ Error deleting ticket:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: 'Failed to delete ticket',
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
+    }
+}
+
+// ✅ METHOD SHOW TICKET MODAL (placeholder)
+showTicketModal(ticket) {
+    console.log('Show ticket modal:', ticket);
+    // Implement your modal logic here
+    alert(`Ticket Details:\nCode: ${ticket.code}\nSubject: ${ticket.subject}\nStatus: ${ticket.status}`);
+}
+
+// ✅ METHOD CLOSE TICKET MODAL
+closeTicketModal() {
+    const modal = document.getElementById('ticketModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
 
     // ✅ GET DISPLAYED TICKETS FOR EXPORT YANG DIPERBAIKI
     async getDisplayedTicketsForExport() {
