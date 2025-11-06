@@ -473,6 +473,11 @@ class Dashboard {
         note: ''
       });
 
+      console.log('🔍 DEBUG - Firestore ID:', ticketRef.id);
+      console.log('🔍 DEBUG - Department:', this.currentUser.department);
+      console.log('🔍 DEBUG - Device:', formData.device);
+      console.log('🔍 DEBUG - Location:', formData.location);
+
       // ✅ GENERATE CODE DENGAN FIRESTORE ID (3 karakter terakhir)
       const ticketCode = window.generateTicketId(
         this.currentUser.department, 
@@ -482,6 +487,8 @@ class Dashboard {
       );
 
       console.log('🎫 Generated Ticket Code:', ticketCode, 'from ID:', ticketRef.id);
+      console.log('🎫 DEBUG - Generated Ticket Code:', ticketCode);
+      console.log('🔍 DEBUG - window.generateTicketId function:', window.generateTicketId);
 
       // ✅ UPDATE TICKET DENGAN CODE YANG SUDAH DIGENERATE
       await updateDoc(ticketRef, {
