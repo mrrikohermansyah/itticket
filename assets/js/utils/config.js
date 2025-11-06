@@ -14,11 +14,14 @@ const FIREBASE_CONFIG = {
 };
 
 // ==================== 🔹 Ticket ID Generator ====================
-window.generateTicketId = function (department, deviceType, location = "") {
+window.generateTicketId = function (department, deviceType, location = "", firestoreId = "") {
   const timestamp = new Date();
   const dateStr = timestamp.toISOString().slice(2, 10).replace(/-/g, ""); // YYMMDD
-  const timeStr = timestamp.toISOString().slice(11, 17).replace(/:/g, ""); // HHMMSS
-  const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase(); // 3 char random
+  
+  // ✅ AMBIL 3 KARAKTER TERAKHIR DARI FIRESTORE ID
+  const randomStr = firestoreId 
+    ? firestoreId.slice(-3).toUpperCase()  // 3 karakter terakhir dari ID
+    : Math.random().toString(36).substring(2, 5).toUpperCase(); // Fallback random
 
   // Department codes
   const deptCodes = {

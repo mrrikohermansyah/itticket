@@ -445,10 +445,9 @@ class Dashboard {
       const validation = this.validateTicketForm(formData);
       if (!validation.isValid) throw new Error(validation.message);
 
-      const ticketCode = this.generateTicketCode();
-      
-      const ticket = {
-        code: ticketCode,
+      // ✅ BUAT TICKET DULU UNTUK DAPAT ID
+      const ticketRef = await addDoc(collection(this.db, "tickets"), {
+        // Data sementara tanpa code
         subject: formData.subject,
         message: formData.message,
         location: formData.location,
@@ -472,38 +471,35 @@ class Dashboard {
         }],
         action_by: '',
         note: ''
-      };
+      });
 
-      // ✅ Add temporary ticket immediately for instant feedback
-      const tempTicket = {
-        id: 'temp-' + Date.now(),
-        ...ticket,
-        created_at: new Date().toISOString()
-      };
-      
-      this.tickets.unshift(tempTicket);
-      this.renderTickets();
-      this.updateStats();
+      // ✅ GENERATE CODE DENGAN FIRESTORE ID (3 karakter terakhir)
+      const ticketCode = window.generateTicketId(
+        this.currentUser.department, 
+        formData.device, 
+        formData.location,
+        ticketRef.id  // Kirim Firestore ID untuk diambil 3 karakter terakhir
+      );
 
-      // Save to Firestore
-      await addDoc(collection(this.db, "tickets"), ticket);
+      console.log('🎫 Generated Ticket Code:', ticketCode, 'from ID:', ticketRef.id);
+
+      // ✅ UPDATE TICKET DENGAN CODE YANG SUDAH DIGENERATE
+      await updateDoc(ticketRef, {
+        code: ticketCode
+      });
 
       this.showSuccess(`Ticket ${ticketCode} created successfully!`);
       form.reset();
 
     } catch (error) {
-      // Remove temporary ticket if error
-      this.tickets = this.tickets.filter(t => !t.id.startsWith('temp-'));
-      this.renderTickets();
-      this.updateStats();
-      
+      console.error('❌ Error creating ticket:', error);
       this.showError(error.message || 'Failed to create ticket');
     } finally {
       submitBtn.disabled = false;
       if (btnText) btnText.style.display = 'block';
       if (btnLoading) btnLoading.style.display = 'none';
     }
-  }
+}
 
   validateTicketForm(formData) {
     const required = ['inventory', 'device', 'location', 'priority', 'subject', 'message'];
@@ -515,11 +511,7 @@ class Dashboard {
     return { isValid: true };
   }
 
-  generateTicketCode() {
-    const timestamp = Date.now().toString().slice(-6);
-    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-    return `TKT-${timestamp}${random}`;
-  }
+
 
   renderTickets() {
     const ticketsList = document.getElementById('ticketsList');
