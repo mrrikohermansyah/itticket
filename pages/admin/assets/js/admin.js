@@ -27,9 +27,16 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 // Import auth service
 import firebaseAuthService from '../../../../assets/js/services/firebase-auth-service.js';
 
-// Firebase configuration dari CONFIG
-const firebaseConfig = window.CONFIG.FIREBASE_CONFIG;
-
+// Firebase configuration dari CONFIG dengan FALLBACK
+const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
+    apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
+    authDomain: "itticketing-f926e.firebaseapp.com",
+    projectId: "itticketing-f926e",
+    storageBucket: "itticketing-f926e.firebasestorage.app",
+    messagingSenderId: "10687213121",
+    appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
+    measurementId: "G-8H0EP72PC2"
+};
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
