@@ -13,7 +13,8 @@ import {
     orderBy, 
     limit,
     serverTimestamp,
-    onSnapshot
+    onSnapshot,
+    arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import { 
@@ -37,12 +38,13 @@ const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
     appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
     measurementId: "G-8H0EP72PC2"
 };
+
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Admin Dashboard
+// Admin Dashboard dengan Permission System
 class AdminDashboard {
     constructor() {
         this.adminUser = null;
@@ -119,6 +121,75 @@ class AdminDashboard {
             console.error('Admin auth check failed:', error);
             window.location.href = 'login.html';
         }
+    }
+
+    // ==================== PERMISSION SYSTEM ====================
+    
+    canDeleteTicket(ticket) {
+        // Hanya super_admin atau admin yang membuat/mengassign ticket ini
+        if (this.adminUser.role === 'super_admin') {
+            return true;
+        }
+        
+        // Admin biasa hanya bisa delete ticket yang mereka assign/buat
+        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
+                              ticket.assigned_to === this.adminUser.uid;
+        return isAssignedToMe;
+    }
+
+    canReopenTicket(ticket) {
+        // Hanya super_admin atau admin yang mengassign/membuat ticket ini
+        if (this.adminUser.role === 'super_admin') {
+            return true;
+        }
+        
+        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
+                              ticket.assigned_to === this.adminUser.uid;
+        return isAssignedToMe;
+    }
+
+    canTakeTicket(ticket) {
+        // Semua admin bisa take ticket yang belum diassign
+        return !ticket.action_by && !ticket.assigned_to;
+    }
+
+    canUpdateTicket(ticket) {
+        // Semua admin bisa update semua ticket
+        return true;
+    }
+
+    canStartTicket(ticket) {
+        // Hanya bisa start ticket yang belum diassign atau yang diassign ke admin ini
+        if (!ticket.action_by && !ticket.assigned_to) {
+            return true; // Ticket belum diassign, semua admin bisa start
+        }
+        
+        // Jika sudah diassign, hanya admin yang diassign yang bisa start
+        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
+                              ticket.assigned_to === this.adminUser.uid;
+        return isAssignedToMe;
+    }
+
+    canResolveTicket(ticket) {
+        // Hanya admin yang mengassign/membuat ticket ini yang bisa resolve
+        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
+                              ticket.assigned_to === this.adminUser.uid;
+        return isAssignedToMe;
+    }
+
+    // Method untuk check permissions
+    checkPermissions(ticket) {
+        return {
+            canDelete: this.canDeleteTicket(ticket),
+            canReopen: this.canReopenTicket(ticket),
+            canTake: this.canTakeTicket(ticket),
+            canUpdate: this.canUpdateTicket(ticket),
+            canStart: this.canStartTicket(ticket),
+            canResolve: this.canResolveTicket(ticket),
+            isSuperAdmin: this.adminUser.role === 'super_admin',
+            isTicketOwner: ticket.action_by === this.adminUser.uid || 
+                          ticket.assigned_to === this.adminUser.uid
+        };
     }
 
     loadAdminInfo() {
@@ -213,7 +284,7 @@ class AdminDashboard {
         }
     }
 
-    // ✅ METHOD HANDLE TABLE CLICK YANG DIPERBAIKI
+    // ✅ METHOD HANDLE TABLE CLICK YANG DIPERBAIKI DENGAN PERMISSION
     handleTableClick(e) {
         const button = e.target.closest('.btn-action');
         if (!button) return;
@@ -229,25 +300,66 @@ class AdminDashboard {
 
         console.log('🔄 Action clicked:', { action, ticketId });
 
+        const ticket = this.tickets.find(t => t.id === ticketId);
+        if (!ticket) {
+            console.log('❌ Ticket not found');
+            return;
+        }
+
+        // Check permissions sebelum eksekusi action
+        const permissions = this.checkPermissions(ticket);
+
         switch (action) {
             case 'view':
                 this.viewTicket(ticketId);
                 break;
             case 'start':
-                this.updateTicketStatus(ticketId, 'In Progress');
+                if (permissions.canStart) {
+                    this.updateTicketStatus(ticketId, 'In Progress');
+                } else {
+                    this.showPermissionError('start this ticket');
+                }
                 break;
             case 'resolve':
-                this.updateTicketStatus(ticketId, 'Resolved');
+                if (permissions.canResolve) {
+                    this.updateTicketStatus(ticketId, 'Resolved');
+                } else {
+                    this.showPermissionError('resolve this ticket');
+                }
                 break;
             case 'reopen':
-                this.updateTicketStatus(ticketId, 'Open');
+                if (permissions.canReopen) {
+                    this.updateTicketStatus(ticketId, 'Open');
+                } else {
+                    this.showPermissionError('reopen this ticket');
+                }
                 break;
             case 'delete':
-                this.deleteTicket(ticketId);
+                if (permissions.canDelete) {
+                    this.deleteTicket(ticketId);
+                } else {
+                    this.showPermissionError('delete this ticket');
+                }
+                break;
+            case 'take':
+                if (permissions.canTake) {
+                    this.takeTicket(ticketId);
+                } else {
+                    this.showPermissionError('take this ticket');
+                }
                 break;
             default:
                 console.log('❌ Unknown action:', action);
         }
+    }
+
+    async showPermissionError(action) {
+        await Swal.fire({
+            title: 'Permission Denied',
+            text: `You don't have permission to ${action}. Only the assigned admin or super admin can perform this action.`,
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
     }
 
     async handleManageTeam(e) {
@@ -372,6 +484,7 @@ class AdminDashboard {
                 created_at: created_at,
                 last_updated: last_updated,
                 action_by: data.action_by || '',
+                assigned_to: data.assigned_to || '',
                 note: data.note || '',
                 qa: data.qa || '',
                 user_phone: data.user_phone || '',
@@ -396,6 +509,7 @@ class AdminDashboard {
                 created_at: new Date().toISOString(),
                 last_updated: new Date().toISOString(),
                 action_by: '',
+                assigned_to: '',
                 note: '',
                 qa: '',
                 user_phone: '',
@@ -487,54 +601,71 @@ class AdminDashboard {
         emptyState.style.display = 'none';
 
         const ticketsHtml = this.filteredTickets.map(ticket => {
-            // Tentukan action buttons berdasarkan status
+            const permissions = this.checkPermissions(ticket);
+            
+            // Tentukan action buttons berdasarkan status dan permissions
             let actionButtons = '';
             
+            // View button - selalu tersedia
+            actionButtons += `
+                <button class="btn-action btn-view" data-action="view" title="View Ticket Details">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            `;
+            
+            // Take Ticket button - hanya untuk ticket yang belum diassign
+            if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+                actionButtons += `
+                    <button class="btn-action btn-take" data-action="take" title="Take this ticket">
+                        <i class="fas fa-hand-paper"></i> Take
+                    </button>
+                `;
+            }
+            
             if (ticket.status === 'Open') {
-                actionButtons = `
-                    <button class="btn-action btn-view" data-action="view" title="View Ticket">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn-action btn-edit" data-action="start" title="Start Working">
-                        <i class="fas fa-play"></i> Start
-                    </button>
-                    <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                `;
+                // Start button - hanya untuk yang punya permission
+                if (permissions.canStart) {
+                    actionButtons += `
+                        <button class="btn-action btn-edit" data-action="start" title="Start Working on this ticket">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                    `;
+                }
             } else if (ticket.status === 'In Progress') {
-                actionButtons = `
-                    <button class="btn-action btn-view" data-action="view" title="View Ticket">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
-                        <i class="fas fa-check"></i> Resolve
-                    </button>
-                    <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
-                `;
+                // Resolve button - hanya untuk yang punya permission
+                if (permissions.canResolve) {
+                    actionButtons += `
+                        <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
+                            <i class="fas fa-check"></i> Resolve
+                        </button>
+                    `;
+                }
             } else if (ticket.status === 'Resolved') {
-                actionButtons = `
-                    <button class="btn-action btn-view" data-action="view" title="View Ticket">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
-                        <i class="fas fa-redo"></i> Reopen
-                    </button>
+                // Reopen button - hanya untuk yang punya permission
+                if (permissions.canReopen) {
+                    actionButtons += `
+                        <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
+                            <i class="fas fa-redo"></i> Reopen
+                        </button>
+                    `;
+                }
+            }
+            
+            // Delete button - hanya untuk yang punya permission
+            if (permissions.canDelete) {
+                actionButtons += `
                     <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
                         <i class="fas fa-trash"></i> Delete
                     </button>
                 `;
-            } else {
-                // Default actions
-                actionButtons = `
-                    <button class="btn-action btn-view" data-action="view" title="View Ticket">
-                        <i class="fas fa-eye"></i> View
-                    </button>
-                    <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
-                        <i class="fas fa-trash"></i> Delete
-                    </button>
+            }
+            
+            // Indicator jika ticket diassign ke admin lain
+            if (ticket.action_by && ticket.action_by !== this.adminUser.uid) {
+                actionButtons += `
+                    <span class="assigned-to-other" title="Assigned to other admin">
+                        <i class="fas fa-user-lock"></i>
+                    </span>
                 `;
             }
 
@@ -569,8 +700,19 @@ class AdminDashboard {
         }).join('');
 
         tableBody.innerHTML = ticketsHtml;
+        this.updateTableForMobile();
     }
-    
+
+    updateTableForMobile() {
+        const tableCells = document.querySelectorAll('#ticketsTableBody td');
+        const headers = document.querySelectorAll('#ticketsTable th');
+        
+        tableCells.forEach((cell, index) => {
+            const headerIndex = index % headers.length;
+            const headerText = headers[headerIndex].textContent;
+            cell.setAttribute('data-label', headerText);
+        });
+    }
 
     updateStats() {
         const totalTickets = this.filteredTickets.length;
@@ -594,142 +736,326 @@ class AdminDashboard {
         }
     }
 
-    // ✅ METHOD UPDATE TICKET STATUS
-async updateTicketStatus(ticketId, newStatus) {
-    try {
-        console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
-        
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        const updateData = {
-            status: newStatus,
-            last_updated: serverTimestamp(),
-            action_by: this.adminUser?.name || this.adminUser?.email || 'Admin'
-        };
+    // ✅ METHOD TAKE TICKET
+    async takeTicket(ticketId) {
+        try {
+            const ticket = this.tickets.find(t => t.id === ticketId);
+            if (!ticket) return;
 
-        // Add to updates array
-        const updateNote = {
-            status: newStatus,
-            notes: `Status changed to ${newStatus} by ${this.adminUser?.name || 'Admin'}`,
-            timestamp: new Date().toISOString(),
-            updatedBy: this.adminUser?.name || 'Admin'
-        };
+            const permissions = this.checkPermissions(ticket);
+            if (!permissions.canTake) {
+                await this.showPermissionError('take this ticket');
+                return;
+            }
 
-        // Get current ticket data to preserve updates array
-        const ticketDoc = await getDoc(ticketRef);
-        const currentData = ticketDoc.data();
-        
-        updateData.updates = [...(currentData.updates || []), updateNote];
+            const result = await Swal.fire({
+                title: 'Take Ticket?',
+                text: `Are you sure you want to take ticket ${ticket.code}?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#ef070a',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Take Ticket',
+                cancelButtonText: 'Cancel'
+            });
 
-        await updateDoc(ticketRef, updateData);
-        
-        console.log(`✅ Ticket ${ticketId} updated to ${newStatus}`);
-        
-        await Swal.fire({
-            title: 'Success!',
-            text: `Ticket status updated to ${newStatus}`,
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-        });
+            if (result.isConfirmed) {
+                await updateDoc(doc(this.db, "tickets", ticketId), {
+                    action_by: this.adminUser.uid,
+                    assigned_to: this.adminUser.uid,
+                    status: 'In Progress',
+                    last_updated: serverTimestamp(),
+                    updates: arrayUnion({
+                        status: 'In Progress',
+                        notes: `Ticket taken by ${this.adminUser.name || this.adminUser.email}`,
+                        timestamp: new Date().toISOString(),
+                        updatedBy: this.adminUser.name || this.adminUser.email
+                    })
+                });
 
-    } catch (error) {
-        console.error('❌ Error updating ticket status:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: 'Failed to update ticket status',
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
-    }
-}
-
-// ✅ METHOD VIEW TICKET
-async viewTicket(ticketId) {
-    try {
-        console.log(`👀 Viewing ticket: ${ticketId}`);
-        
-        const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
-        
-        if (!ticketDoc.exists()) {
+                await Swal.fire({
+                    title: 'Success!',
+                    text: `Ticket ${ticket.code} has been assigned to you.`,
+                    icon: 'success',
+                    confirmButtonColor: '#ef070a'
+                });
+            }
+        } catch (error) {
+            console.error('Error taking ticket:', error);
             await Swal.fire({
                 title: 'Error!',
-                text: 'Ticket not found',
+                text: 'Failed to take ticket.',
                 icon: 'error',
                 confirmButtonColor: '#ef070a'
             });
-            return;
         }
-
-        const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
-        
-        // Show ticket details in modal (you need to implement this)
-        this.showTicketModal(ticket);
-        
-    } catch (error) {
-        console.error('❌ Error viewing ticket:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: 'Failed to load ticket details',
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
     }
-}
 
-// ✅ METHOD DELETE TICKET
-async deleteTicket(ticketId) {
-    try {
-        const result = await Swal.fire({
-            title: 'Delete Ticket?',
-            text: 'This action cannot be undone!',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, Delete',
-            cancelButtonText: 'Cancel'
-        });
+    // ✅ METHOD UPDATE TICKET STATUS
+    async updateTicketStatus(ticketId, newStatus) {
+        try {
+            console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+            
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const updateData = {
+                status: newStatus,
+                last_updated: serverTimestamp()
+            };
 
-        if (result.isConfirmed) {
-            console.log(`🗑️ Deleting ticket: ${ticketId}`);
+            // Jika status berubah ke In Progress dan belum diassign, assign ke admin ini
+            if (newStatus === 'In Progress') {
+                updateData.action_by = this.adminUser.uid;
+                updateData.assigned_to = this.adminUser.uid;
+            }
+
+            // Add to updates array
+            const updateNote = {
+                status: newStatus,
+                notes: `Status changed to ${newStatus} by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            // Get current ticket data to preserve updates array
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
             
-            await deleteDoc(doc(this.db, "tickets", ticketId));
+            updateData.updates = [...(currentData.updates || []), updateNote];
+
+            await updateDoc(ticketRef, updateData);
             
-            console.log(`✅ Ticket ${ticketId} deleted`);
+            console.log(`✅ Ticket ${ticketId} updated to ${newStatus}`);
             
             await Swal.fire({
-                title: 'Deleted!',
-                text: 'Ticket has been deleted',
+                title: 'Success!',
+                text: `Ticket status updated to ${newStatus}`,
                 icon: 'success',
                 timer: 2000,
                 showConfirmButton: false
             });
+
+        } catch (error) {
+            console.error('❌ Error updating ticket status:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to update ticket status',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
         }
-    } catch (error) {
-        console.error('❌ Error deleting ticket:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: 'Failed to delete ticket',
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
     }
-}
 
-// ✅ METHOD SHOW TICKET MODAL (placeholder)
-showTicketModal(ticket) {
-    console.log('Show ticket modal:', ticket);
-    // Implement your modal logic here
-    alert(`Ticket Details:\nCode: ${ticket.code}\nSubject: ${ticket.subject}\nStatus: ${ticket.status}`);
-}
+    // ✅ METHOD VIEW TICKET
+    async viewTicket(ticketId) {
+        try {
+            console.log(`👀 Viewing ticket: ${ticketId}`);
+            
+            const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
+            
+            if (!ticketDoc.exists()) {
+                await Swal.fire({
+                    title: 'Error!',
+                    text: 'Ticket not found',
+                    icon: 'error',
+                    confirmButtonColor: '#ef070a'
+                });
+                return;
+            }
 
-// ✅ METHOD CLOSE TICKET MODAL
-closeTicketModal() {
-    const modal = document.getElementById('ticketModal');
-    if (modal) {
-        modal.style.display = 'none';
+            const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+            
+            // Show ticket details in modal
+            this.showTicketModal(ticket);
+            
+        } catch (error) {
+            console.error('❌ Error viewing ticket:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to load ticket details',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
     }
-}
+
+    // ✅ METHOD DELETE TICKET
+    async deleteTicket(ticketId) {
+        try {
+            const ticket = this.tickets.find(t => t.id === ticketId);
+            if (!ticket) return;
+
+            const permissions = this.checkPermissions(ticket);
+            if (!permissions.canDelete) {
+                await this.showPermissionError('delete this ticket');
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: 'Delete Ticket?',
+                text: 'This action cannot be undone!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Delete',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (result.isConfirmed) {
+                console.log(`🗑️ Deleting ticket: ${ticketId}`);
+                
+                await deleteDoc(doc(this.db, "tickets", ticketId));
+                
+                console.log(`✅ Ticket ${ticketId} deleted`);
+                
+                await Swal.fire({
+                    title: 'Deleted!',
+                    text: 'Ticket has been deleted',
+                    icon: 'success',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error deleting ticket:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to delete ticket',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
+    }
+
+    // ✅ METHOD SHOW TICKET MODAL
+    showTicketModal(ticket) {
+        const modal = document.getElementById('ticketModal');
+        const modalBody = document.getElementById('ticketModalBody');
+        
+        if (!modal || !modalBody) return;
+
+        const permissions = this.checkPermissions(ticket);
+
+        modalBody.innerHTML = `
+            <div class="ticket-details">
+                <div class="detail-section">
+                    <h3>Ticket Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Ticket Code:</label>
+                            <span>${ticket.code}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Subject:</label>
+                            <span>${ticket.subject}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Status:</label>
+                            <span class="status-badge status-${ticket.status.toLowerCase().replace(' ', '-')}">
+                                ${ticket.status}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Priority:</label>
+                            <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
+                                ${ticket.priority}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>User Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Name:</label>
+                            <span>${ticket.user_name}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Email:</label>
+                            <span>${ticket.user_email}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Department:</label>
+                            <span>${ticket.user_department}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Phone:</label>
+                            <span>${ticket.user_phone || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Technical Details</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Location:</label>
+                            <span>${ticket.location}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Inventory:</label>
+                            <span>${ticket.inventory}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Device:</label>
+                            <span>${ticket.device}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h3>Problem Description</h3>
+                    <div class="message-box">
+                        ${ticket.message}
+                    </div>
+                </div>
+
+                ${ticket.note ? `
+                <div class="detail-section">
+                    <h3>Admin Notes</h3>
+                    <div class="note-box">
+                        ${ticket.note}
+                    </div>
+                </div>
+                ` : ''}
+
+                <div class="detail-section">
+                    <h3>Assigned To</h3>
+                    <div class="detail-item">
+                        <label>Action By:</label>
+                        <span>${ticket.action_by || 'Not assigned'}</span>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    ${permissions.canUpdate ? `
+                        <button class="btn-primary" onclick="adminDashboard.updateTicketModal('${ticket.id}')">
+                            <i class="fas fa-edit"></i> Update Ticket
+                        </button>
+                    ` : ''}
+                    <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            </div>
+        `;
+
+        modal.style.display = 'block';
+    }
+
+    closeTicketModal() {
+        const modal = document.getElementById('ticketModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    }
+
+    async updateTicketModal(ticketId) {
+        // Implement update ticket modal logic here
+        console.log('Update ticket:', ticketId);
+        // You can implement a separate modal for updating tickets
+    }
 
     // ✅ GET DISPLAYED TICKETS FOR EXPORT YANG DIPERBAIKI
     async getDisplayedTicketsForExport() {
@@ -888,23 +1214,6 @@ closeTicketModal() {
         }
     }
 }
-// Tambahkan kode ini di dalam file admin.js setelah data tickets dimuat
-function updateTableForMobile() {
-  const tableCells = document.querySelectorAll('#ticketsTableBody td');
-  const headers = document.querySelectorAll('#ticketsTable th');
-  
-  tableCells.forEach((cell, index) => {
-    const headerIndex = index % headers.length;
-    const headerText = headers[headerIndex].textContent;
-    cell.setAttribute('data-label', headerText);
-  });
-}
-
-// Panggil fungsi ini setelah mengisi tabel dengan data
-updateTableForMobile();
-
-// Juga panggil saat window di-resize untuk menangani orientasi perubahan
-window.addEventListener('resize', updateTableForMobile);
 
 // Initialize admin dashboard ketika DOM siap
 document.addEventListener('DOMContentLoaded', function() {
@@ -916,6 +1225,13 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('beforeunload', function() {
     if (window.adminDashboard) {
         window.adminDashboard.destroy();
+    }
+});
+
+// Handle window resize for mobile table
+window.addEventListener('resize', function() {
+    if (window.adminDashboard && window.adminDashboard.updateTableForMobile) {
+        window.adminDashboard.updateTableForMobile();
     }
 });
 

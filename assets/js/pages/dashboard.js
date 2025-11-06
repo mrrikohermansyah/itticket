@@ -244,19 +244,41 @@ class Dashboard {
     console.log('   Inactive tickets:', inactiveTickets.length);
   }
 
-  // Helper method untuk menentukan apakah ticket open
-  isTicketOpen(ticket) {
-    return (
-      ticket.status === 'Open' || 
-      ticket.qa === 'Open' ||
-      ticket.status === 'In Progress' ||
-      ticket.status === 'Pending' ||
-      (ticket.status !== 'Resolved' && 
-       ticket.status !== 'Closed' && 
-       ticket.status !== 'Completed' &&
-       ticket.qa !== 'Finish')
-    );
+// Helper method untuk menentukan apakah ticket open - FIXED VERSION
+isTicketOpen(ticket) {
+  const status = (ticket.status || '').toLowerCase().trim();
+  const qa = (ticket.qa || '').toLowerCase().trim();
+  
+  console.log(`🔍 STATUS CHECK for ${ticket.code}:`, { status, qa });
+  
+  // PRIORITIZE STATUS over QA
+  // Jika status sudah jelas resolved/closed, abaikan qa
+  if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
+    console.log(`   ❌ ${ticket.code} - RESOLVED (status is clearly "${status}")`);
+    return false;
   }
+  
+  // Jika status jelas open/in progress
+  if (status === 'open' || status === 'in progress' || status === 'pending') {
+    console.log(`   ✅ ${ticket.code} - OPEN (status is "${status}")`);
+    return true;
+  }
+  
+  // Jika status tidak jelas, check qa sebagai fallback
+  if (qa === 'open') {
+    console.log(`   ✅ ${ticket.code} - OPEN (qa is "open", status ambiguous: "${status}")`);
+    return true;
+  }
+  
+  if (qa === 'finish' || qa === 'finished') {
+    console.log(`   ❌ ${ticket.code} - RESOLVED (qa is "${qa}")`);
+    return false;
+  }
+  
+  // Default case: jika tidak ada info yang jelas, consider as resolved untuk safety
+  console.warn(`❓ ${ticket.code} - AMBIGUOUS (status:"${status}", qa:"${qa}") - defaulting to RESOLVED for safety`);
+  return false;
+}
 
   // Helper method untuk menentukan apakah ticket resolved
   isTicketResolved(ticket) {
@@ -661,68 +683,124 @@ class Dashboard {
     ticketsList.innerHTML = ticketsHtml;
   }
 
-  updateStats() {
-    console.log('🔄 Calculating stats from', this.tickets.length, 'total tickets');
-    
-    // Debug: Tampilkan status semua ticket
-    this.debugTicketStatus();
+ updateStats() {
+  console.log('🔄 UPDATING STATS - Detailed mismatch investigation');
+  
+  // 1. Filter hanya ticket aktif
+  const activeTickets = this.tickets.filter(ticket => 
+    !ticket.deleted && !ticket.archived
+  );
 
-    // Filter hanya ticket aktif
-    const activeTickets = this.tickets.filter(ticket => 
-      !ticket.deleted && !ticket.archived
-    );
+  console.log('🔍 INVESTIGATING MISMATCH:');
+  
+  // 2. Temukan ticket mana yang dihitung sebagai OPEN tapi di UI tidak
+  const calculatedOpenTickets = [];
+  const calculatedResolvedTickets = [];
+  
+  activeTickets.forEach((ticket) => {
+    const isOpen = this.isTicketOpen(ticket);
+    if (isOpen) {
+      calculatedOpenTickets.push(ticket);
+      console.log(`❓ CALCULATED AS OPEN: ${ticket.code}`, {
+        status: ticket.status,
+        qa: ticket.qa,
+        isOpen: true
+      });
+    } else {
+      calculatedResolvedTickets.push(ticket);
+    }
+  });
 
-    console.log('✅ Active tickets for stats:', activeTickets.length);
-
-    // Hitung berdasarkan helper methods
-    const openCount = activeTickets.filter(ticket => this.isTicketOpen(ticket)).length;
-    const resolvedCount = activeTickets.filter(ticket => this.isTicketResolved(ticket)).length;
-
-    // Cek konsistensi dengan UI
-    const visibleTickets = document.querySelectorAll('.ticket-item');
-    const visibleOpenTickets = Array.from(visibleTickets).filter(ticketEl => {
-      const statusEl = ticketEl.querySelector('.ticket-status');
-      if (!statusEl) return false;
-      
-      const statusText = statusEl.textContent.toLowerCase();
-      return statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending');
+  // 3. Periksa UI untuk setiap ticket yang dihitung sebagai OPEN
+  console.log('👀 CHECKING UI FOR CALCULATED OPEN TICKETS:');
+  calculatedOpenTickets.forEach(openTicket => {
+    const ticketElement = Array.from(document.querySelectorAll('.ticket-item')).find(el => {
+      const codeEl = el.querySelector('.ticket-code');
+      return codeEl && codeEl.textContent === openTicket.code;
     });
-
-    console.log('👀 UI Check - Visible tickets:', visibleTickets.length, 'Visible open tickets:', visibleOpenTickets.length);
-
-    let finalOpenCount = openCount;
-    let finalResolvedCount = resolvedCount;
-
-    // Jika ada mismatch antara statistik dan UI, gunakan data dari UI
-    if (openCount !== visibleOpenTickets.length && visibleTickets.length > 0) {
-      console.warn('⚠️  MISMATCH DETECTED: Stats vs UI different! Using UI-based calculation...');
-      
-      finalOpenCount = visibleOpenTickets.length;
-      finalResolvedCount = visibleTickets.length - finalOpenCount;
-    }
-
-    const openEl = document.getElementById('openTickets');
-    const resolvedEl = document.getElementById('resolvedTickets');
     
-    if (openEl) {
-      openEl.textContent = finalOpenCount;
-      console.log('📊 Final Open tickets:', finalOpenCount);
+    if (ticketElement) {
+      const statusEl = ticketElement.querySelector('.ticket-status');
+      const statusText = statusEl ? statusEl.textContent : 'NO STATUS ELEMENT';
+      console.log(`   ${openTicket.code} - UI shows: "${statusText}"`);
+      
+      // Cek apakah UI menunjukkan sebagai resolved
+      const isUIResolved = statusText.toLowerCase().includes('resolved') || 
+                          statusText.toLowerCase().includes('closed') ||
+                          statusText.toLowerCase().includes('finish') ||
+                          statusText.toLowerCase().includes('completed');
+      
+      if (isUIResolved) {
+        console.error(`🚨 CONFLICT FOUND: ${openTicket.code} is calculated as OPEN but UI shows as RESOLVED!`);
+        console.error(`   Firestore data: status="${openTicket.status}", qa="${openTicket.qa}"`);
+        console.error(`   UI shows: "${statusText}"`);
+      }
+    } else {
+      console.warn(`   ${openTicket.code} - NOT FOUND IN UI (might be filtered out)`);
     }
-    if (resolvedEl) {
-      resolvedEl.textContent = finalResolvedCount;
-      console.log('📊 Final Resolved tickets:', finalResolvedCount);
-    }
+  });
 
-    // Debug info lengkap
-    console.log('📊 FINAL STATS BREAKDOWN:');
-    console.log('   Total tickets:', this.tickets.length);
-    console.log('   Active tickets:', activeTickets.length);
-    console.log('   Open tickets (calculated):', openCount);
-    console.log('   Resolved tickets (calculated):', resolvedCount);
-    console.log('   Open tickets (final):', finalOpenCount);
-    console.log('   Resolved tickets (final):', finalResolvedCount);
-    console.log('   Deleted/Archived:', this.tickets.length - activeTickets.length);
-  }
+  // 4. Hitung stats seperti biasa
+  const calculatedOpenCount = calculatedOpenTickets.length;
+  const calculatedResolvedCount = calculatedResolvedTickets.length;
+
+  // 5. Hitung berdasarkan UI
+  const visibleTickets = document.querySelectorAll('.ticket-item');
+  let uiOpenCount = 0;
+  
+  visibleTickets.forEach(ticketEl => {
+    const statusEl = ticketEl.querySelector('.ticket-status');
+    if (statusEl) {
+      const statusText = statusEl.textContent.toLowerCase();
+      if (statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending')) {
+        uiOpenCount++;
+      }
+    }
+  });
+
+  const uiResolvedCount = visibleTickets.length - uiOpenCount;
+
+  console.log('📊 COMPARISON:');
+  console.log('   Calculated - Open:', calculatedOpenCount, 'Resolved:', calculatedResolvedCount);
+  console.log('   UI Visible - Open:', uiOpenCount, 'Resolved:', uiResolvedCount);
+
+  // 6. Tampilkan semua ticket untuk reference
+  console.log('📋 ALL ACTIVE TICKETS FOR REFERENCE:');
+  activeTickets.forEach((ticket, index) => {
+    console.log(`   ${index + 1}. ${ticket.code} - status:"${ticket.status}" qa:"${ticket.qa}"`);
+  });
+
+  // 7. Gunakan UI-based count (prioritize what user sees)
+  const finalOpenCount = uiOpenCount;
+  const finalResolvedCount = uiResolvedCount;
+
+  console.warn(`⚠️  USING UI-BASED COUNT: ${finalOpenCount} open, ${finalResolvedCount} resolved`);
+
+  // 8. Update UI
+  const openEl = document.getElementById('openTickets');
+  const resolvedEl = document.getElementById('resolvedTickets');
+  
+  if (openEl) openEl.textContent = finalOpenCount;
+  if (resolvedEl) resolvedEl.textContent = finalResolvedCount;
+
+  return {
+    calculated: { open: calculatedOpenCount, resolved: calculatedResolvedCount },
+    ui: { open: uiOpenCount, resolved: uiResolvedCount },
+    final: { open: finalOpenCount, resolved: finalResolvedCount },
+    problematicTickets: calculatedOpenTickets.filter(ticket => {
+      const ticketElement = Array.from(document.querySelectorAll('.ticket-item')).find(el => {
+        const codeEl = el.querySelector('.ticket-code');
+        return codeEl && codeEl.textContent === ticket.code;
+      });
+      if (ticketElement) {
+        const statusEl = ticketElement.querySelector('.ticket-status');
+        const statusText = statusEl ? statusEl.textContent.toLowerCase() : '';
+        return !(statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending'));
+      }
+      return false;
+    })
+  };
+}
 
   showError(message) {
     const el = document.getElementById('ticketErrorMessage');
