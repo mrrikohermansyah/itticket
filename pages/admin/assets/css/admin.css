@@ -1551,3 +1551,131 @@
     flex: 1;
   }
 }
+
+.stat-icon.assigned {
+  background: linear-gradient(135deg, #8b5cf6, #a855f7);
+}
+
+/* ==================== TAKE BUTTON STYLING ==================== */
+
+.btn-take {
+  background-color: #10b981;
+  color: white;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.btn-take i {
+  font-size: 11px;
+}
+
+.btn-take:hover {
+  background-color: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.btn-take:active {
+  transform: translateY(0);
+}
+
+.btn-take:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-take:disabled:hover {
+  background-color: #9ca3af;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Mobile Responsive untuk Take Button */
+@media (max-width: 768px) {
+  .btn-take {
+    min-width: 50px;
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .btn-take i {
+    font-size: 10px;
+  }
+}
+
+/* ==================== ASSIGNED TO OTHER INDICATOR ==================== */
+
+.assigned-to-other {
+  color: #6b7280;
+  font-size: 14px;
+  padding: 6px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f3f4f6;
+  border-radius: 4px;
+  border: 1px solid #e5e7eb;
+  cursor: not-allowed;
+}
+
+.assigned-to-other:hover {
+  background-color: #e5e7eb;
+}
+
+.assigned-to-other i {
+  font-size: 12px;
+}
+
+/* Tooltip style untuk assigned to other */
+.assigned-to-other {
+  position: relative;
+}
+
+.assigned-to-other::after {
+  
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #374151;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.assigned-to-other:hover::after {
+  opacity: 1;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .assigned-to-other {
+    padding: 4px 6px;
+    font-size: 12px;
+  }
+
+  .assigned-to-other i {
+    font-size: 11px;
+  }
+
+  .assigned-to-other::after {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}

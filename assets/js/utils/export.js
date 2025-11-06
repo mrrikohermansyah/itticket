@@ -145,20 +145,26 @@ function getAdminDisplayedTickets() {
   try {
     console.log("🔍 Looking for admin dashboard data...");
     
-    // Coba akses dari admin dashboard instance
+    // ✅ OPTION 1: Coba akses dari admin dashboard instance
     if (window.adminDashboard && typeof window.adminDashboard.getDisplayedTicketsForExport === 'function') {
       const tickets = window.adminDashboard.getDisplayedTicketsForExport();
-      console.log("✅ Got tickets from admin dashboard:", tickets.length);
+      console.log("✅ Got tickets from admin dashboard method:", tickets.length);
       return tickets;
     }
     
-    // Coba akses dari global admin data
+    // ✅ OPTION 2: Coba akses filtered tickets langsung
+    if (window.adminDashboard && window.adminDashboard.filteredTickets) {
+      console.log("✅ Using adminDashboard.filteredTickets directly");
+      return window.adminDashboard.filteredTickets;
+    }
+    
+    // ✅ OPTION 3: Coba akses dari global admin data
     if (window.adminData && window.adminData.tickets) {
       console.log("✅ Using window.adminData.tickets");
       return window.adminData.tickets;
     }
     
-    // Fallback ke global data
+    // ✅ OPTION 4: Fallback ke global data
     console.log("🔄 Using global tickets data as fallback");
     return window.allTickets || [];
     
