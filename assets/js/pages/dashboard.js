@@ -511,8 +511,6 @@ class Dashboard {
     return { isValid: true };
   }
 
-
-
   renderTickets() {
     const ticketsList = document.getElementById('ticketsList');
     if (!ticketsList) return;
