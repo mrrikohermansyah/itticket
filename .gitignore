@@ -68,13 +68,6 @@ logs/
 *credential*
 
 # =============
-# FILE ANDA YANG SPESIFIK
-# =============
-assets/js/utils/firebase-config.js
-assets/js/pages/dashboard.js
-pages/admin/assets/js/admin.js
-
-# =============
 # CACHE & TEMP
 # =============
 .cache/

@@ -2,6 +2,17 @@
 // 🔹 js/config.js - Shared Configuration
 // ======================================================
 
+// ==================== 🔹 FIREBASE CONFIGURATION ====================
+const FIREBASE_CONFIG = {
+    apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
+    authDomain: "itticketing-f926e.firebaseapp.com",
+    projectId: "itticketing-f926e",
+    storageBucket: "itticketing-f926e.firebasestorage.app",
+    messagingSenderId: "10687213121",
+    appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
+    measurementId: "G-8H0EP72PC2"
+};
+
 // ==================== 🔹 Ticket ID Generator ====================
 window.generateTicketId = function (department, deviceType, location = "") {
   const timestamp = new Date();
@@ -128,9 +139,10 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
   // Untuk browser
   window.CONFIG = {
-    DEVICE_TYPE_MAPPING,
-    IT_STAFF,
-    ADMIN_EMAILS,
-    ADMIN_NAME_MAPPING,
+    FIREBASE_CONFIG: FIREBASE_CONFIG, 
+     DEVICE_TYPE_MAPPING: DEVICE_TYPE_MAPPING,
+    IT_STAFF: IT_STAFF,
+    ADMIN_EMAILS: ADMIN_EMAILS,
+    ADMIN_NAME_MAPPING: ADMIN_NAME_MAPPING
   };
 }
