@@ -13,7 +13,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 // Import instance
 import firebaseAuthService from '../services/firebase-auth-service.js';
 
-
 // Firebase configuration dari CONFIG
 const firebaseConfig = window.CONFIG.FIREBASE_CONFIG;
 
@@ -116,6 +115,10 @@ class Dashboard {
       this.updateStats();
       console.log('✅ Initial tickets loaded:', this.tickets.length);
 
+      // Debug initial tickets
+      console.log('=== INITIAL TICKET LOAD ===');
+      this.debugTicketStatus();
+
       // ✅ SECOND: Setup realtime listener for changes
       this.unsubscribeTickets = onSnapshot(q, (snapshot) => {
         console.log('🔄 Realtime update received for tickets');
@@ -191,8 +194,78 @@ class Dashboard {
       note: data.note || '',
       qa: data.qa || '',
       user_phone: data.user_phone || '',
-      updates: data.updates || []
+      updates: data.updates || [],
+      deleted: data.deleted || false,
+      archived: data.archived || false
     };
+  }
+
+  // Debug method untuk melihat status semua ticket
+  debugTicketStatus() {
+    console.log('🔍 DEBUG TICKET STATUS:');
+    
+    const activeTickets = this.tickets.filter(ticket => 
+      !ticket.deleted && !ticket.archived
+    );
+    
+    console.log('📋 ACTIVE TICKETS (' + activeTickets.length + '):');
+    if (activeTickets.length === 0) {
+      console.log('   No active tickets found');
+    } else {
+      activeTickets.forEach((ticket, index) => {
+        const isOpen = this.isTicketOpen(ticket);
+        const isResolved = this.isTicketResolved(ticket);
+        
+        console.log(`  ${index + 1}. ${ticket.code}`, {
+          status: ticket.status,
+          qa: ticket.qa,
+          isOpen: isOpen,
+          isResolved: isResolved,
+          category: isOpen ? 'OPEN' : (isResolved ? 'RESOLVED' : 'OTHER')
+        });
+      });
+    }
+
+    // Tampilkan deleted/archived tickets juga untuk reference
+    const inactiveTickets = this.tickets.filter(ticket => 
+      ticket.deleted || ticket.archived
+    );
+    
+    if (inactiveTickets.length > 0) {
+      console.log('🚫 INACTIVE TICKETS (deleted/archived): ' + inactiveTickets.length);
+      inactiveTickets.forEach((ticket, index) => {
+        console.log(`  ${index + 1}. ${ticket.code} - status:${ticket.status} deleted:${ticket.deleted} archived:${ticket.archived}`);
+      });
+    }
+
+    console.log('📊 SUMMARY:');
+    console.log('   Total tickets:', this.tickets.length);
+    console.log('   Active tickets:', activeTickets.length);
+    console.log('   Inactive tickets:', inactiveTickets.length);
+  }
+
+  // Helper method untuk menentukan apakah ticket open
+  isTicketOpen(ticket) {
+    return (
+      ticket.status === 'Open' || 
+      ticket.qa === 'Open' ||
+      ticket.status === 'In Progress' ||
+      ticket.status === 'Pending' ||
+      (ticket.status !== 'Resolved' && 
+       ticket.status !== 'Closed' && 
+       ticket.status !== 'Completed' &&
+       ticket.qa !== 'Finish')
+    );
+  }
+
+  // Helper method untuk menentukan apakah ticket resolved
+  isTicketResolved(ticket) {
+    return (
+      ticket.status === 'Resolved' || 
+      ticket.qa === 'Finish' || 
+      ticket.status === 'Closed' ||
+      ticket.status === 'Completed'
+    );
   }
 
   // Show real-time notification
@@ -487,8 +560,6 @@ class Dashboard {
       );
 
       console.log('🎫 Generated Ticket Code:', ticketCode, 'from ID:', ticketRef.id);
-      console.log('🎫 DEBUG - Generated Ticket Code:', ticketCode);
-      console.log('🔍 DEBUG - window.generateTicketId function:', window.generateTicketId);
 
       // ✅ UPDATE TICKET DENGAN CODE YANG SUDAH DIGENERATE
       await updateDoc(ticketRef, {
@@ -506,7 +577,7 @@ class Dashboard {
       if (btnText) btnText.style.display = 'block';
       if (btnLoading) btnLoading.style.display = 'none';
     }
-}
+  }
 
   validateTicketForm(formData) {
     const required = ['inventory', 'device', 'location', 'priority', 'subject', 'message'];
@@ -522,7 +593,14 @@ class Dashboard {
     const ticketsList = document.getElementById('ticketsList');
     if (!ticketsList) return;
 
-    if (this.tickets.length === 0) {
+    // HANYA tampilkan ticket yang aktif
+    const activeTickets = this.tickets.filter(ticket => 
+      !ticket.deleted && !ticket.archived
+    );
+
+    console.log('🎫 Rendering', activeTickets.length, 'active tickets out of', this.tickets.length, 'total');
+
+    if (activeTickets.length === 0) {
       ticketsList.innerHTML = `
         <div class="empty-state">
           <i class="fas fa-ticket-alt"></i>
@@ -533,7 +611,10 @@ class Dashboard {
       return;
     }
 
-    const ticketsHtml = this.tickets.slice(0, 5).map(ticket => `
+    // Hanya ambil 10 ticket aktif terbaru
+    const ticketsToShow = activeTickets.slice(0, 5);
+    
+    const ticketsHtml = ticketsToShow.map(ticket => `
       <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''}">
         <div class="ticket-content">
           <div class="ticket-header">
@@ -581,27 +662,67 @@ class Dashboard {
   }
 
   updateStats() {
-  // Hanya hitung ticket yang masih ada (tidak dihapus/di-archive)
-  const activeTickets = this.tickets.filter(ticket => 
-    !ticket.deleted && ticket.status !== 'archived'
-  );
+    console.log('🔄 Calculating stats from', this.tickets.length, 'total tickets');
+    
+    // Debug: Tampilkan status semua ticket
+    this.debugTicketStatus();
 
-  const openCount = activeTickets.filter(t => 
-    t.status === 'Open' || t.qa === 'Open'
-  ).length;
-  
-  const resolvedCount = activeTickets.filter(t => 
-    t.status === 'Resolved' || t.qa === 'Finish' || t.status === 'Closed'
-  ).length;
+    // Filter hanya ticket aktif
+    const activeTickets = this.tickets.filter(ticket => 
+      !ticket.deleted && !ticket.archived
+    );
 
-  const openEl = document.getElementById('openTickets');
-  const resolvedEl = document.getElementById('resolvedTickets');
-  
-  if (openEl) openEl.textContent = openCount;
-  if (resolvedEl) resolvedEl.textContent = resolvedCount;
+    console.log('✅ Active tickets for stats:', activeTickets.length);
 
-  console.log('📊 Stats - Active tickets:', activeTickets.length, 'Open:', openCount, 'Resolved:', resolvedCount);
-}
+    // Hitung berdasarkan helper methods
+    const openCount = activeTickets.filter(ticket => this.isTicketOpen(ticket)).length;
+    const resolvedCount = activeTickets.filter(ticket => this.isTicketResolved(ticket)).length;
+
+    // Cek konsistensi dengan UI
+    const visibleTickets = document.querySelectorAll('.ticket-item');
+    const visibleOpenTickets = Array.from(visibleTickets).filter(ticketEl => {
+      const statusEl = ticketEl.querySelector('.ticket-status');
+      if (!statusEl) return false;
+      
+      const statusText = statusEl.textContent.toLowerCase();
+      return statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending');
+    });
+
+    console.log('👀 UI Check - Visible tickets:', visibleTickets.length, 'Visible open tickets:', visibleOpenTickets.length);
+
+    let finalOpenCount = openCount;
+    let finalResolvedCount = resolvedCount;
+
+    // Jika ada mismatch antara statistik dan UI, gunakan data dari UI
+    if (openCount !== visibleOpenTickets.length && visibleTickets.length > 0) {
+      console.warn('⚠️  MISMATCH DETECTED: Stats vs UI different! Using UI-based calculation...');
+      
+      finalOpenCount = visibleOpenTickets.length;
+      finalResolvedCount = visibleTickets.length - finalOpenCount;
+    }
+
+    const openEl = document.getElementById('openTickets');
+    const resolvedEl = document.getElementById('resolvedTickets');
+    
+    if (openEl) {
+      openEl.textContent = finalOpenCount;
+      console.log('📊 Final Open tickets:', finalOpenCount);
+    }
+    if (resolvedEl) {
+      resolvedEl.textContent = finalResolvedCount;
+      console.log('📊 Final Resolved tickets:', finalResolvedCount);
+    }
+
+    // Debug info lengkap
+    console.log('📊 FINAL STATS BREAKDOWN:');
+    console.log('   Total tickets:', this.tickets.length);
+    console.log('   Active tickets:', activeTickets.length);
+    console.log('   Open tickets (calculated):', openCount);
+    console.log('   Resolved tickets (calculated):', resolvedCount);
+    console.log('   Open tickets (final):', finalOpenCount);
+    console.log('   Resolved tickets (final):', finalResolvedCount);
+    console.log('   Deleted/Archived:', this.tickets.length - activeTickets.length);
+  }
 
   showError(message) {
     const el = document.getElementById('ticketErrorMessage');
