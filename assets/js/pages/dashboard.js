@@ -581,20 +581,27 @@ class Dashboard {
   }
 
   updateStats() {
-    const openCount = this.tickets.filter(t => 
-      t.status === 'Open' || t.qa === 'Open'
-    ).length;
-    
-    const resolvedCount = this.tickets.filter(t => 
-      t.status === 'Resolved' || t.qa === 'Finish' || t.status === 'Closed'
-    ).length;
+  // Hanya hitung ticket yang masih ada (tidak dihapus/di-archive)
+  const activeTickets = this.tickets.filter(ticket => 
+    !ticket.deleted && ticket.status !== 'archived'
+  );
 
-    const openEl = document.getElementById('openTickets');
-    const resolvedEl = document.getElementById('resolvedTickets');
-    
-    if (openEl) openEl.textContent = openCount;
-    if (resolvedEl) resolvedEl.textContent = resolvedCount;
-  }
+  const openCount = activeTickets.filter(t => 
+    t.status === 'Open' || t.qa === 'Open'
+  ).length;
+  
+  const resolvedCount = activeTickets.filter(t => 
+    t.status === 'Resolved' || t.qa === 'Finish' || t.status === 'Closed'
+  ).length;
+
+  const openEl = document.getElementById('openTickets');
+  const resolvedEl = document.getElementById('resolvedTickets');
+  
+  if (openEl) openEl.textContent = openCount;
+  if (resolvedEl) resolvedEl.textContent = resolvedCount;
+
+  console.log('📊 Stats - Active tickets:', activeTickets.length, 'Open:', openCount, 'Resolved:', resolvedCount);
+}
 
   showError(message) {
     const el = document.getElementById('ticketErrorMessage');
