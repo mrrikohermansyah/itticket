@@ -8,6 +8,8 @@
     <script src="../../assets/js/utils/config.js"></script>
     <!-- TAMBAHKAN INI -->
     <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="../../assets/images/meitech-logo.png">
     <link rel="stylesheet" href="../../assets/css/base/styles.css">
     <link rel="stylesheet" href="assets/css/admin.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -28,6 +30,15 @@
                 </div>
             </div>
             <div class="admin-menu">
+                <div class="current-user-info">
+                    <div class="user-avatar">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div class="user-details">
+                        <span class="user-name" id="currentUserName">Loading...</span>
+                        <span class="user-role" id="currentUserRole">Loading role...</span>
+                    </div>
+                </div>
                 <a href="index.html" class="btn-secondary">
                     <i class="fas fa-arrow-left"></i>
                     Back to Dashboard
@@ -52,95 +63,93 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_name">Full Name *</label>
-                            <input type="text" id="it_name" name="name" required placeholder="Enter full name">
+                            <input type="text" id="it_name" name="name" required placeholder="Enter full name" autocomplete="name">
                         </div>
                         <div class="form-group">
                             <label for="it_email">Email Address *</label>
-                            <input type="email" id="it_email" name="email" required
-                                placeholder="it.support@meitech.com">
+                            <input type="email" id="it_email" name="email" required placeholder="it.support@meitech.com"
+                                autocomplete="email">
                         </div>
                     </div>
-
+                
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_role">Role *</label>
-                            <select id="it_role" name="role" required>
+                            <select id="it_role" name="role" required class="role-select" autocomplete="organization-title">
                                 <option value="">Select Role</option>
-                                <option value="superadmin">Super Administrator</option>
-                                <option value="manager">IT Manager</option>
-                                <option value="senior_support">Senior IT Support</option>
-                                <option value="junior_support">Junior IT Support</option>
-                                <option value="technician">IT Technician</option>
+                                <option value="Super Admin">Super Admin (Full Access)</option>
+                                <option value="IT Engineer">IT Engineer</option>
+                                <option value="IT Tech Support">IT Tech Support</option>
+                                <option value="IT Visual">IT Visual</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="it_department">Department *</label>
-                            <input type="text" id="it_department" name="department" required value="IT" readonly
-                                class="readonly-field">
+                            <input type="text" id="it_department" name="department" required value="IT" readonly class="readonly-field"
+                                autocomplete="organization">
                         </div>
                     </div>
-
+                
+                    <!-- ✅ PERBAIKAN: Specialization tanpa for attribute -->
                     <div class="form-group">
-                        <label for="it_specialization">Specialization</label>
-                        <div class="specialization-selector" id="it_specialization">
-                            <div class="specialization-options">
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Network" id="spec_network">
-                                    Network
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Hardware" id="spec_hardware">
-                                    Hardware
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Software" id="spec_software">
-                                    Software
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Printer" id="spec_printer">
-                                    Printer
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Projector" id="spec_projector">
-                                    Projector
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Server" id="spec_server">
-                                    Server
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="Data Backup" id="spec_backup">
-                                    Data Backup
-                                </label>
-                                <label class="specialization-checkbox">
-                                    <input type="checkbox" name="specialization" value="User Support" id="spec_support">
-                                    User Support
-                                </label>
+                        <label>Specialization</label>
+                        <div class="specialization-options" id="specializationContainer">
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_network" name="specialization" value="Network" autocomplete="off">
+                                <label for="spec_network">Network</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_hardware" name="specialization" value="Hardware" autocomplete="off">
+                                <label for="spec_hardware">Hardware</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_software" name="specialization" value="Software" autocomplete="off">
+                                <label for="spec_software">Software</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_printer" name="specialization" value="Printer" autocomplete="off">
+                                <label for="spec_printer">Printer</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_projector" name="specialization" value="Projector" autocomplete="off">
+                                <label for="spec_projector">Projector</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_server" name="specialization" value="Server" autocomplete="off">
+                                <label for="spec_server">Server</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_backup" name="specialization" value="Data Backup" autocomplete="off">
+                                <label for="spec_backup">Data Backup</label>
+                            </div>
+                            <div class="specialization-checkbox">
+                                <input type="checkbox" id="spec_support" name="specialization" value="User Support" autocomplete="off">
+                                <label for="spec_support">User Support</label>
                             </div>
                         </div>
                     </div>
-
+                
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_password">Temporary Password *</label>
-                            <input type="password" id="it_password" name="password" required
-                                placeholder="Set temporary password" minlength="6">
+                            <input type="password" id="it_password" name="password" required placeholder="Set temporary password"
+                                minlength="6" autocomplete="new-password">
                         </div>
                         <div class="form-group">
                             <label for="it_confirm_password">Confirm Password *</label>
                             <input type="password" id="it_confirm_password" name="confirm_password" required
-                                placeholder="Confirm password">
+                                placeholder="Confirm password" autocomplete="new-password">
                         </div>
                     </div>
-
+                
                     <div id="formMessage" class="error-message" style="display: none"></div>
-
+                
                     <div class="form-actions">
-                        <button type="submit" class="btn-primary">
+                        <button type="submit" class="btn-primary" autocomplete="off">
                             <i class="fas fa-user-plus"></i>
                             Create IT Support Account
                         </button>
-                        <button type="reset" class="btn-secondary">
+                        <button type="reset" class="btn-secondary" autocomplete="off">
                             Clear Form
                         </button>
                     </div>

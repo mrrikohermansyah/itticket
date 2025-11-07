@@ -54,6 +54,7 @@ class AdminDashboard {
         this.unsubscribe = null;
         this.db = db;
         this.auth = auth;
+        this.currentUpdatingTicketId = null;
         
         // ✅ Binding untuk event handlers
         this.handleTableClick = this.handleTableClick.bind(this);
@@ -61,330 +62,302 @@ class AdminDashboard {
         
         this.init();
     }
+
     // ==================== COMPREHENSIVE MIGRATION METHOD ====================
-async migrateTicketAssignments() {
-    try {
-        console.log('🔄 Starting comprehensive ticket assignment migration...');
-        
-        // Get all tickets
-        const ticketsQuery = query(collection(this.db, "tickets"));
-        const ticketsSnapshot = await getDocs(ticketsQuery);
-        
-        // Get all admins
-        const adminsQuery = query(collection(this.db, "admins"));
-        const adminsSnapshot = await getDocs(adminsQuery);
-        
-        // Create admin mapping: name -> UID
-        const adminMap = {};
-        adminsSnapshot.forEach(doc => {
-            const adminData = doc.data();
-            if (adminData.name) {
-                adminMap[adminData.name] = doc.id; // Map nama ke UID
-            }
-            if (adminData.email) {
-                adminMap[adminData.email] = doc.id; // Map email ke UID
-            }
-        });
-        
-        console.log('👥 Admin mapping:', adminMap);
-        
-        let migratedCount = 0;
-        let skippedCount = 0;
-        
-        // Show progress
-        const migrationResult = await Swal.fire({
-            title: 'Migrating Ticket Assignments...',
-            html: `
-                <div style="text-align: center;">
-                    <i class="fas fa-sync-alt fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
-                    <p>Converting name-based assignments to UID-based...</p>
-                    <p id="migrationProgress">Preparing migration...</p>
-                </div>
-            `,
-            showConfirmButton: false,
-            allowOutsideClick: false
-        });
-
-        for (let i = 0; i < ticketsSnapshot.docs.length; i++) {
-            const doc = ticketsSnapshot.docs[i];
-            const data = doc.data();
+    async migrateTicketAssignments() {
+        try {
+            console.log('🔄 Starting comprehensive ticket assignment migration...');
             
-            // Update progress
-            if (migrationResult && migrationResult.isVisible()) {
-                document.getElementById('migrationProgress').textContent = 
-                    `Processing ${i + 1}/${ticketsSnapshot.size} tickets`;
-            }
+            // Get all tickets
+            const ticketsQuery = query(collection(this.db, "tickets"));
+            const ticketsSnapshot = await getDocs(ticketsQuery);
             
-            let needsMigration = false;
-            let newActionBy = data.action_by;
-            let newAssignedTo = data.assigned_to;
+            // Get all admins
+            const adminsQuery = query(collection(this.db, "admins"));
+            const adminsSnapshot = await getDocs(adminsQuery);
             
-            // Check if action_by needs migration (name -> UID)
-            if (data.action_by && adminMap[data.action_by]) {
-                newActionBy = adminMap[data.action_by];
-                needsMigration = true;
-                console.log(`🔄 Migrating action_by: "${data.action_by}" -> "${newActionBy}"`);
-            }
-            
-            // Check if assigned_to needs migration
-            if (data.assigned_to && adminMap[data.assigned_to]) {
-                newAssignedTo = adminMap[data.assigned_to];
-                needsMigration = true;
-                console.log(`🔄 Migrating assigned_to: "${data.assigned_to}" -> "${newAssignedTo}"`);
-            }
-            
-            if (needsMigration) {
-                try {
-                    await updateDoc(doc.ref, {
-                        action_by: newActionBy,
-                        assigned_to: newAssignedTo,
-                        assigned_name: data.action_by // Keep original name for display
-                    });
-                    migratedCount++;
-                    console.log(`✅ Migrated ticket ${data.code}`);
-                } catch (error) {
-                    console.error(`❌ Error migrating ticket ${data.code}:`, error);
+            // Create admin mapping: name -> UID
+            const adminMap = {};
+            adminsSnapshot.forEach(doc => {
+                const adminData = doc.data();
+                if (adminData.name) {
+                    adminMap[adminData.name] = doc.id;
                 }
-            } else {
-                skippedCount++;
-                console.log(`⏭️ Skipped ticket ${data.code} - already using UID or no mapping found`);
+                if (adminData.email) {
+                    adminMap[adminData.email] = doc.id;
+                }
+            });
+            
+            console.log('👥 Admin mapping:', adminMap);
+            
+            let migratedCount = 0;
+            let skippedCount = 0;
+            
+            // Show progress
+            const migrationResult = await Swal.fire({
+                title: 'Migrating Ticket Assignments...',
+                html: `
+                    <div style="text-align: center;">
+                        <i class="fas fa-sync-alt fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <p>Converting name-based assignments to UID-based...</p>
+                        <p id="migrationProgress">Preparing migration...</p>
+                    </div>
+                `,
+                showConfirmButton: false,
+                allowOutsideClick: false
+            });
+
+            for (let i = 0; i < ticketsSnapshot.docs.length; i++) {
+                const doc = ticketsSnapshot.docs[i];
+                const data = doc.data();
+                
+                // Update progress
+                if (migrationResult && migrationResult.isVisible()) {
+                    document.getElementById('migrationProgress').textContent = 
+                        `Processing ${i + 1}/${ticketsSnapshot.size} tickets`;
+                }
+                
+                let needsMigration = false;
+                let newActionBy = data.action_by;
+                let newAssignedTo = data.assigned_to;
+                
+                // Check if action_by needs migration (name -> UID)
+                if (data.action_by && adminMap[data.action_by]) {
+                    newActionBy = adminMap[data.action_by];
+                    needsMigration = true;
+                    console.log(`🔄 Migrating action_by: "${data.action_by}" -> "${newActionBy}"`);
+                }
+                
+                // Check if assigned_to needs migration
+                if (data.assigned_to && adminMap[data.assigned_to]) {
+                    newAssignedTo = adminMap[data.assigned_to];
+                    needsMigration = true;
+                    console.log(`🔄 Migrating assigned_to: "${data.assigned_to}" -> "${newAssignedTo}"`);
+                }
+                
+                if (needsMigration) {
+                    try {
+                        await updateDoc(doc.ref, {
+                            action_by: newActionBy,
+                            assigned_to: newAssignedTo,
+                            assigned_name: data.action_by
+                        });
+                        migratedCount++;
+                        console.log(`✅ Migrated ticket ${data.code}`);
+                    } catch (error) {
+                        console.error(`❌ Error migrating ticket ${data.code}:`, error);
+                    }
+                } else {
+                    skippedCount++;
+                    console.log(`⏭️ Skipped ticket ${data.code} - already using UID or no mapping found`);
+                }
             }
+
+            // Close progress dialog
+            Swal.close();
+
+            // Show final result
+            await Swal.fire({
+                title: 'Migration Complete!',
+                html: `
+                    <div style="text-align: left;">
+                        <p><strong>Migration Results:</strong></p>
+                        <ul>
+                            <li>✅ Successfully migrated: ${migratedCount} tickets</li>
+                            <li>⏭️ Skipped: ${skippedCount} tickets</li>
+                            <li>📊 Total processed: ${ticketsSnapshot.size} tickets</li>
+                        </ul>
+                        <p><strong>The page will now refresh to apply changes.</strong></p>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonColor: '#ef070a'
+            });
+
+            console.log(`🎉 Migration complete: ${migratedCount} migrated, ${skippedCount} skipped`);
+            
+            // Refresh page to load updated data
+            window.location.reload();
+            
+        } catch (error) {
+            console.error('❌ Migration error:', error);
+            await Swal.fire({
+                title: 'Migration Failed',
+                text: 'Error migrating ticket assignments: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
         }
-
-        // Close progress dialog
-        Swal.close();
-
-        // Show final result
-        await Swal.fire({
-            title: 'Migration Complete!',
-            html: `
-                <div style="text-align: left;">
-                    <p><strong>Migration Results:</strong></p>
-                    <ul>
-                        <li>✅ Successfully migrated: ${migratedCount} tickets</li>
-                        <li>⏭️ Skipped: ${skippedCount} tickets</li>
-                        <li>📊 Total processed: ${ticketsSnapshot.size} tickets</li>
-                    </ul>
-                    <p><strong>The page will now refresh to apply changes.</strong></p>
-                </div>
-            `,
-            icon: 'success',
-            confirmButtonColor: '#ef070a'
-        });
-
-        console.log(`🎉 Migration complete: ${migratedCount} migrated, ${skippedCount} skipped`);
-        
-        // Refresh page to load updated data
-        window.location.reload();
-        
-    } catch (error) {
-        console.error('❌ Migration error:', error);
-        await Swal.fire({
-            title: 'Migration Failed',
-            text: 'Error migrating ticket assignments: ' + error.message,
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
     }
-}
-
-// Panggil method ini sekali di init() untuk migrate data existing
-// await this.migrateTicketAssignments();
 
     async init() {
-    try {
-        console.log('🚀 Admin Dashboard initializing...');
-        
-        // ✅ CHECK DOM ELEMENTS FIRST
-        this.checkDOMElements();
-        
-        // Cek auth status
-        await this.checkAuth();
-        
-        // Load admin info
-        this.loadAdminInfo();
-        
-        // Setup event listeners
-        this.initializeEventListeners();
-        
-        // Load tickets
-        await this.loadTickets();
-        
-        // Setup real-time updates
-        this.setupRealTimeListener();
-        
-        console.log('✅ Admin Dashboard ready');
-        
-    } catch (error) {
-        console.error('❌ Admin Dashboard init error:', error);
-    }
-}
-
-// ✅ CHECK DOM ELEMENTS - MATCH WITH ACTUAL HTML
-checkDOMElements() {
-    const requiredElements = {
-        'ticketsTableBody': document.getElementById('ticketsTableBody'),
-        'emptyTicketsState': document.getElementById('emptyTicketsState'),
-        'totalOpenTickets': document.getElementById('totalOpenTickets'),
-        'totalInProgress': document.getElementById('totalInProgress'),
-        'totalResolved': document.getElementById('totalResolved'),
-        'totalHighPriority': document.getElementById('totalHighPriority'),
-        'myTickets': document.getElementById('myTickets')
-    };
-    
-    console.log('🏗️ DOM Elements check:', requiredElements);
-    
-    for (const [name, element] of Object.entries(requiredElements)) {
-        if (!element) {
-            console.error(`❌ Missing DOM element: ${name}`);
-        } else {
-            console.log(`✅ Found: ${name}`);
+        try {
+            console.log('🚀 Admin Dashboard initializing...');
+            
+            // ✅ CHECK DOM ELEMENTS FIRST
+            this.checkDOMElements();
+            
+            // Cek auth status
+            await this.checkAuth();
+            
+            // Load admin info
+            this.loadAdminInfo();
+            
+            // Setup event listeners
+            this.initializeEventListeners();
+            
+            // Initialize update form
+            this.initializeUpdateForm();
+            
+            // Load tickets
+            await this.loadTickets();
+            
+            // Setup real-time updates
+            this.setupRealTimeListener();
+            
+            console.log('✅ Admin Dashboard ready');
+            
+        } catch (error) {
+            console.error('❌ Admin Dashboard init error:', error);
         }
     }
-    
-    return requiredElements;
-}
+
+    // ✅ CHECK DOM ELEMENTS - MATCH WITH ACTUAL HTML
+    checkDOMElements() {
+        const requiredElements = {
+            'ticketsTableBody': document.getElementById('ticketsTableBody'),
+            'emptyTicketsState': document.getElementById('emptyTicketsState'),
+            'totalOpenTickets': document.getElementById('totalOpenTickets'),
+            'totalInProgress': document.getElementById('totalInProgress'),
+            'totalResolved': document.getElementById('totalResolved'),
+            'totalHighPriority': document.getElementById('totalHighPriority'),
+            'myTickets': document.getElementById('myTickets'),
+            'ticketModal': document.getElementById('ticketModal'),
+            'ticketModalBody': document.getElementById('ticketModalBody')
+        };
+        
+        console.log('🏗️ DOM Elements check:', requiredElements);
+        
+        for (const [name, element] of Object.entries(requiredElements)) {
+            if (!element) {
+                console.error(`❌ Missing DOM element: ${name}`);
+            } else {
+                console.log(`✅ Found: ${name}`);
+            }
+        }
+        
+        return requiredElements;
+    }
 
     async checkAuth() {
-    try {
-        // Cek dari localStorage dulu
-        this.adminUser = JSON.parse(localStorage.getItem('adminUser'));
-        
-        if (!this.adminUser) {
-            // Cek dari Firebase Auth
-            const firebaseUser = await firebaseAuthService.getCurrentUser();
-            if (firebaseUser) {
-                // Cek apakah user adalah admin
-                const adminDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
-                if (adminDoc.exists()) {
-                    this.adminUser = {
-                        uid: firebaseUser.uid,
-                        ...adminDoc.data()
-                    };
-                    localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+        try {
+            // Cek dari localStorage dulu
+            this.adminUser = JSON.parse(localStorage.getItem('adminUser'));
+            
+            if (!this.adminUser) {
+                // Cek dari Firebase Auth
+                const firebaseUser = await firebaseAuthService.getCurrentUser();
+                if (firebaseUser) {
+                    // Cek apakah user adalah admin
+                    const adminDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
+                    if (adminDoc.exists()) {
+                        this.adminUser = {
+                            uid: firebaseUser.uid,
+                            ...adminDoc.data()
+                        };
+                        localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+                    } else {
+                        window.location.href = 'login.html';
+                        return;
+                    }
                 } else {
                     window.location.href = 'login.html';
                     return;
                 }
-            } else {
-                window.location.href = 'login.html';
-                return;
             }
+
+            console.log('✅ Admin authenticated:', {
+                uid: this.adminUser.uid,
+                role: this.adminUser.role,
+                name: this.adminUser.name,
+                email: this.adminUser.email
+            });
+
+        } catch (error) {
+            console.error('Admin auth check failed:', error);
+            window.location.href = 'login.html';
         }
-
-        console.log('✅ Admin authenticated:', {
-            uid: this.adminUser.uid,
-            role: this.adminUser.role,
-            name: this.adminUser.name,
-            email: this.adminUser.email
-        });
-
-    } catch (error) {
-        console.error('Admin auth check failed:', error);
-        window.location.href = 'login.html';
     }
-}
 
     // ==================== PERMISSION SYSTEM ====================
-    
     canDeleteTicket(ticket) {
-        // Hanya super_admin atau admin yang membuat/mengassign ticket ini
-        if (this.adminUser.role === 'super_admin') {
+        return this.adminUser.role === 'Super Admin';
+    }
+
+    canStartTicket(ticket) {
+        if (ticket.status !== 'Open') return false;
+        
+        if (this.adminUser.role === 'Super Admin') {
             return true;
         }
         
-        // Admin biasa hanya bisa delete ticket yang mereka assign/buat
-        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
-                              ticket.assigned_to === this.adminUser.uid;
-        return isAssignedToMe;
+        const isUnassigned = !ticket.action_by && !ticket.assigned_to;
+        const isAssignedToMe = this.isAssignedToCurrentAdmin(ticket);
+        
+        return isUnassigned || isAssignedToMe;
+    }
+
+    canResolveTicket(ticket) {
+        if (ticket.status !== 'In Progress') return false;
+        
+        if (this.adminUser.role === 'Super Admin') {
+            return true;
+        }
+        
+        return this.isAssignedToCurrentAdmin(ticket);
     }
 
     canReopenTicket(ticket) {
-        // Hanya super_admin atau admin yang mengassign/membuat ticket ini
-        if (this.adminUser.role === 'super_admin') {
+        if (ticket.status !== 'Resolved') return false;
+        
+        if (this.adminUser.role === 'Super Admin') {
             return true;
         }
         
-        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
-                              ticket.assigned_to === this.adminUser.uid;
-        return isAssignedToMe;
+        return this.isAssignedToCurrentAdmin(ticket);
     }
 
     canTakeTicket(ticket) {
-        // Semua admin bisa take ticket yang belum diassign
         return !ticket.action_by && !ticket.assigned_to;
     }
 
     canUpdateTicket(ticket) {
-        // Semua admin bisa update semua ticket
         return true;
     }
 
-    // Di semua permission methods, tambahkan flexible assignment check
-// ✅ PERMISSION METHOD YANG DIPERBAIKI
-canStartTicket(ticket) {
-    // Hanya bisa start ticket dengan status Open
-    if (ticket.status !== 'Open') return false;
-    
-    // Super admin bisa start semua ticket Open
-    const superAdminRoles = ['superadmin', 'super_admin', 'administrator'];
-    if (superAdminRoles.includes(this.adminUser.role)) {
-        return true;
-    }
-    
-    // Admin biasa hanya bisa start ticket yang belum diassign atau yang diassign ke mereka
-    const isUnassigned = !ticket.action_by && !ticket.assigned_to;
-    const isAssignedToMe = 
-        ticket.action_by === this.adminUser.uid || 
-        ticket.assigned_to === this.adminUser.uid;
-    
-    return isUnassigned || isAssignedToMe;
-}
-
-canResolveTicket(ticket) {
-    // Hanya bisa resolve ticket dengan status In Progress
-    if (ticket.status !== 'In Progress') return false;
-    
-    // Super admin bisa resolve semua ticket In Progress
-    const superAdminRoles = ['superadmin', 'super_admin', 'administrator'];
-    if (superAdminRoles.includes(this.adminUser.role)) {
-        return true;
-    }
-    
-    // Admin biasa hanya bisa resolve ticket yang diassign ke mereka
-    const isAssignedToMe = 
-        ticket.action_by === this.adminUser.uid || 
-        ticket.assigned_to === this.adminUser.uid;
-    
-    return isAssignedToMe;
-}
-
-canReopenTicket(ticket) {
-    // Hanya bisa reopen ticket dengan status Resolved
-    if (ticket.status !== 'Resolved') return false;
-    
-    // Super admin bisa reopen semua ticket Resolved
-    const superAdminRoles = ['superadmin', 'super_admin', 'administrator'];
-    if (superAdminRoles.includes(this.adminUser.role)) {
-        return true;
-    }
-    
-    // Admin biasa hanya bisa reopen ticket yang sebelumnya diassign ke mereka
-    const wasAssignedToMe = 
-        ticket.action_by === this.adminUser.uid || 
-        ticket.assigned_to === this.adminUser.uid;
-    
-    return wasAssignedToMe;
-}
-
-    canResolveTicket(ticket) {
-        // Hanya admin yang mengassign/membuat ticket ini yang bisa resolve
-        const isAssignedToMe = ticket.action_by === this.adminUser.uid || 
-                              ticket.assigned_to === this.adminUser.uid;
-        return isAssignedToMe;
+    // ✅ HELPER METHOD UNTUK CHECK ASSIGNMENT (FLEXIBLE)
+    isAssignedToCurrentAdmin(ticket) {
+        // Check by UID (format baru)
+        if (ticket.action_by === this.adminUser.uid || ticket.assigned_to === this.adminUser.uid) {
+            return true;
+        }
+        
+        // Check by name (format lama - compatibility)
+        if (this.adminUser.name && 
+            (ticket.action_by === this.adminUser.name || ticket.assigned_to === this.adminUser.name)) {
+            return true;
+        }
+        
+        // Check by email (fallback)
+        if (this.adminUser.email && 
+            (ticket.action_by === this.adminUser.email || ticket.assigned_to === this.adminUser.email)) {
+            return true;
+        }
+        
+        return false;
     }
 
-    // Method untuk check permissions
+    // ✅ METHOD UNTUK CHECK PERMISSIONS
     checkPermissions(ticket) {
         return {
             canDelete: this.canDeleteTicket(ticket),
@@ -393,9 +366,8 @@ canReopenTicket(ticket) {
             canUpdate: this.canUpdateTicket(ticket),
             canStart: this.canStartTicket(ticket),
             canResolve: this.canResolveTicket(ticket),
-            isSuperAdmin: this.adminUser.role === 'super_admin',
-            isTicketOwner: ticket.action_by === this.adminUser.uid || 
-                          ticket.assigned_to === this.adminUser.uid
+            isSuperAdmin: this.adminUser.role === 'Super Admin',
+            isTicketOwner: this.isAssignedToCurrentAdmin(ticket)
         };
     }
 
@@ -411,7 +383,61 @@ canReopenTicket(ticket) {
         }
     }
 
+    // ==================== METHOD UNTUK GET ADMIN INFO ====================
+    async getAdminInfo(adminUid) {
+        try {
+            if (!adminUid) return null;
+            
+            // Cek cache dulu
+            if (window.adminCache && window.adminCache[adminUid]) {
+                return window.adminCache[adminUid];
+            }
+            
+            const adminDoc = await getDoc(doc(this.db, "admins", adminUid));
+            if (adminDoc.exists()) {
+                const adminData = adminDoc.data();
+                const adminInfo = {
+                    uid: adminUid,
+                    name: adminData.name || 'Unknown Admin',
+                    email: adminData.email || 'No Email',
+                    role: adminData.role || 'Admin'
+                };
+                
+                // Simpan ke cache
+                if (!window.adminCache) window.adminCache = {};
+                window.adminCache[adminUid] = adminInfo;
+                
+                return adminInfo;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Error getting admin info:', error);
+            return null;
+        }
+    }
+
+    async getAssignedAdminInfo(ticket) {
+        try {
+            const actionByInfo = ticket.action_by ? await this.getAdminInfo(ticket.action_by) : null;
+            const assignedToInfo = ticket.assigned_to ? await this.getAdminInfo(ticket.assigned_to) : null;
+            
+            return {
+                actionBy: actionByInfo,
+                assignedTo: assignedToInfo
+            };
+        } catch (error) {
+            console.error('Error getting assigned admin info:', error);
+            return {
+                actionBy: null,
+                assignedTo: null
+            };
+        }
+    }
+
     initializeEventListeners() {
+        console.log('🔧 Initializing event listeners...');
+        
         // Logout
         const logoutBtn = document.getElementById('adminLogoutBtn');
         if (logoutBtn) {
@@ -442,14 +468,6 @@ canReopenTicket(ticket) {
             });
         }
 
-        // Search functionality
-        const searchInput = document.getElementById('searchTickets');
-        if (searchInput) {
-            searchInput.addEventListener('input', (e) => {
-                this.handleSearch(e.target.value);
-            });
-        }
-
         // Modal close
         const closeModalBtn = document.getElementById('closeTicketModal');
         if (closeModalBtn) {
@@ -468,18 +486,10 @@ canReopenTicket(ticket) {
             });
         }
 
-        // ✅ EVENT DELEGATION YANG DIPERBAIKI
+        // ✅ EVENT DELEGATION UNTUK TICKET ACTIONS
         const tableBody = document.getElementById('ticketsTableBody');
         if (tableBody) {
             tableBody.addEventListener('click', this.handleTableClick);
-        }
-
-        // Refresh button
-        const refreshBtn = document.getElementById('refreshTickets');
-        if (refreshBtn) {
-            refreshBtn.addEventListener('click', () => {
-                this.loadTickets();
-            });
         }
 
         // Export button
@@ -489,38 +499,93 @@ canReopenTicket(ticket) {
                 this.handleExport();
             });
         }
+
+        console.log('✅ All event listeners initialized');
     }
 
-    // ✅ METHOD HANDLE TABLE CLICK YANG DIPERBAIKI DENGAN PERMISSION
+    // ✅ INITIALIZE UPDATE FORM
+    initializeUpdateForm() {
+        const updateForm = document.getElementById('updateTicketForm');
+        if (updateForm) {
+            updateForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (this.currentUpdatingTicketId) {
+                    this.handleTicketUpdate(this.currentUpdatingTicketId);
+                }
+            });
+            console.log('✅ Update form event listener added');
+        } else {
+            console.warn('⚠️ Update form not found, will create dynamically');
+        }
+    }
+
+    // ✅ METHOD HANDLE TABLE CLICK
     handleTableClick(e) {
-        const button = e.target.closest('.btn-action');
-        if (!button) return;
-
-        const actionContainer = e.target.closest('.action-buttons');
-        const ticketId = actionContainer?.dataset.ticketId;
-        const action = button.dataset.action;
-
-        if (!ticketId) {
-            console.log('❌ No ticket ID found');
+        console.log('🖱️ Table clicked:', e.target);
+        console.log('🔍 Element details:', {
+            tagName: e.target.tagName,
+            className: e.target.className,
+            parentClass: e.target.parentElement?.className
+        });
+        
+        // Cari button action terdekat
+        let button = e.target.closest('.btn-action');
+        
+        // Jika tidak ditemukan, mungkin user klik icon di dalam button
+        if (!button && e.target.classList.contains('fa-eye')) {
+            button = e.target.closest('button');
+        }
+        
+        if (!button) {
+            console.log('❌ No action button found');
             return;
         }
 
-        console.log('🔄 Action clicked:', { action, ticketId });
+        const action = button.dataset.action;
+        console.log('🎯 Action detected:', action);
+
+        // Cari container action buttons
+        const actionContainer = button.closest('.action-buttons');
+        const ticketId = actionContainer?.dataset.ticketId;
+
+        console.log('🔍 Action details:', { 
+            action: action,
+            ticketId: ticketId,
+            hasActionContainer: !!actionContainer,
+            containerHTML: actionContainer?.outerHTML
+        });
+
+        if (!ticketId) {
+            console.error('❌ No ticket ID found in data attribute');
+            return;
+        }
 
         const ticket = this.tickets.find(t => t.id === ticketId);
         if (!ticket) {
-            console.log('❌ Ticket not found');
+            console.error('❌ Ticket not found in local data:', ticketId);
+            console.log('📋 Available tickets:', this.tickets.map(t => t.id));
             return;
         }
 
+        console.log('🎫 Found ticket:', {
+            code: ticket.code,
+            status: ticket.status,
+            action_by: ticket.action_by,
+            assigned_to: ticket.assigned_to
+        });
+
         // Check permissions sebelum eksekusi action
         const permissions = this.checkPermissions(ticket);
+        console.log('🔐 Permissions:', permissions);
 
+        // Eksekusi action berdasarkan jenis
         switch (action) {
             case 'view':
+                console.log('👀 View ticket clicked:', ticketId);
                 this.viewTicket(ticketId);
                 break;
             case 'start':
+                console.log('🚀 Start ticket clicked:', ticketId);
                 if (permissions.canStart) {
                     this.updateTicketStatus(ticketId, 'In Progress');
                 } else {
@@ -528,6 +593,7 @@ canReopenTicket(ticket) {
                 }
                 break;
             case 'resolve':
+                console.log('✅ Resolve ticket clicked:', ticketId);
                 if (permissions.canResolve) {
                     this.updateTicketStatus(ticketId, 'Resolved');
                 } else {
@@ -535,6 +601,7 @@ canReopenTicket(ticket) {
                 }
                 break;
             case 'reopen':
+                console.log('🔁 Reopen ticket clicked:', ticketId);
                 if (permissions.canReopen) {
                     this.updateTicketStatus(ticketId, 'Open');
                 } else {
@@ -542,6 +609,7 @@ canReopenTicket(ticket) {
                 }
                 break;
             case 'delete':
+                console.log('🗑️ Delete ticket clicked:', ticketId);
                 if (permissions.canDelete) {
                     this.deleteTicket(ticketId);
                 } else {
@@ -549,6 +617,7 @@ canReopenTicket(ticket) {
                 }
                 break;
             case 'take':
+                console.log('👋 Take ticket clicked:', ticketId);
                 if (permissions.canTake) {
                     this.takeTicket(ticketId);
                 } else {
@@ -556,14 +625,23 @@ canReopenTicket(ticket) {
                 }
                 break;
             default:
-                console.log('❌ Unknown action:', action);
+                console.error('❌ Unknown action:', action);
         }
     }
 
     async showPermissionError(action) {
+        const roleName = this.adminUser.role;
+        
+        let message = '';
+        if (action.includes('delete')) {
+            message = `Only Super Admin can ${action}. Your role (${roleName}) does not have delete permission.`;
+        } else {
+            message = `You don't have permission to ${action}. Please contact Super Admin if you need this access.`;
+        }
+        
         await Swal.fire({
             title: 'Permission Denied',
-            text: `You don't have permission to ${action}. Only the assigned admin or super admin can perform this action.`,
+            text: message,
             icon: 'error',
             confirmButtonColor: '#ef070a'
         });
@@ -571,7 +649,6 @@ canReopenTicket(ticket) {
 
     async handleManageTeam(e) {
         e.preventDefault();
-        console.log('Manage Team clicked...');
         window.location.href = 'manage-team.html';
     }
 
@@ -589,31 +666,23 @@ canReopenTicket(ticket) {
 
         if (result.isConfirmed) {
             try {
-                // Logout dari Firebase
                 await firebaseAuthService.logout();
             } catch (error) {
                 console.log('Firebase logout:', error.message);
             }
             
-            // Hapus data localStorage
             localStorage.removeItem('adminUser');
-            
             window.location.href = 'login.html';
         }
     }
 
     setupRealTimeListener() {
         try {
-            if (!this.db) {
-                console.error('❌ Cannot setup real-time listener: db not initialized');
-                return;
-            }
-            
             const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
             
             this.unsubscribe = onSnapshot(q, (snapshot) => {
                 console.log('🔄 Real-time update: tickets changed');
-                this.loadTickets(); // Auto-refresh
+                this.loadTickets();
             });
             
             console.log('✅ Real-time listener activated');
@@ -622,121 +691,45 @@ canReopenTicket(ticket) {
         }
     }
 
-// ✅ LOAD TICKETS - DEEP DEBUG VERSION
-async loadTickets() {
-    try {
-        console.log('🔄 Loading tickets...');
-        
-        const q = query(
-            collection(this.db, "tickets"), 
-            orderBy("created_at", "desc")
-        );
+    // ✅ LOAD TICKETS
+    async loadTickets() {
+        try {
+            console.log('🔄 Loading tickets...');
+            
+            const q = query(
+                collection(this.db, "tickets"), 
+                orderBy("created_at", "desc")
+            );
 
-        const querySnapshot = await getDocs(q);
-        const allTickets = [];
-        
-        console.log('📥 Firestore query result:', querySnapshot.size, 'documents');
-        
-        querySnapshot.forEach((doc) => {
-            try {
-                const data = doc.data();
-                const ticket = this.normalizeTicketData(doc.id, data);
-                allTickets.push(ticket);
-                
-                // ✅ LOG SETIAP TICKET UNTUK DEBUG
-                console.log(`📄 ${ticket.code}:`, {
-                    status: ticket.status,
-                    priority: ticket.priority,
-                    action_by: ticket.action_by,
-                    assigned_to: ticket.assigned_to
-                });
-                
-            } catch (error) {
-                console.error(`❌ Error processing ticket ${doc.id}:`, error);
-            }
-        });
+            const querySnapshot = await getDocs(q);
+            const allTickets = [];
+            
+            querySnapshot.forEach((doc) => {
+                try {
+                    const data = doc.data();
+                    const ticket = this.normalizeTicketData(doc.id, data);
+                    allTickets.push(ticket);
+                } catch (error) {
+                    console.error(`❌ Error processing ticket ${doc.id}:`, error);
+                }
+            });
 
-        console.log('📋 All tickets count:', allTickets.length);
-        
-        // ✅ TEMPORARY: TAMPILKAN SEMUA TICKET TANPA FILTER
-        this.tickets = allTickets;
-        this.filteredTickets = [...this.tickets];
-        
-        console.log('🎯 Final tickets for display:', this.tickets.length);
-        
-        // ✅ LOG BREAKDOWN STATUS
-        const statusBreakdown = {
-            Open: this.tickets.filter(t => t.status === 'Open').length,
-            'In Progress': this.tickets.filter(t => t.status === 'In Progress').length,
-            Resolved: this.tickets.filter(t => t.status === 'Resolved').length
-        };
-        console.log('📊 Status breakdown:', statusBreakdown);
-        
-        this.updateGlobalTicketsData();
-        this.renderTickets();
-        this.updateStats();
-        
-    } catch (error) {
-        console.error('❌ Error loading tickets:', error);
-        this.showError('Failed to load tickets: ' + error.message);
+            this.tickets = allTickets;
+            this.filteredTickets = [...this.tickets];
+            
+            this.updateGlobalTicketsData();
+            this.renderTickets();
+            this.updateStats();
+            
+        } catch (error) {
+            console.error('❌ Error loading tickets:', error);
+            this.showError('Failed to load tickets: ' + error.message);
+        }
     }
-}
 
-// ✅ METHOD UNTUK MENENTUKAN TICKET RELEVAN - FIXED VERSION
-isTicketRelevantForAdmin(ticket) {
-    console.log('🔍 Checking ticket relevance:', {
-        ticketCode: ticket.code,
-        adminRole: this.adminUser?.role,
-        adminUID: this.adminUser?.uid,
-        adminName: this.adminUser?.name,
-        ticketActionBy: ticket.action_by,
-        ticketAssignedTo: ticket.assigned_to
-    });
-
-    // ✅ SUPER ADMIN: Bisa melihat SEMUA ticket
-    const superAdminRoles = ['superadmin', 'super_admin', 'administrator'];
-    if (superAdminRoles.includes(this.adminUser?.role?.toLowerCase())) {
-        console.log('   ✅ SUPER ADMIN - Showing ALL tickets');
-        return true;
-    }
-    
-    // ✅ ADMIN BIASA: Handle berbagai format assignment
-    const isUnassigned = !ticket.action_by && !ticket.assigned_to;
-    
-    // ✅ FLEXIBLE ASSIGNMENT CHECK: Support UID dan nama
-    let isAssignedToMe = false;
-    
-    // Check by UID (format baru)
-    if (ticket.action_by === this.adminUser.uid || ticket.assigned_to === this.adminUser.uid) {
-        isAssignedToMe = true;
-        console.log('   ✅ Assigned to me (by UID)');
-    }
-    // Check by name (format lama - untuk data existing)
-    else if (this.adminUser.name && 
-             (ticket.action_by === this.adminUser.name || ticket.assigned_to === this.adminUser.name)) {
-        isAssignedToMe = true;
-        console.log('   ✅ Assigned to me (by name)');
-    }
-    // Check by email (fallback)
-    else if (this.adminUser.email && 
-             (ticket.action_by === this.adminUser.email || ticket.assigned_to === this.adminUser.email)) {
-        isAssignedToMe = true;
-        console.log('   ✅ Assigned to me (by email)');
-    }
-    
-    const isRelevant = isUnassigned || isAssignedToMe;
-    
-    console.log('   🔍 Regular admin - Relevant:', isRelevant, {
-        isUnassigned,
-        isAssignedToMe
-    });
-    
-    return isRelevant;
-}
-    // ✅ NORMALIZE TICKET DATA YANG DIPERBAIKI
+    // ✅ NORMALIZE TICKET DATA
     normalizeTicketData(id, data) {
         try {
-            // Handle Firestore timestamps
             const created_at = data.created_at?.toDate ? 
                 data.created_at.toDate().toISOString() : 
                 (data.created_at || new Date().toISOString());
@@ -769,7 +762,6 @@ isTicketRelevantForAdmin(ticket) {
             };
         } catch (error) {
             console.error(`❌ Error normalizing ticket ${id}:`, error);
-            // Return minimal valid ticket data
             return {
                 id: id || 'error',
                 code: 'ERROR',
@@ -795,38 +787,23 @@ isTicketRelevantForAdmin(ticket) {
         }
     }
 
-   // ✅ UPDATE GLOBAL TICKETS DATA YANG DIPERBAIKI
-updateGlobalTicketsData() {
-    try {
-        console.log('🔄 Updating global tickets data...');
-        
-        // ✅ GUNAKAN DATA LOKAL YANG SUDAH DINORMALISASI
-        const validTickets = this.tickets.filter(ticket => 
-            ticket && 
-            typeof ticket === 'object' && 
-            ticket.id && 
-            ticket.code
-        );
+    updateGlobalTicketsData() {
+        try {
+            const validTickets = this.tickets.filter(ticket => 
+                ticket && typeof ticket === 'object' && ticket.id && ticket.code
+            );
 
-        console.log(`📊 Sending ${validTickets.length} valid tickets to export module`);
-        
-        // Update global data untuk export.js
-        if (typeof window.updateAllTickets === 'function') {
-            window.updateAllTickets(validTickets);
-        } else {
-            console.warn('⚠️ window.updateAllTickets not available');
+            if (typeof window.updateAllTickets === 'function') {
+                window.updateAllTickets(validTickets);
+            }
+            
+            if (!window.adminData) window.adminData = {};
+            window.adminData.tickets = validTickets;
+            
+        } catch (error) {
+            console.error('❌ Error updating global tickets data:', error);
         }
-        
-        // ✅ UPDATE JUGA UNTUK ADMIN DASHBOARD REFERENCE
-        if (!window.adminData) {
-            window.adminData = {};
-        }
-        window.adminData.tickets = validTickets;
-        
-    } catch (error) {
-        console.error('❌ Error updating global tickets data:', error);
     }
-}
 
     filterTickets() {
         const statusFilter = document.getElementById('statusFilter');
@@ -845,158 +822,163 @@ updateGlobalTicketsData() {
         this.updateStats();
     }
 
-    handleSearch(searchTerm) {
-        if (!searchTerm) {
-            this.filteredTickets = [...this.tickets];
-            this.filterTickets();
+    // ✅ RENDER TICKETS
+    renderTickets() {
+        const tableBody = document.getElementById('ticketsTableBody');
+        const emptyState = document.getElementById('emptyTicketsState');
+
+        if (!tableBody || !emptyState) {
+            console.error('❌ Required DOM elements not found');
             return;
         }
 
-        const term = searchTerm.toLowerCase();
-        this.filteredTickets = this.tickets.filter(ticket => 
-            (ticket.code && ticket.code.toLowerCase().includes(term)) ||
-            (ticket.subject && ticket.subject.toLowerCase().includes(term)) ||
-            (ticket.user_name && ticket.user_name.toLowerCase().includes(term)) ||
-            (ticket.user_email && ticket.user_email.toLowerCase().includes(term)) ||
-            (ticket.user_department && ticket.user_department.toLowerCase().includes(term)) ||
-            (ticket.location && ticket.location.toLowerCase().includes(term)) ||
-            (ticket.device && ticket.device.toLowerCase().includes(term))
-        );
+        if (this.filteredTickets.length === 0) {
+            tableBody.innerHTML = '';
+            emptyState.style.display = 'block';
+            return;
+        }
 
-        this.renderTickets();
-    }
+        emptyState.style.display = 'none';
 
-    renderTickets() {
-    const tableBody = document.getElementById('ticketsTableBody');
-    const emptyState = document.getElementById('emptyTicketsState');
+        const ticketsHtml = this.filteredTickets.map(ticket => {
+            const permissions = this.checkPermissions(ticket);
+            
+            console.log(`🎫 Rendering ticket ${ticket.id}:`, {
+                code: ticket.code,
+                status: ticket.status
+            });
+            
+            // Tentukan action buttons berdasarkan status dan permissions
+            let actionButtons = '';
+            
+            // ✅ VIEW BUTTON - SELALU TERSEDIA
+            actionButtons += `
+                <button class="btn-action btn-view" data-action="view" title="View Ticket Details">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            `;
+            
+            // Take Ticket button
+            if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+                actionButtons += `
+                    <button class="btn-action btn-take" data-action="take" title="Take this ticket">
+                        <i class="fas fa-hand-paper"></i> Take
+                    </button>
+                `;
+            }
+            
+            // Action buttons berdasarkan status
+            if (ticket.status === 'Open') {
+                if (permissions.canStart) {
+                    actionButtons += `
+                        <button class="btn-action btn-edit" data-action="start" title="Start Working on this ticket">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                    `;
+                }
+            } else if (ticket.status === 'In Progress') {
+                if (permissions.canResolve) {
+                    actionButtons += `
+                        <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
+                            <i class="fas fa-check"></i> Resolve
+                        </button>
+                    `;
+                }
+            } else if (ticket.status === 'Resolved') {
+                if (permissions.canReopen) {
+                    actionButtons += `
+                        <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
+                            <i class="fas fa-redo"></i> Reopen
+                        </button>
+                    `;
+                }
+            }
+            
+            // Delete button
+            if (permissions.canDelete) {
+                actionButtons += `
+                    <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                `;
+            }
 
-    if (!tableBody || !emptyState) {
-        console.error('Required DOM elements not found');
-        return;
-    }
+            return `
+                <tr>
+                    <td><strong>${ticket.code || 'N/A'}</strong></td>
+                    <td>${ticket.subject || 'No Subject'}</td>
+                    <td>
+                        <div>${ticket.user_name || 'Unknown'}</div>
+                        <small class="text-muted">${ticket.user_email || 'No Email'}</small>
+                    </td>
+                    <td>${ticket.user_department || 'N/A'}</td>
+                    <td>${ticket.location || 'N/A'}</td>
+                    <td>
+                        <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+                            ${ticket.priority || 'Medium'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                            ${ticket.status || 'Open'}
+                        </span>
+                    </td>
+                    <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}</td>
+                    <td>
+                        <div class="action-buttons" data-ticket-id="${ticket.id}">
+                            ${actionButtons}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
 
-    if (this.filteredTickets.length === 0) {
-        tableBody.innerHTML = '';
-        emptyState.style.display = 'block';
-        return;
-    }
-
-    emptyState.style.display = 'none';
-
-    const ticketsHtml = this.filteredTickets.map(ticket => {
-        const permissions = this.checkPermissions(ticket);
+        tableBody.innerHTML = ticketsHtml;
         
-        console.log(`🎫 Rendering ticket ${ticket.code}:`, {
-            status: ticket.status,
-            action_by: ticket.action_by,
-            assigned_to: ticket.assigned_to,
-            canStart: permissions.canStart,
-            canResolve: permissions.canResolve,
-            canReopen: permissions.canReopen
+        // ✅ DEBUG: Cek apakah buttons ter-render dengan benar
+        this.debugRenderedButtons();
+        
+        this.updateTableForMobile();
+    }
+
+    // ✅ METHOD UNTUK DEBUG RENDERED BUTTONS
+    debugRenderedButtons() {
+        const tableBody = document.getElementById('ticketsTableBody');
+        if (!tableBody) {
+            console.error('❌ Table body not found for debugging');
+            return;
+        }
+
+        // Cek semua action buttons yang di-render
+        const actionButtons = tableBody.querySelectorAll('.btn-action');
+        console.log(`🎯 Found ${actionButtons.length} action buttons in table`);
+
+        actionButtons.forEach((button, index) => {
+            const action = button.dataset.action;
+            const actionContainer = button.closest('.action-buttons');
+            const ticketId = actionContainer?.dataset.ticketId;
+            
+            console.log(`🔍 Button ${index + 1}:`, {
+                action: action,
+                ticketId: ticketId,
+                text: button.textContent.trim(),
+                hasDataAction: !!button.dataset.action,
+                hasTicketId: !!ticketId
+            });
         });
-        
-        // Tentukan action buttons berdasarkan status dan permissions
-        let actionButtons = '';
-        
-        // View button - selalu tersedia
-        actionButtons += `
-            <button class="btn-action btn-view" data-action="view" title="View Ticket Details">
-                <i class="fas fa-eye"></i> View
-            </button>
-        `;
-        
-        // Take Ticket button - hanya untuk ticket yang belum diassign
-        if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
-            actionButtons += `
-                <button class="btn-action btn-take" data-action="take" title="Take this ticket">
-                    <i class="fas fa-hand-paper"></i> Take
-                </button>
-            `;
-        }
-        
-        // ✅ PERBAIKI LOGIC ACTION BUTTONS BERDASARKAN STATUS
-        if (ticket.status === 'Open') {
-            // Start button - hanya untuk yang punya permission
-            if (permissions.canStart) {
-                actionButtons += `
-                    <button class="btn-action btn-edit" data-action="start" title="Start Working on this ticket">
-                        <i class="fas fa-play"></i> Start
-                    </button>
-                `;
-            }
-        } else if (ticket.status === 'In Progress') {
-            // Resolve button - hanya untuk yang punya permission
-            if (permissions.canResolve) {
-                actionButtons += `
-                    <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
-                        <i class="fas fa-check"></i> Resolve
-                    </button>
-                `;
-            }
-        } else if (ticket.status === 'Resolved') {
-            // Reopen button - hanya untuk yang punya permission
-            if (permissions.canReopen) {
-                actionButtons += `
-                    <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
-                        <i class="fas fa-redo"></i> Reopen
-                    </button>
-                `;
-            }
-            // ❌ HAPUS START BUTTON UNTUK TICKET YANG SUDAH RESOLVE
-        }
-        
-        // Delete button - hanya untuk yang punya permission
-        if (permissions.canDelete) {
-            actionButtons += `
-                <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
-                    <i class="fas fa-trash"></i> Delete
-                </button>
-            `;
-        }
-        
-        // Indicator jika ticket diassign ke admin lain
-        if (ticket.action_by && ticket.action_by !== this.adminUser.uid && 
-            ticket.assigned_to && ticket.assigned_to !== this.adminUser.uid) {
-            actionButtons += `
-                <span class="assigned-to-other" title="Assigned to other admin">
-                    <i class="fas fa-user-lock"></i>
-                </span>
-            `;
-        }
 
-        return `
-            <tr>
-                <td><strong>${ticket.code || 'N/A'}</strong></td>
-                <td>${ticket.subject || 'No Subject'}</td>
-                <td>
-                    <div>${ticket.user_name || 'Unknown'}</div>
-                    <small class="text-muted">${ticket.user_email || 'No Email'}</small>
-                </td>
-                <td>${ticket.user_department || 'N/A'}</td>
-                <td>${ticket.location || 'N/A'}</td>
-                <td>
-                    <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
-                        ${ticket.priority || 'Medium'}
-                    </span>
-                </td>
-                <td>
-                    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
-                        ${ticket.status || 'Open'}
-                    </span>
-                </td>
-                <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}</td>
-                <td>
-                    <div class="action-buttons" data-ticket-id="${ticket.id}">
-                        ${actionButtons}
-                    </div>
-                </td>
-            </tr>
-        `;
-    }).join('');
+        // Cek khusus view buttons
+        const viewButtons = tableBody.querySelectorAll('.btn-view');
+        console.log(`👀 Found ${viewButtons.length} view buttons`);
 
-    tableBody.innerHTML = ticketsHtml;
-    this.updateTableForMobile();
-}
+        viewButtons.forEach((button, index) => {
+            console.log(`📱 View button ${index + 1}:`, {
+                outerHTML: button.outerHTML,
+                dataset: button.dataset,
+                parentDataset: button.closest('.action-buttons')?.dataset
+            });
+        });
+    }
 
     updateTableForMobile() {
         const tableCells = document.querySelectorAll('#ticketsTableBody td');
@@ -1010,156 +992,210 @@ updateGlobalTicketsData() {
     }
 
     updateStats() {
-    const totalTickets = this.filteredTickets.length;
-    const openTickets = this.filteredTickets.filter(ticket => ticket.status === 'Open').length;
-    const inProgressTickets = this.filteredTickets.filter(ticket => ticket.status === 'In Progress').length;
-    const resolvedTickets = this.filteredTickets.filter(ticket => ticket.status === 'Resolved').length;
-    const highPriorityTickets = this.filteredTickets.filter(ticket => ticket.priority === 'High').length;
-    
-    // ✅ HITUNG MY TICKETS (ticket yang diassign ke admin ini)
-    const myTickets = this.filteredTickets.filter(ticket => 
-        ticket.action_by === this.adminUser?.uid || 
-        ticket.assigned_to === this.adminUser?.uid
-    ).length;
+        const totalTickets = this.filteredTickets.length;
+        const openTickets = this.filteredTickets.filter(ticket => ticket.status === 'Open').length;
+        const inProgressTickets = this.filteredTickets.filter(ticket => ticket.status === 'In Progress').length;
+        const resolvedTickets = this.filteredTickets.filter(ticket => ticket.status === 'Resolved').length;
+        const highPriorityTickets = this.filteredTickets.filter(ticket => ticket.priority === 'High').length;
+        const myTickets = this.filteredTickets.filter(ticket => 
+            ticket.action_by === this.adminUser?.uid || 
+            ticket.assigned_to === this.adminUser?.uid
+        ).length;
 
-    console.log('📊 Stats update:', {
-        total: totalTickets,
-        open: openTickets,
-        inProgress: inProgressTickets,
-        resolved: resolvedTickets,
-        highPriority: highPriorityTickets,
-        myTickets: myTickets
-    });
-
-    // ✅ UPDATE STATS YANG ADA DI HTML
-    this.updateElementText('totalOpenTickets', openTickets);
-    this.updateElementText('totalInProgress', inProgressTickets);
-    this.updateElementText('totalResolved', resolvedTickets);
-    this.updateElementText('totalHighPriority', highPriorityTickets);
-    this.updateElementText('myTickets', myTickets);
-    
-    // ✅ TAMPILKAN TOTAL TICKETS DI CONSOLE (karena tidak ada di HTML)
-    console.log('🎯 Total All Tickets:', totalTickets);
-    
-    // ✅ TEMPORARY: TAMPILKAN ALERT JIKA MASIH 0
-    if (totalTickets === 0) {
-        console.warn('⚠️ WARNING: Total tickets is 0, but expected 11-12');
-        this.showStatsAlert(totalTickets, openTickets, inProgressTickets, resolvedTickets, highPriorityTickets, myTickets);
+        this.updateElementText('totalOpenTickets', openTickets);
+        this.updateElementText('totalInProgress', inProgressTickets);
+        this.updateElementText('totalResolved', resolvedTickets);
+        this.updateElementText('totalHighPriority', highPriorityTickets);
+        this.updateElementText('myTickets', myTickets);
     }
-}
 
-updateElementText(elementId, value) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        element.textContent = value;
-        console.log(`✅ Updated ${elementId}: ${value}`);
-    } else {
-        console.warn(`⚠️ Element ${elementId} not found in HTML`);
+    updateElementText(elementId, value) {
+        const element = document.getElementById(elementId);
+        if (element) {
+            element.textContent = value;
+        }
     }
-}
 
-// ✅ SHOW STATS ALERT FOR DEBUGGING
-showStatsAlert(total, open, inProgress, resolved, highPriority, myTickets) {
-    setTimeout(() => {
-        Swal.fire({
-            title: 'Stats Debug',
-            html: `
-                <div style="text-align: left; font-size: 14px;">
-                    <p><strong>Total Tickets (console only):</strong> ${total}</p>
-                    <p><strong>Open Tickets:</strong> ${open}</p>
-                    <p><strong>In Progress:</strong> ${inProgress}</p>
-                    <p><strong>Resolved:</strong> ${resolved}</p>
-                    <p><strong>High Priority:</strong> ${highPriority}</p>
-                    <p><strong>My Tickets:</strong> ${myTickets}</p>
-                    <hr>
-                    <p><em>Note: "Total Tickets" not displayed in UI</em></p>
-                </div>
-            `,
-            icon: total === 0 ? 'error' : 'info',
-            confirmButtonText: 'OK'
-        });
-    }, 1500);
-}
+    // ✅ METHOD UPDATE TICKET STATUS
+    async updateTicketStatus(ticketId, newStatus) {
+        try {
+            console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+            
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const ticket = this.tickets.find(t => t.id === ticketId);
+            
+            if (!ticket) {
+                throw new Error('Ticket not found');
+            }
 
-    // ✅ METHOD UPDATE TICKET STATUS - COMPLETE VERSION
-async updateTicketStatus(ticketId, newStatus) {
-    try {
-        console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
-        
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        const ticket = this.tickets.find(t => t.id === ticketId);
-        
-        if (!ticket) {
-            throw new Error('Ticket not found');
+            const permissions = this.checkPermissions(ticket);
+            let hasPermission = false;
+
+            switch (newStatus) {
+                case 'In Progress':
+                    hasPermission = permissions.canStart;
+                    break;
+                case 'Resolved':
+                    hasPermission = permissions.canResolve;
+                    break;
+                case 'Open':
+                    hasPermission = permissions.canReopen;
+                    break;
+                default:
+                    hasPermission = permissions.canUpdate;
+            }
+
+            if (!hasPermission) {
+                await this.showPermissionError(`change status to ${newStatus}`);
+                return;
+            }
+
+            const updateData = {
+                status: newStatus,
+                last_updated: serverTimestamp()
+            };
+
+            if (newStatus === 'In Progress') {
+                updateData.action_by = this.adminUser.uid;
+                updateData.assigned_to = this.adminUser.uid;
+                updateData.assigned_name = this.adminUser.name || this.adminUser.email;
+            }
+
+            // Add to updates array
+            const updateNote = {
+                status: newStatus,
+                notes: `Status changed to ${newStatus} by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
+            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+
+            // Update QA field
+            if (newStatus === 'Resolved') {
+                updateData.qa = 'Finish';
+            } else if (newStatus === 'Open') {
+                updateData.qa = 'Open';
+            } else if (newStatus === 'In Progress') {
+                updateData.qa = 'In Progress';
+            }
+
+            await updateDoc(ticketRef, updateData);
+            
+            await Swal.fire({
+                title: 'Success!',
+                text: `Ticket status updated to ${newStatus}`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            await this.loadTickets();
+
+        } catch (error) {
+            console.error('❌ Error updating ticket status:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to update ticket status: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
         }
-
-        const updateData = {
-            status: newStatus,
-            last_updated: serverTimestamp()
-        };
-
-        // ✅ GUNAKAN UID KONSISTEN
-        if (newStatus === 'In Progress') {
-            updateData.action_by = this.adminUser.uid; // ✅ UID
-            updateData.assigned_to = this.adminUser.uid; // ✅ UID
-            updateData.assigned_name = this.adminUser.name || this.adminUser.email; // ✅ NAMA
-        }
-
-        // Add to updates array
-        const updateNote = {
-            status: newStatus,
-            notes: `Status changed to ${newStatus} by ${this.adminUser.name || this.adminUser.email}`,
-            timestamp: new Date().toISOString(),
-            updatedBy: this.adminUser.name || this.adminUser.email
-        };
-
-        // Get current ticket data to preserve updates array
-        const ticketDoc = await getDoc(ticketRef);
-        const currentData = ticketDoc.data();
-        
-        updateData.updates = arrayUnion(updateNote);
-
-        // Jika resolve, set qa juga
-        if (newStatus === 'Resolved') {
-            updateData.qa = 'Finish';
-        } else if (newStatus === 'Open') {
-            updateData.qa = 'Open';
-        }
-
-        await updateDoc(ticketRef, updateData);
-        
-        console.log(`✅ Ticket ${ticketId} updated to ${newStatus}`);
-        
-        await Swal.fire({
-            title: 'Success!',
-            text: `Ticket status updated to ${newStatus}`,
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-        });
-
-    } catch (error) {
-        console.error('❌ Error updating ticket status:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: 'Failed to update ticket status: ' + error.message,
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
     }
-}
+
+    // ✅ METHOD TAKE TICKET
+    async takeTicket(ticketId) {
+        try {
+            console.log(`👋 Taking ticket: ${ticketId}`);
+            
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const ticket = this.tickets.find(t => t.id === ticketId);
+            
+            if (!ticket) {
+                throw new Error('Ticket not found');
+            }
+
+            const permissions = this.checkPermissions(ticket);
+            if (!permissions.canTake) {
+                await this.showPermissionError('take this ticket');
+                return;
+            }
+
+            const updateData = {
+                action_by: this.adminUser.uid,
+                assigned_to: this.adminUser.uid,
+                assigned_name: this.adminUser.name || this.adminUser.email,
+                status: 'In Progress',
+                last_updated: serverTimestamp()
+            };
+
+            // Add to updates array
+            const updateNote = {
+                status: 'In Progress',
+                notes: `Ticket taken by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
+            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+
+            await updateDoc(ticketRef, updateData);
+            
+            await Swal.fire({
+                title: 'Success!',
+                text: 'Ticket has been assigned to you',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            await this.loadTickets();
+
+        } catch (error) {
+            console.error('❌ Error taking ticket:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to take ticket: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
+    }
 
     // ✅ METHOD VIEW TICKET
     async viewTicket(ticketId) {
         try {
             console.log(`👀 Viewing ticket: ${ticketId}`);
             
+            // Cek dulu di local data
+            const localTicket = this.tickets.find(t => t.id === ticketId);
+            if (!localTicket) {
+                console.error('❌ Ticket not found in local data');
+                await Swal.fire({
+                    title: 'Error!',
+                    text: 'Ticket not found in local data',
+                    icon: 'error',
+                    confirmButtonColor: '#ef070a'
+                });
+                return;
+            }
+
+            console.log('📋 Local ticket data:', localTicket);
+
+            // Ambil data terbaru dari Firestore
             const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
             
             if (!ticketDoc.exists()) {
+                console.error('❌ Ticket not found in Firestore');
                 await Swal.fire({
                     title: 'Error!',
-                    text: 'Ticket not found',
+                    text: 'Ticket not found in database',
                     icon: 'error',
                     confirmButtonColor: '#ef070a'
                 });
@@ -1167,15 +1203,16 @@ async updateTicketStatus(ticketId, newStatus) {
             }
 
             const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+            console.log('🎫 Ticket data from Firestore:', ticket);
             
             // Show ticket details in modal
-            this.showTicketModal(ticket);
+            await this.showTicketModal(ticket);
             
         } catch (error) {
             console.error('❌ Error viewing ticket:', error);
             await Swal.fire({
                 title: 'Error!',
-                text: 'Failed to load ticket details',
+                text: 'Failed to load ticket details: ' + error.message,
                 icon: 'error',
                 confirmButtonColor: '#ef070a'
             });
@@ -1206,11 +1243,7 @@ async updateTicketStatus(ticketId, newStatus) {
             });
 
             if (result.isConfirmed) {
-                console.log(`🗑️ Deleting ticket: ${ticketId}`);
-                
                 await deleteDoc(doc(this.db, "tickets", ticketId));
-                
-                console.log(`✅ Ticket ${ticketId} deleted`);
                 
                 await Swal.fire({
                     title: 'Deleted!',
@@ -1219,6 +1252,8 @@ async updateTicketStatus(ticketId, newStatus) {
                     timer: 2000,
                     showConfirmButton: false
                 });
+                
+                await this.loadTickets();
             }
         } catch (error) {
             console.error('❌ Error deleting ticket:', error);
@@ -1231,106 +1266,307 @@ async updateTicketStatus(ticketId, newStatus) {
         }
     }
 
-    // ✅ METHOD SHOW TICKET MODAL
-    showTicketModal(ticket) {
-        const modal = document.getElementById('ticketModal');
-        const modalBody = document.getElementById('ticketModalBody');
-        
-        if (!modal || !modalBody) return;
+    // ✅ METHOD SHOW TICKET MODAL - FIXED VERSION
+    async showTicketModal(ticket) {
+        try {
+            console.log('🎫 showTicketModal called for ticket:', ticket.code);
+            
+            const modal = document.getElementById('ticketModal');
+            const modalBody = document.getElementById('ticketModalBody');
+            
+            if (!modal || !modalBody) {
+                console.error('❌ Modal elements not found');
+                await Swal.fire({
+                    title: 'Error!',
+                    text: 'Modal elements not found in page',
+                    icon: 'error'
+                });
+                return;
+            }
 
-        const permissions = this.checkPermissions(ticket);
+            console.log('🔍 Modal elements found, preparing content...');
 
-        modalBody.innerHTML = `
+            // Dapatkan info admin
+            const assignedAdmins = await this.getAssignedAdminInfo(ticket);
+            const permissions = this.checkPermissions(ticket);
+
+            console.log('👥 Assigned admins:', assignedAdmins);
+            console.log('🔐 Permissions:', permissions);
+
+            // Render content langsung
+            const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
+            modalBody.innerHTML = modalHTML;
+
+            // ✅ PERBAIKAN UTAMA: Multiple approach untuk show modal
+            console.log('🔄 Showing modal with multiple methods...');
+            
+            // Method 1: Style langsung dengan important
+            modal.style.display = 'flex !important';
+            
+            // Method 2: Tambah class show
+            modal.classList.add('show', 'active', 'visible');
+            
+            // Method 3: Force reflow multiple times
+            void modal.offsetWidth;
+            void modal.offsetHeight;
+            
+            // Method 4: Set timeout untuk memastikan render
+            setTimeout(() => {
+                modal.style.display = 'flex';
+                document.body.classList.add('modal-open', 'no-scroll');
+                
+                // Method 5: Check dan retry jika masih tidak visible
+                setTimeout(() => {
+                    const computedStyle = window.getComputedStyle(modal);
+                    console.log('📊 Final modal computed styles:', {
+                        display: computedStyle.display,
+                        opacity: computedStyle.opacity,
+                        visibility: computedStyle.visibility,
+                        zIndex: computedStyle.zIndex
+                    });
+                    
+                    if (computedStyle.display !== 'flex' && computedStyle.display !== 'block') {
+                        console.warn('⚠️ Modal still not visible, using fallback method...');
+                        // Fallback: create new modal
+                        this.createFallbackModal(ticket, assignedAdmins, permissions);
+                    }
+                }, 50);
+            }, 10);
+
+            console.log('✅ Modal show methods executed');
+
+        } catch (error) {
+            console.error('❌ Error showing modal:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to show ticket details: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
+    }
+
+    // ✅ FALLBACK METHOD JIKA MODAL UTAMA TIDAK BEKERJA
+    createFallbackModal(ticket, assignedAdmins, permissions) {
+        try {
+            console.log('🔄 Creating fallback modal...');
+            
+            // Remove existing fallback modal if any
+            const existingFallback = document.getElementById('fallbackTicketModal');
+            if (existingFallback) {
+                existingFallback.remove();
+            }
+            
+            // Create new modal
+            const fallbackModal = document.createElement('div');
+            fallbackModal.id = 'fallbackTicketModal';
+            fallbackModal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 99999;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+            `;
+            
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: white;
+                border-radius: 8px;
+                padding: 0;
+                max-width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                width: 800px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            `;
+            
+            const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
+            modalContent.innerHTML = modalHTML;
+            
+            // Add close button to fallback modal
+            const closeButton = document.createElement('button');
+            closeButton.innerHTML = '<i class="fas fa-times"></i>';
+            closeButton.style.cssText = `
+                position: absolute;
+                top: 15px;
+                right: 15px;
+                background: #ef4444;
+                color: white;
+                border: none;
+                border-radius: 50%;
+                width: 40px;
+                height: 40px;
+                cursor: pointer;
+                font-size: 1.2rem;
+                z-index: 100000;
+            `;
+            closeButton.onclick = () => {
+                fallbackModal.remove();
+                document.body.classList.remove('modal-open', 'no-scroll');
+            };
+            
+            modalContent.style.position = 'relative';
+            modalContent.appendChild(closeButton);
+            
+            fallbackModal.appendChild(modalContent);
+            document.body.appendChild(fallbackModal);
+            
+            // Close on backdrop click
+            fallbackModal.onclick = (e) => {
+                if (e.target === fallbackModal) {
+                    fallbackModal.remove();
+                    document.body.classList.remove('modal-open', 'no-scroll');
+                }
+            };
+            
+            console.log('✅ Fallback modal created');
+            
+        } catch (error) {
+            console.error('❌ Error creating fallback modal:', error);
+        }
+    }
+
+    // ✅ METHOD UNTUK GET MODAL HTML
+    getTicketModalHTML(ticket, assignedAdmins, permissions) {
+        return `
             <div class="ticket-details">
                 <div class="detail-section">
-                    <h3>Ticket Information</h3>
+                    <h3><i class="fas fa-ticket-alt"></i> Ticket Information</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <label>Ticket Code:</label>
-                            <span>${ticket.code}</span>
+                            <span>${this.escapeHtml(ticket.code)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Subject:</label>
-                            <span>${ticket.subject}</span>
+                            <span>${this.escapeHtml(ticket.subject)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Status:</label>
-                            <span class="status-badge status-${ticket.status.toLowerCase().replace(' ', '-')}">
-                                ${ticket.status}
+                            <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                                ${this.escapeHtml(ticket.status)}
                             </span>
                         </div>
                         <div class="detail-item">
                             <label>Priority:</label>
-                            <span class="priority-badge priority-${ticket.priority.toLowerCase()}">
-                                ${ticket.priority}
+                            <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+                                ${this.escapeHtml(ticket.priority)}
                             </span>
                         </div>
                     </div>
                 </div>
 
                 <div class="detail-section">
-                    <h3>User Information</h3>
+                    <h3><i class="fas fa-user"></i> User Information</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <label>Name:</label>
-                            <span>${ticket.user_name}</span>
+                            <span>${this.escapeHtml(ticket.user_name)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Email:</label>
-                            <span>${ticket.user_email}</span>
+                            <span>${this.escapeHtml(ticket.user_email)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Department:</label>
-                            <span>${ticket.user_department}</span>
+                            <span>${this.escapeHtml(ticket.user_department)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Phone:</label>
-                            <span>${ticket.user_phone || 'N/A'}</span>
+                            <span>${this.escapeHtml(ticket.user_phone || 'N/A')}</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="detail-section">
-                    <h3>Technical Details</h3>
+                    <h3><i class="fas fa-cogs"></i> Technical Details</h3>
                     <div class="detail-grid">
                         <div class="detail-item">
                             <label>Location:</label>
-                            <span>${ticket.location}</span>
+                            <span>${this.escapeHtml(ticket.location)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Inventory:</label>
-                            <span>${ticket.inventory}</span>
+                            <span>${this.escapeHtml(ticket.inventory)}</span>
                         </div>
                         <div class="detail-item">
                             <label>Device:</label>
-                            <span>${ticket.device}</span>
+                            <span>${this.escapeHtml(ticket.device)}</span>
                         </div>
                     </div>
                 </div>
 
                 <div class="detail-section">
-                    <h3>Problem Description</h3>
+                    <h3><i class="fas fa-comment-alt"></i> Problem Description</h3>
                     <div class="message-box">
-                        ${ticket.message}
+                        ${this.escapeHtml(ticket.message)}
                     </div>
                 </div>
 
                 ${ticket.note ? `
                 <div class="detail-section">
-                    <h3>Admin Notes</h3>
+                    <h3><i class="fas fa-sticky-note"></i> Admin Notes</h3>
                     <div class="note-box">
-                        ${ticket.note}
+                        ${this.escapeHtml(ticket.note)}
                     </div>
                 </div>
                 ` : ''}
 
                 <div class="detail-section">
-                    <h3>Assigned To</h3>
-                    <div class="detail-item">
-                        <label>Action By:</label>
-                        <span>${ticket.action_by || 'Not assigned'}</span>
+                    <h3><i class="fas fa-users"></i> Assignment Information</h3>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label>Action By:</label>
+                            <span>
+                                ${assignedAdmins.actionBy ? 
+                                    `${this.escapeHtml(assignedAdmins.actionBy.name)} (${this.escapeHtml(assignedAdmins.actionBy.email)})` : 
+                                    'Not assigned'}
+                            </span>
+                        </div>
+                        <div class="detail-item">
+                            <label>Assigned To:</label>
+                            <span>
+                                ${assignedAdmins.assignedTo ? 
+                                    `${this.escapeHtml(assignedAdmins.assignedTo.name)} (${this.escapeHtml(assignedAdmins.assignedTo.email)})` : 
+                                    'Not assigned'}
+                            </span>
+                        </div>
+                        ${this.adminUser.role ? `
+                        <div class="detail-item">
+                            <label>Your Role:</label>
+                            <span class="role-badge">${this.escapeHtml(this.adminUser.role)}</span>
+                        </div>
+                        ` : ''}
                     </div>
                 </div>
+
+                ${ticket.updates && ticket.updates.length > 0 ? `
+                <div class="detail-section">
+                    <h3><i class="fas fa-history"></i> Update History</h3>
+                    <div class="updates-timeline">
+                        ${ticket.updates.slice().reverse().map(update => `
+                            <div class="update-item">
+                                <div class="update-header">
+                                    <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
+                                    <span class="update-time">
+                                        ${update.timestamp ? new Date(update.timestamp).toLocaleString() : 'Unknown time'}
+                                    </span>
+                                </div>
+                                <div class="update-notes">${this.escapeHtml(update.notes || 'No notes')}</div>
+                                <div class="update-by">
+                                    By: ${this.escapeHtml(update.updatedBy || 'System')}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
 
                 <div class="modal-actions">
                     ${permissions.canUpdate ? `
@@ -1338,81 +1574,324 @@ async updateTicketStatus(ticketId, newStatus) {
                             <i class="fas fa-edit"></i> Update Ticket
                         </button>
                     ` : ''}
+                    
+                    <div class="modal-action-buttons">
+                        ${ticket.status === 'Open' && permissions.canStart ? `
+                            <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
+                                <i class="fas fa-play"></i> Start Ticket
+                            </button>
+                        ` : ''}
+                        
+                        ${ticket.status === 'In Progress' && permissions.canResolve ? `
+                            <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
+                                <i class="fas fa-check"></i> Resolve Ticket
+                            </button>
+                        ` : ''}
+                        
+                        ${ticket.status === 'Resolved' && permissions.canReopen ? `
+                            <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
+                                <i class="fas fa-redo"></i> Reopen Ticket
+                            </button>
+                        ` : ''}
+                        
+                        ${permissions.canDelete ? `
+                            <button class="btn-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')">
+                                <i class="fas fa-trash"></i> Delete Ticket
+                            </button>
+                        ` : ''}
+                    </div>
+
                     <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
                         <i class="fas fa-times"></i> Close
                     </button>
                 </div>
             </div>
         `;
+    }
 
-        modal.style.display = 'block';
+    // ✅ METHOD UNTUK ESCAPE HTML
+    escapeHtml(unsafe) {
+        if (unsafe === null || unsafe === undefined) return '';
+        return String(unsafe)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     closeTicketModal() {
+        console.log('🚪 Closing ticket modal...');
+        
         const modal = document.getElementById('ticketModal');
         if (modal) {
             modal.style.display = 'none';
+            modal.classList.remove('show', 'active', 'visible');
+            document.body.classList.remove('modal-open', 'no-scroll');
+            console.log('✅ Ticket modal closed');
+        }
+        
+        // Juga close fallback modal jika ada
+        const fallbackModal = document.getElementById('fallbackTicketModal');
+        if (fallbackModal) {
+            fallbackModal.remove();
+            console.log('✅ Fallback modal closed');
         }
     }
 
+    // ✅ METHOD UPDATE TICKET MODAL - FIXED
     async updateTicketModal(ticketId) {
-        // Implement update ticket modal logic here
-        console.log('Update ticket:', ticketId);
-        // You can implement a separate modal for updating tickets
+        try {
+            console.log('✏️ Opening update modal for ticket:', ticketId);
+            
+            const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
+            if (!ticketDoc.exists()) {
+                throw new Error('Ticket not found');
+            }
+
+            const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+            this.currentUpdatingTicketId = ticketId;
+            
+            await this.showUpdateFormModal(ticket);
+            
+        } catch (error) {
+            console.error('❌ Error opening update modal:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to open update form',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
     }
 
-    // ✅ METHOD UNTUK EXPORT INTEGRATION - PASTIKAN ADA DI ADMIN.JS
-getDisplayedTicketsForExport() {
-    try {
-        console.log('📤 Preparing tickets for export...');
-        
-        // ✅ GUNAKAN DATA YANG SUDAH DIFILTER (hanya ticket relevan untuk admin ini)
-        const exportTickets = this.filteredTickets.map(ticket => ({
-            id: ticket.id,
-            code: ticket.code,
-            subject: ticket.subject,
-            name: ticket.user_name,
-            user_email: ticket.user_email,
-            department: ticket.user_department,
-            location: ticket.location,
-            inventory: ticket.inventory,
-            device: ticket.device,
-            message: ticket.message,
-            priority: ticket.priority,
-            status_ticket: ticket.status,
-            qa: ticket.qa,
-            action_by: ticket.action_by,
-            assigned_to: ticket.assigned_to,
-            note: ticket.note,
-            user_phone: ticket.user_phone,
-            createdAt: ticket.created_at,
-            updatedAt: ticket.last_updated,
-            last_updated: ticket.last_updated
-        }));
-        
-        console.log('✅ Export data prepared:', exportTickets.length, 'relevant tickets');
-        return exportTickets;
-        
-    } catch (error) {
-        console.error('❌ Error preparing export data:', error);
-        return [];
+    // ✅ METHOD SHOW UPDATE FORM MODAL
+    async showUpdateFormModal(ticket) {
+        try {
+            let updateModal = document.getElementById('updateTicketModal');
+            
+            if (!updateModal) {
+                // Create modal jika belum ada
+                updateModal = document.createElement('div');
+                updateModal.id = 'updateTicketModal';
+                updateModal.className = 'modal';
+                updateModal.innerHTML = `
+                    <div class="modal-content" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h3>Update Ticket: ${ticket.code}</h3>
+                            <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div class="modal-body">
+                            <form id="updateTicketForm">
+                                <div class="form-group">
+                                    <label for="updateSubject">Subject:</label>
+                                    <input type="text" id="updateSubject" class="form-control" value="${this.escapeHtml(ticket.subject)}" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updatePriority">Priority:</label>
+                                    <select id="updatePriority" class="form-control" required>
+                                        <option value="Low" ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
+                                        <option value="Medium" ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="High" ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
+                                        <option value="Critical" ${ticket.priority === 'Critical' ? 'selected' : ''}>Critical</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateStatus">Status:</label>
+                                    <select id="updateStatus" class="form-control" required>
+                                        <option value="Open" ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
+                                        <option value="In Progress" ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                        <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateAdminNotes">Admin Notes:</label>
+                                    <textarea id="updateAdminNotes" class="form-control" rows="4" placeholder="Add admin notes...">${this.escapeHtml(ticket.note || '')}</textarea>
+                                </div>
+                                
+                                <div class="form-actions">
+                                    <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
+                                        <i class="fas fa-times"></i> Cancel
+                                    </button>
+                                    <button type="submit" class="btn-primary">
+                                        <i class="fas fa-save"></i> Update Ticket
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(updateModal);
+                
+                // Add form submit event
+                document.getElementById('updateTicketForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    if (this.currentUpdatingTicketId) {
+                        this.handleTicketUpdate(this.currentUpdatingTicketId);
+                    }
+                });
+            }
+            
+            // Show modal dan isi data
+            updateModal.style.display = 'flex';
+            updateModal.classList.add('show');
+            document.body.classList.add('modal-open');
+            
+            document.getElementById('updateSubject').value = ticket.subject;
+            document.getElementById('updatePriority').value = ticket.priority;
+            document.getElementById('updateStatus').value = ticket.status;
+            document.getElementById('updateAdminNotes').value = ticket.note || '';
+            
+        } catch (error) {
+            console.error('❌ Error showing update form:', error);
+            throw error;
+        }
     }
-}
 
-    // ✅ HANDLE EXPORT YANG DIPERBAIKI
+    // ✅ METHOD UNTUK HANDLE TICKET UPDATE
+    async handleTicketUpdate(ticketId) {
+        try {
+            const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            
+            // Show loading
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            submitBtn.disabled = true;
+            
+            const updateData = {
+                subject: document.getElementById('updateSubject').value,
+                priority: document.getElementById('updatePriority').value,
+                status: document.getElementById('updateStatus').value,
+                note: document.getElementById('updateAdminNotes').value,
+                last_updated: serverTimestamp()
+            };
+            
+            // Add to updates array
+            const updateNote = {
+                status: updateData.status,
+                notes: `Ticket updated by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email,
+                changes: {
+                    subject: updateData.subject,
+                    priority: updateData.priority,
+                    status: updateData.status
+                }
+            };
+            
+            // Get current updates
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
+            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+            
+            // Update QA field based on status
+            if (updateData.status === 'Resolved') {
+                updateData.qa = 'Finish';
+            } else if (updateData.status === 'Open') {
+                updateData.qa = 'Open';
+            } else if (updateData.status === 'In Progress') {
+                updateData.qa = 'In Progress';
+            }
+            
+            console.log('📝 Update data:', updateData);
+            
+            // Execute update
+            await updateDoc(ticketRef, updateData);
+            
+            // Close modal
+            this.closeUpdateModal();
+            
+            // Show success message
+            await Swal.fire({
+                title: 'Success!',
+                text: 'Ticket updated successfully',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+            
+            // Refresh data
+            await this.loadTickets();
+            
+        } catch (error) {
+            console.error('❌ Error updating ticket:', error);
+            
+            // Reset button
+            const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-save"></i> Update Ticket';
+                submitBtn.disabled = false;
+            }
+            
+            await Swal.fire({
+                title: 'Update Failed!',
+                text: 'Failed to update ticket: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
+    }
+
+    // ✅ METHOD UNTUK CLOSE UPDATE MODAL
+    closeUpdateModal() {
+        const updateModal = document.getElementById('updateTicketModal');
+        if (updateModal) {
+            updateModal.style.display = 'none';
+            updateModal.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        }
+        this.currentUpdatingTicketId = null;
+    }
+
+    // ✅ EXPORT METHODS
+    getDisplayedTicketsForExport() {
+        try {
+            const exportTickets = this.filteredTickets.map(ticket => ({
+                id: ticket.id,
+                code: ticket.code,
+                subject: ticket.subject,
+                name: ticket.user_name,
+                user_email: ticket.user_email,
+                department: ticket.user_department,
+                location: ticket.location,
+                inventory: ticket.inventory,
+                device: ticket.device,
+                message: ticket.message,
+                priority: ticket.priority,
+                status_ticket: ticket.status,
+                qa: ticket.qa,
+                action_by: ticket.action_by,
+                assigned_to: ticket.assigned_to,
+                note: ticket.note,
+                user_phone: ticket.user_phone,
+                createdAt: ticket.created_at,
+                updatedAt: ticket.last_updated
+            }));
+            
+            return exportTickets;
+            
+        } catch (error) {
+            console.error('❌ Error preparing export data:', error);
+            return [];
+        }
+    }
+
     async handleExport() {
         try {
-            console.log('🔄 Starting export process...');
-            
             const exportBtn = document.getElementById('exportTickets');
             const originalText = exportBtn.innerHTML;
             
-            // Show loading state
             exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
             exportBtn.disabled = true;
 
-            // ✅ DAPATKAN DATA UNTUK EXPORT
-            const exportData = await this.getDisplayedTicketsForExport();
+            const exportData = this.getDisplayedTicketsForExport();
             
             if (exportData.length === 0) {
                 await Swal.fire({
@@ -1424,20 +1903,15 @@ getDisplayedTicketsForExport() {
                 return;
             }
 
-            // Update global data
             if (window.updateAllTickets && typeof window.updateAllTickets === 'function') {
                 window.updateAllTickets(exportData);
             }
             
-            // Beri waktu untuk proses update data
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            // Panggil export function dari export.js
             if (typeof window.handleExportToExcel === 'function') {
-                console.log('✅ Calling export function...');
                 await window.handleExportToExcel();
             } else {
-                console.warn('⚠️ Export function not available, using fallback');
                 await this.fallbackExport(exportData);
             }
             
@@ -1450,7 +1924,6 @@ getDisplayedTicketsForExport() {
                 confirmButtonColor: '#ef070a'
             });
         } finally {
-            // Reset button state
             const exportBtn = document.getElementById('exportTickets');
             if (exportBtn) {
                 exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
@@ -1459,7 +1932,6 @@ getDisplayedTicketsForExport() {
         }
     }
 
-    // FALLBACK EXPORT
     async fallbackExport(exportData) {
         const headers = ['Code', 'Subject', 'User', 'Department', 'Location', 'Priority', 'Status', 'Created Date'];
         const csvData = exportData.map(ticket => [
@@ -1497,17 +1969,14 @@ getDisplayedTicketsForExport() {
     }
 
     showError(message) {
-        // Implementasi showError
         console.error('Error:', message);
     }
 
-    // Cleanup ketika instance dihancurkan
     destroy() {
         if (this.unsubscribe) {
             this.unsubscribe();
         }
         
-        // Remove event listeners
         const tableBody = document.getElementById('ticketsTableBody');
         if (tableBody) {
             tableBody.removeEventListener('click', this.handleTableClick);
@@ -1520,20 +1989,18 @@ getDisplayedTicketsForExport() {
     }
 }
 
-// Initialize admin dashboard ketika DOM siap
+// Initialize admin dashboard
 document.addEventListener('DOMContentLoaded', function() {
     const adminDashboard = new AdminDashboard();
     window.adminDashboard = adminDashboard;
 });
 
-// Handle page unload
 window.addEventListener('beforeunload', function() {
     if (window.adminDashboard) {
         window.adminDashboard.destroy();
     }
 });
 
-// Handle window resize for mobile table
 window.addEventListener('resize', function() {
     if (window.adminDashboard && window.adminDashboard.updateTableForMobile) {
         window.adminDashboard.updateTableForMobile();

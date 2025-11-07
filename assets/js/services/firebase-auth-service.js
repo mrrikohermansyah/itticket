@@ -1,8 +1,10 @@
 import { 
-    createUserWithEmailAndPassword,getAuth,
+    createUserWithEmailAndPassword,
+    getAuth,
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    fetchSignInMethodsForEmail
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import {
     doc,
@@ -141,40 +143,61 @@ class FirebaseAuthService {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
         
-        console.log('✅ Firebase Auth success, checking admin access...');
+        console.log('✅ Firebase Auth success, UID:', user.uid);
 
-        // CEK 1: Cari di collection admins
-        const adminDoc = await getDoc(doc(db, "admins", user.uid));
+        // ✅ CEK 1: Cari dengan UID sebagai document ID (standard way)
+        const adminDocByUID = await getDoc(doc(db, "admins", user.uid));
         
-        // CEK 2: Cari di collection users dengan role admin
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        
+        // ✅ CEK 2: Cari dengan email query (fallback untuk data lama)
+        const adminQuery = await getDocs(
+            query(collection(db, "admins"), where("email", "==", email))
+        );
+
         let adminData = null;
-        let source = '';
+        let documentId = null;
 
-        if (adminDoc.exists()) {
-            adminData = adminDoc.data();
-            source = 'admins collection';
-            console.log('✅ Admin found in admins collection:', adminData);
-        } 
-        else if (userDoc.exists() && userDoc.data().role !== 'user') {
-            adminData = userDoc.data();
-            source = 'users collection';
-            console.log('✅ Admin found in users collection:', adminData);
+        console.log('🔍 Search results:');
+        console.log('- UID lookup exists:', adminDocByUID.exists());
+        console.log('- Email query results:', adminQuery.size);
+
+        // Priority 1: UID match (standard)
+        if (adminDocByUID.exists()) {
+            adminData = adminDocByUID.data();
+            documentId = user.uid;
+            console.log('✅ Admin found with UID match');
+        }
+        // Priority 2: Email query (fallback - perlu migrasi)
+        else if (!adminQuery.empty) {
+            const foundDoc = adminQuery.docs[0];
+            adminData = foundDoc.data();
+            documentId = foundDoc.id;
+            console.log('⚠️ Admin found with email query, document ID:', documentId);
             
-            // ✅ AUTO-MIGRATE: Pindahkan dari users ke admins
-            await this.migrateUserToAdmin(user.uid, adminData);
+            // ✅ AUTO-MIGRATE: Pindahkan ke document ID yang benar
+            await this.migrateAdminToCorrectUID(user.uid, documentId, adminData);
         }
+        // Priority 3: Cek di users collection
         else {
-            console.log('❌ No admin access found for user:', user.uid);
-            throw new Error('Admin access not granted. Please contact administrator.');
+            const userDoc = await getDoc(doc(db, "users", user.uid));
+            if (userDoc.exists() && userDoc.data().role !== 'user') {
+                adminData = userDoc.data();
+                console.log('✅ Admin found in users collection');
+                
+                // Auto-migrate dari users ke admins
+                await this.migrateUserToAdmin(user.uid, adminData);
+            } else {
+                console.log('❌ No admin access found');
+                throw new Error('Admin access not granted. Please contact administrator.');
+            }
         }
 
-        if (!adminData.is_active) {
+        // Check active status
+        const isActive = adminData.is_active !== undefined ? adminData.is_active : adminData.isActive;
+        if (!isActive) {
             throw new Error('Admin account is deactivated.');
         }
 
-        console.log(`✅ Admin login successful (source: ${source})`);
+        console.log('🎉 Admin login successful');
         
         return {
             success: true,
@@ -187,68 +210,74 @@ class FirebaseAuthService {
         
     } catch (error) {
         console.error('❌ Admin login failed:', error);
-        
-        let errorMessage = 'Admin login failed.';
-        
-        switch (error.code) {
-            case 'auth/invalid-email':
-                errorMessage = 'Invalid email address.';
-                break;
-            case 'auth/user-not-found':
-                errorMessage = 'No admin account found.';
-                break;
-            case 'auth/wrong-password':
-                errorMessage = 'Incorrect password.';
-                break;
-            default:
-                errorMessage = error.message;
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(error.message);
     }
 }
 
-// Tambahkan method untuk auto-migrate
-async migrateUserToAdmin(uid, userData) {
+// ✅ METHOD BARU: Migrasi admin ke document ID yang benar
+async migrateAdminToCorrectUID(correctUID, oldDocId, adminData) {
     try {
-        console.log('🔄 Auto-migrating user to admin...');
+        console.log('🔄 Migrating admin to correct UID...');
         
-        await setDoc(doc(db, "admins", uid), {
-            name: userData.full_name || userData.name || userData.email.split('@')[0],
-            email: userData.email,
-            role: userData.role || 'admin',
-            department: userData.department || 'IT',
-            specialization: userData.specialization || [],
-            is_active: true,
-            created_at: new Date().toISOString(),
-            created_by: 'system_auto_migration',
-            migrated_from_users: true
+        // 1. Buat document baru dengan UID yang benar
+        await setDoc(doc(db, "admins", correctUID), {
+            ...adminData,
+            uid: correctUID, // Tambahkan uid field
+            migrated_from: oldDocId,
+            last_updated: new Date().toISOString()
         });
         
-        console.log('✅ User auto-migrated to admin');
+        // 2. Hapus document lama
+        await deleteDoc(doc(db, "admins", oldDocId));
+        
+        console.log('✅ Admin migrated to correct UID');
+        
     } catch (error) {
-        console.error('❌ Auto-migration failed:', error);
+        console.error('❌ Migration failed:', error);
+        // Jangan throw error, biarkan login tetap berjalan
     }
 }
 
-    // Di file firebase-auth-service.js - pastikan method logout seperti ini:
-async logout() {
-    try {
-        const auth = getAuth();
-        await signOut(auth);
-        
-        // ✅ CLEAR LOCAL STORAGE ATAU SESSION
-        localStorage.removeItem('userToken');
-        sessionStorage.clear();
-        
-        // ✅ REDIRECT KE LOGIN PAGE
-        window.location.href = '../auth/login.html';
-        
-    } catch (error) {
-        console.error('Logout error:', error);
-        throw error;
+    // Tambahkan method untuk auto-migrate
+    async migrateUserToAdmin(uid, userData) {
+        try {
+            console.log('🔄 Auto-migrating user to admin...');
+            
+            await setDoc(doc(db, "admins", uid), {
+                name: userData.full_name || userData.name || userData.email.split('@')[0],
+                email: userData.email,
+                role: userData.role || 'admin',
+                department: userData.department || 'IT',
+                specialization: userData.specialization || [],
+                is_active: true,
+                created_at: new Date().toISOString(),
+                created_by: 'system_auto_migration',
+                migrated_from_users: true
+            });
+            
+            console.log('✅ User auto-migrated to admin');
+        } catch (error) {
+            console.error('❌ Auto-migration failed:', error);
+        }
     }
-}
+
+    async logout() {
+        try {
+            const auth = getAuth();
+            await signOut(auth);
+            
+            // ✅ CLEAR LOCAL STORAGE ATAU SESSION
+            localStorage.removeItem('userToken');
+            sessionStorage.clear();
+            
+            // ✅ REDIRECT KE LOGIN PAGE
+            window.location.href = '../auth/login.html';
+            
+        } catch (error) {
+            console.error('Logout error:', error);
+            throw error;
+        }
+    }
 
     getCurrentUser() {
         return new Promise((resolve) => {
@@ -321,18 +350,12 @@ async logout() {
                     console.log('ℹ️ User already exists, converting to admin...');
                     isExistingUser = true;
                     
-                    // Try to sign in to get the UID
-                    try {
-                        const signInResult = await signInWithEmailAndPassword(
-                            auth, 
-                            adminData.email, 
-                            adminData.password
-                        );
-                        user = signInResult.user;
-                        console.log('✅ Signed in to existing user:', user.uid);
-                    } catch (signInError) {
-                        throw new Error(`Email already registered but cannot access account. Please use a different email.`);
-                    }
+                    // ❌ JANGAN SIGNIN - INI PENYEBAB SESSION TAKEOVER
+                    // Gunakan random ID sebagai fallback
+                    user = { uid: doc(collection(db, 'admins')).id };
+                    console.log('⚠️ Using random ID for existing auth user:', user.uid);
+                    console.warn('⚠️ Existing auth user needs manual admin linking');
+                    
                 } else {
                     // Re-throw other authentication errors
                     throw authError;
@@ -369,7 +392,8 @@ async logout() {
                 is_active: true,
                 created_at: new Date().toISOString(),
                 created_by: createdBy,
-                is_existing_user: isExistingUser
+                is_existing_user: isExistingUser,
+                needs_password_setup: isExistingUser // ✅ Jika existing user, butuh setup
             });
 
             console.log('✅ Admin data saved to Firestore');
@@ -377,7 +401,7 @@ async logout() {
             return { 
                 success: true, 
                 message: isExistingUser ? 
-                    'Existing user converted to admin successfully!' : 
+                    'Admin created. User needs to setup password.' : 
                     'Admin created successfully!',
                 user: {
                     uid: user.uid,
@@ -420,31 +444,212 @@ async logout() {
         }
     }
 
-    async createAdminIfNotExists(adminData) {
-        try {
-            console.log('🔍 Checking if admin already exists...', { email: adminData.email });
+    async createAdminIfNotExists(adminData, currentAdminId = null) {
+    try {
+        console.log('🔍 Checking if admin already exists...', { email: adminData.email });
+        
+        // Check if admin exists by email in Firestore
+        const adminsQuery = await getDocs(
+            query(collection(db, 'admins'), where('email', '==', adminData.email))
+        );
+        
+        if (!adminsQuery.empty) {
+            const existingAdmin = adminsQuery.docs[0];
+            const existingData = existingAdmin.data();
+            console.log('ℹ️ Admin already exists in Firestore:', existingData);
             
-            // Check if admin already exists by email
-            const existingAdmin = await this.findAdminByEmail(adminData.email);
-            if (existingAdmin) {
-                console.log('ℹ️ Admin already exists:', existingAdmin);
-                return { 
-                    success: true, 
-                    message: 'Admin account already exists.',
-                    user: existingAdmin,
-                    isExisting: true
-                };
-            }
-
-            console.log('🔄 Admin not found, creating new one...');
-            // If not exists, create new admin
-            return await this.createAdmin(adminData);
-            
-        } catch (error) {
-            console.error('❌ Error in createAdminIfNotExists:', error);
-            throw error;
+            return {
+                success: true,
+                exists: true,
+                message: 'Admin account already exists.',
+                user: { id: existingAdmin.id, ...existingData }
+            };
         }
+
+        let userId;
+        let authCreated = false;
+        let isExistingUser = false;
+        
+        // ✅ CHECK IF USER EXISTS IN AUTHENTICATION (TANPA SIGNIN)
+        try {
+            const auth = getAuth();
+            const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+            
+            if (signInMethods.length > 0) {
+                console.log('ℹ️ User exists in Authentication');
+                isExistingUser = true;
+                
+                // Buat document dengan random ID
+                userId = doc(collection(db, 'admins')).id;
+                console.log('⚠️ Using random ID for existing auth user:', userId);
+                
+                console.warn('⚠️ Existing auth user needs manual admin linking');
+            } else {
+                // ✅ CREATE NEW AUTH USER
+                console.log('🔄 Creating new user in Authentication...');
+                
+                try {
+                    const userCredential = await createUserWithEmailAndPassword(auth, adminData.email, adminData.password);
+                    userId = userCredential.user.uid;
+                    authCreated = true;
+                    isExistingUser = false;
+                    console.log('✅ New auth user created:', userId);
+                } catch (authError) {
+                    // ✅ HANDLE AUTH ERROR DENGAN BAIK - JANGAN THROW
+                    if (authError.code === 'auth/email-already-in-use') {
+                        console.log('ℹ️ Email already in Auth, using random ID');
+                        userId = doc(collection(db, 'admins')).id;
+                        authCreated = false;
+                        isExistingUser = true;
+                    } else {
+                        // Re-throw other auth errors
+                        throw authError;
+                    }
+                }
+            }
+        } catch (authError) {
+            console.log('🔄 Auth process failed, using fallback...');
+            
+            // Fallback: use random ID
+            userId = doc(collection(db, 'admins')).id;
+            isExistingUser = false;
+            console.log('🔄 Using fallback ID:', userId);
+        }
+
+        // ✅ PREPARE DATA UNTUK FIRESTORE
+        const firestoreData = {
+            name: adminData.name,
+            email: adminData.email,
+            role: adminData.role,
+            department: adminData.department,
+            specialization: adminData.specialization || [],
+            is_active: true,
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            auth_created: authCreated,
+            needs_password_setup: !authCreated,
+            is_existing_user: isExistingUser
+        };
+
+        // ✅ HANYA TAMBAH FIELD JIKA ADA VALUE
+        if (currentAdminId) {
+            firestoreData.created_by = currentAdminId;
+        }
+
+        // ✅ CREATE ADMIN DATA IN FIRESTORE
+        const adminRef = doc(db, 'admins', userId);
+        await setDoc(adminRef, firestoreData);
+
+        console.log('✅ Admin created in Firestore:', userId, firestoreData);
+
+        return {
+            success: true,
+            message: authCreated ? 'Admin created successfully' : 'Admin created. User needs to setup password.',
+            user: { 
+                id: userId, 
+                ...firestoreData
+            }
+        };
+
+    } catch (error) {
+        console.error('❌ Error in createAdminIfNotExists:', error);
+        return {
+            success: false,
+            message: error.message
+        };
     }
+}
+
+    // ✅ METHOD BARU YANG 100% AMAN
+    async createAdminSafe(adminData, currentAdminId) {
+    try {
+        console.log('🔄 Creating admin (fixed safe mode)...', adminData);
+        
+        // 1. Check if admin already exists by email
+        const adminsQuery = await getDocs(
+            query(collection(db, 'admins'), where('email', '==', adminData.email))
+        );
+        
+        if (!adminsQuery.empty) {
+            return {
+                success: false,
+                exists: true,
+                message: 'Admin already exists'
+            };
+        }
+
+        // 2. Check if user exists in Firebase Auth
+        let userUID = null;
+        let authCreated = false;
+        
+        try {
+            const authMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+            
+            if (authMethods.length > 0) {
+                console.log('ℹ️ User exists in Auth, but cannot get UID without login');
+                // Untuk existing user, kita perlu approach berbeda
+                return {
+                    success: false,
+                    message: 'User already exists in authentication. Please use different email or contact administrator.'
+                };
+            } else {
+                // 3. Create new user in Firebase Auth
+                console.log('👤 Creating new user in Firebase Auth...');
+                const userCredential = await createUserWithEmailAndPassword(
+                    auth, 
+                    adminData.email, 
+                    adminData.password || 'TempPassword123!' // Default password
+                );
+                userUID = userCredential.user.uid;
+                authCreated = true;
+                console.log('✅ Auth user created, UID:', userUID);
+            }
+        } catch (authError) {
+            console.error('❌ Auth creation failed:', authError);
+            return {
+                success: false,
+                message: 'Failed to create authentication user: ' + authError.message
+            };
+        }
+
+        // 4. Save admin data dengan UID sebagai document ID
+        const adminDataToSave = {
+            name: adminData.name || '',
+            email: adminData.email,
+            role: adminData.role,
+            department: adminData.department || 'IT',
+            specialization: adminData.specialization || [],
+            is_active: true,
+            created_at: new Date().toISOString(),
+            last_updated: new Date().toISOString(),
+            created_by: currentAdminId || '',
+            auth_created: authCreated,
+            needs_password_setup: !authCreated
+        };
+
+        await setDoc(doc(db, 'admins', userUID), adminDataToSave);
+
+        console.log('✅ Admin created successfully, UID:', userUID);
+
+        return {
+            success: true,
+            message: authCreated ? 
+                'Admin created successfully!' : 
+                'Admin created. User needs to setup password.',
+            user: {
+                id: userUID,
+                ...adminDataToSave
+            }
+        };
+
+    } catch (error) {
+        console.error('❌ Error in createAdminSafe:', error);
+        return {
+            success: false,
+            message: error.message
+        };
+    }
+}
 
     async findAdminByEmail(email) {
         try {
@@ -527,6 +732,110 @@ async logout() {
             throw new Error('Failed to get IT support team: ' + error.message);
         }
     }
+
+    // ✅ METHOD UNTUK GET SEMUA ADMIN (INCLUDE INACTIVE)
+    async getAllAdmins() {
+        try {
+            const adminsQuery = query(
+                collection(db, 'admins')
+            );
+            
+            const querySnapshot = await getDocs(adminsQuery);
+            const allAdmins = [];
+            
+            querySnapshot.forEach((doc) => {
+                allAdmins.push({
+                    id: doc.id,
+                    ...doc.data()
+                });
+            });
+            
+            return allAdmins;
+            
+        } catch (error) {
+            throw new Error('Failed to get all admins: ' + error.message);
+        }
+    }
+
+    // ✅ METHOD UNTUK DELETE ADMIN PERMANEN
+async deleteAdminPermanently(adminId) {
+    try {
+        console.log('🗑️ Deleting admin permanently:', adminId);
+        
+        // Import Firebase Firestore functions
+        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
+        const { db } = await import('../utils/firebase-config.js');
+        
+        // Delete dari Firestore admins collection
+        await deleteDoc(doc(db, 'admins', adminId));
+        
+        console.log('✅ Admin deleted from Firestore');
+        
+        return {
+            success: true,
+            message: 'Admin deleted permanently'
+        };
+        
+    } catch (error) {
+        console.error('❌ Error deleting admin:', error);
+        return {
+            success: false,
+            message: error.message
+        };
+    }
+}
+
+// ✅ ALTERNATIVE METHOD: deleteAdmin (alias)
+async deleteAdmin(adminId) {
+    return await this.deleteAdminPermanently(adminId);
+}
+
+    // ========== DEBUG & UTILITY METHODS ==========
+
+async debugAdminStatus(email) {
+    try {
+        console.log('🔍 Debugging admin status for:', email);
+        
+        // 1. Cek di Firebase Auth
+        const authMethods = await fetchSignInMethodsForEmail(auth, email);
+        console.log('🔐 Auth methods:', authMethods);
+        
+        // 2. Cek di Firestore dengan email query
+        const adminsQuery = await getDocs(
+            query(collection(db, 'admins'), where('email', '==', email))
+        );
+        
+        console.log('📋 Firestore documents found:', adminsQuery.size);
+        adminsQuery.forEach(doc => {
+            console.log('📄 Document:', {
+                id: doc.id,
+                data: doc.data()
+            });
+        });
+        
+        // 3. Cek jika ada user dengan UID yang cocok
+        if (authMethods.length > 0) {
+            console.log('ℹ️ User exists in Auth, but UID unknown without login');
+        }
+        
+        return {
+            authExists: authMethods.length > 0,
+            firestoreDocs: adminsQuery.size,
+            documents: adminsQuery.docs.map(doc => ({
+                id: doc.id,
+                data: doc.data()
+            }))
+        };
+        
+    } catch (error) {
+        console.error('❌ Debug failed:', error);
+        throw error;
+    }
+}
+
+// ========== END OF CLASS ==========
+
+    
 
     // ========== HELPER METHODS ==========
 
@@ -614,4 +923,5 @@ async logout() {
 
 // Create singleton instance
 const firebaseAuthService = new FirebaseAuthService();
+window.debugAdmin = (email) => firebaseAuthService.debugAdminStatus(email);
 export default firebaseAuthService;

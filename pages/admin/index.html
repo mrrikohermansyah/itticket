@@ -174,6 +174,61 @@
     </div>
   </div>
 
+  <!-- Ticket Update Modal -->
+  <div id="updateTicketModal" class="modal" style="display: none;">
+    <div class="modal-content large">
+      <div class="modal-header">
+        <h2><i class="fas fa-edit"></i> Update Ticket</h2>
+        <button class="modal-close" onclick="adminDashboard.closeUpdateModal()" aria-label="Close modal">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form id="updateTicketForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="updateSubject">Subject:</label>
+              <input type="text" id="updateSubject" class="form-control" required>
+            </div>
+  
+            <div class="form-group">
+              <label for="updatePriority">Priority:</label>
+              <select id="updatePriority" class="form-control" required>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+  
+            <div class="form-group">
+              <label for="updateStatus">Status:</label>
+              <select id="updateStatus" class="form-control" required>
+                <option value="Open">Open</option>
+                <option value="In Progress">In Progress</option>
+                <option value="Resolved">Resolved</option>
+              </select>
+            </div>
+  
+            <div class="form-group full-width">
+              <label for="updateAdminNotes">Admin Notes:</label>
+              <textarea id="updateAdminNotes" class="form-control" rows="4" placeholder="Add admin notes..."></textarea>
+            </div>
+          </div>
+  
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
+              <i class="fas fa-times"></i> Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+              <i class="fas fa-save"></i> Update Ticket
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Footer -->
   <footer class="admin-footer">
     <div class="footer-content">
@@ -210,6 +265,23 @@
 <script src="../../assets/js/utils/export.js"></script>
 <!-- Load admin.js sebagai module TERAKHIR -->
 <script type="module" src="assets/js/admin.js"></script>
+<script>
+  // Global variable untuk admin dashboard instance
+  window.adminDashboard = null;
+
+  // Wait for DOM and modules to load
+  document.addEventListener('DOMContentLoaded', async function () {
+    try {
+      // Import admin dashboard
+      const AdminDashboard = (await import('./assets/js/admin.js')).default;
+      window.adminDashboard = new AdminDashboard();
+
+      console.log('✅ Admin Dashboard initialized globally');
+    } catch (error) {
+      console.error('❌ Failed to initialize admin dashboard:', error);
+    }
+  });
+</script>
 </body>
 
 </html>

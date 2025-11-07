@@ -79,6 +79,7 @@
     color: #9ca3af;
 }
 
+/* ✅ ROLE SELECT STYLING YANG DIPERBARUI */
 .role-select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.5rem center;
@@ -88,17 +89,57 @@
     -webkit-appearance: none;
     -moz-appearance: none;
     appearance: none;
+    cursor: pointer;
 }
 
+/* ✅ STYLING UNTUK OPTGROUP DAN OPTION YANG DIPERBARUI */
 .role-select optgroup {
     font-weight: 600;
-    color: #374151;
-    background: #f9fafb;
+    color: #ef070a;
+    background: #fef2f2;
+    padding: 8px 4px;
+    border-bottom: 1px solid #fecaca;
 }
 
 .role-select option {
-    padding: 0.5rem;
+    padding: 12px 16px;
     font-size: 14px;
+    border-bottom: 1px solid #f3f4f6;
+    transition: all 0.2s ease;
+}
+
+.role-select option:hover {
+    background-color: #fef2f2 !important;
+    color: #ef070a !important;
+}
+
+.role-select option:checked {
+    background-color: #ef070a !important;
+    color: white !important;
+}
+
+.role-select option:first-of-type {
+    color: #6b7280;
+    font-style: italic;
+}
+
+/* ✅ STYLING KHUSUS UNTUK 4 ROLE IT */
+.role-select option[value="Super Admin"] {
+    font-weight: 600;
+    color: #dc2626;
+    background-color: #fef2f2;
+}
+
+.role-select option[value="IT Engineer"] {
+    color: #1f2937;
+}
+
+.role-select option[value="IT Tech Support"] {
+    color: #1f2937;
+}
+
+.role-select option[value="IT Visual"] {
+    color: #1f2937;
 }
 
 .btn-primary {
@@ -203,6 +244,11 @@
     .setup-header h2 {
         font-size: 1.25rem;
     }
+
+    .role-select {
+        font-size: 16px;
+        /* Prevent zoom on iOS */
+    }
 }
 
 /* Loading Animation */
@@ -286,4 +332,29 @@ textarea:not(:disabled) {
 
 .swal2-icon.swal2-success .swal2-success-ring {
     border-color: rgba(239, 7, 10, 0.2) !important;
+}
+
+/* ✅ DROPDOWN STYLING IMPROVEMENTS */
+.role-select:focus {
+    border-color: #ef070a;
+    box-shadow: 0 0 0 3px rgba(239, 7, 10, 0.1);
+}
+
+/* ✅ CUSTOM SCROLLBAR FOR SELECT */
+.role-select::-webkit-scrollbar {
+    width: 8px;
+}
+
+.role-select::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
+}
+
+.role-select::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+.role-select::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
