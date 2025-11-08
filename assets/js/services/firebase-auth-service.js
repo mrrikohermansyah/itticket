@@ -21,7 +21,13 @@ import { auth, db } from '../utils/firebase-config.js';
 class FirebaseAuthService {
     
     constructor() {
-        this.initializeFirstAdmin();
+       // ✅ FIX: Bind semua methods yang menggunakan 'this'
+    this.validateUserProfileUpdates = this.validateUserProfileUpdates.bind(this);
+    this.capitalizeFirstLetter = this.capitalizeFirstLetter.bind(this);
+    this.updateUserProfile = this.updateUserProfile.bind(this);
+    this.updateUserTicketsInFirestore = this.updateUserTicketsInFirestore.bind(this);
+    this.validateAndCleanUserUpdates = this.validateAndCleanUserUpdates.bind(this);
+    this.triggerGlobalUserUpdate = this.triggerGlobalUserUpdate.bind(this);
     }
 
     // ========== USER AUTHENTICATION ==========
