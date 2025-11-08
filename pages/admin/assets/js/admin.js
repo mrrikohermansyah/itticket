@@ -1678,7 +1678,11 @@ async renderTickets() {
 
             const updateData = {
                 status: newStatus,
-                last_updated: serverTimestamp()
+      last_updated: serverTimestamp(),
+      action_by: this.currentUser.id, // Tetap simpan ID untuk reference
+      action_by_name: this.currentUser.full_name, // Tambahkan nama
+      action_by_email: this.currentUser.email, // Tambahkan email
+      note: note
             };
 
             if (newStatus === 'In Progress') {

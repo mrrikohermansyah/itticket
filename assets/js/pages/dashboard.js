@@ -101,38 +101,73 @@ class Dashboard {
         this.unsubscribeTickets();
       }
 
-      // ✅ FIRST: Load initial data immediately
+      // ✅ Load initial data
       const initialSnapshot = await getDocs(q);
       this.tickets = [];
       
-      initialSnapshot.forEach(doc => {
-        const ticket = this.normalizeTicketData(doc.id, doc.data());
+      // Batch resolve admin names untuk performance
+      const adminResolvePromises = [];
+      const adminCache = new Map();
+      
+      for (const doc of initialSnapshot.docs) {
+        let ticket = this.normalizeTicketData(doc.id, doc.data());
+        
+        // Resolve admin name jika ada admin_id
+        if (ticket.admin_id && !adminCache.has(ticket.admin_id)) {
+          adminResolvePromises.push(
+            this.getAdminName(ticket.admin_id).then(adminName => {
+              adminCache.set(ticket.admin_id, adminName);
+              ticket.action_by = adminName;
+            })
+          );
+        } else if (ticket.admin_id) {
+          ticket.action_by = adminCache.get(ticket.admin_id);
+        }
+        
         this.tickets.push(ticket);
-      });
+      }
+      
+      // Tunggu semua admin names selesai di-resolve
+      if (adminResolvePromises.length > 0) {
+        await Promise.all(adminResolvePromises);
+      }
       
       // Render initial data
       this.renderTickets();
       this.updateStats();
       console.log('✅ Initial tickets loaded:', this.tickets.length);
 
-      // Debug initial tickets
-      console.log('=== INITIAL TICKET LOAD ===');
-      this.debugTicketStatus();
-
-      // ✅ SECOND: Setup realtime listener for changes
-      this.unsubscribeTickets = onSnapshot(q, (snapshot) => {
+      // ✅ Realtime listener dengan cache admin names
+      this.unsubscribeTickets = onSnapshot(q, async (snapshot) => {
         console.log('🔄 Realtime update received for tickets');
         
-        snapshot.docChanges().forEach((change) => {
+        const adminCache = new Map();
+        
+        for (const change of snapshot.docChanges()) {
           const doc = change.doc;
-          const ticket = this.normalizeTicketData(doc.id, doc.data());
+          let ticket = this.normalizeTicketData(doc.id, doc.data());
+
+          // Skip deleted tickets
+          if (ticket.deleted) {
+            const index = this.tickets.findIndex(t => t.id === doc.id);
+            if (index !== -1) this.tickets.splice(index, 1);
+            continue;
+          }
+          
+          // Resolve admin name dengan cache
+          if (ticket.admin_id && !adminCache.has(ticket.admin_id)) {
+            const adminName = await this.getAdminName(ticket.admin_id);
+            adminCache.set(ticket.admin_id, adminName);
+            ticket.action_by = adminName;
+          } else if (ticket.admin_id) {
+            ticket.action_by = adminCache.get(ticket.admin_id);
+          }
           
           if (change.type === "added") {
-            // Check if ticket already exists (avoid duplicates)
             const existingIndex = this.tickets.findIndex(t => t.id === doc.id);
             if (existingIndex === -1) {
               console.log('➕ New ticket detected:', ticket.code);
-              this.tickets.unshift(ticket); // Add to beginning
+              this.tickets.unshift(ticket);
             }
           }
           if (change.type === "modified") {
@@ -142,7 +177,6 @@ class Dashboard {
               this.tickets[index] = ticket;
               this.showRealtimeNotification(ticket);
             } else {
-              // If not found, add it
               this.tickets.unshift(ticket);
             }
           }
@@ -150,12 +184,10 @@ class Dashboard {
             console.log('🗑️ Removed ticket:', ticket.code);
             this.tickets = this.tickets.filter(t => t.id !== doc.id);
           }
-        });
+        }
 
-        // Sort tickets by date
+        // Sort dan update UI
         this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        
-        // Update UI
         this.renderTickets();
         this.updateStats();
         
@@ -173,6 +205,27 @@ class Dashboard {
 
   // Normalize ticket data
   normalizeTicketData(id, data) {
+    // Cek apakah action_by berisi ID admin atau nama
+    let actionByName = data.action_by || '';
+    let adminId = '';
+    
+    // Jika action_by berisi ID admin (format: "Admin (ID...)"), extract ID-nya
+    if (actionByName.startsWith('Admin (') && actionByName.includes(')')) {
+      // Format: "Admin (ZlATPRsp...)" - extract ID
+      adminId = this.extractAdminId(actionByName);
+      actionByName = 'Admin'; // Default, nanti akan di-update via realtime
+    }
+    
+    // Cek dari updates history untuk nama admin sebenarnya
+    let actualAdminName = '';
+    if (data.updates && data.updates.length > 0) {
+      // Cari update terakhir yang mengandung "by [nama]"
+      const lastUpdate = data.updates[data.updates.length - 1];
+      if (lastUpdate.updatedBy && lastUpdate.updatedBy !== 'Admin') {
+        actualAdminName = lastUpdate.updatedBy;
+      }
+    }
+
     return {
       id: id,
       code: data.code,
@@ -190,230 +243,85 @@ class Dashboard {
                 (data.created_at || new Date().toISOString()),
       last_updated: data.last_updated?.toDate ? data.last_updated.toDate().toISOString() : 
                    (data.last_updated || new Date().toISOString()),
-      action_by: data.action_by || '',
+      action_by: actualAdminName || actionByName, // Prioritize actual name dari updates
       note: data.note || '',
       qa: data.qa || '',
       user_phone: data.user_phone || '',
       updates: data.updates || [],
       deleted: data.deleted || false,
-      archived: data.archived || false
+      archived: data.archived || false,
+      admin_id: adminId, // Untuk resolve nama admin
+      original_action_by: data.action_by, // Simpan original value untuk debug
+      deleted_at: data.deleted_at?.toDate ? data.deleted_at.toDate().toISOString() : 
+                 (data.deleted_at || null),
+      deleted_by: data.deleted_by || '',
+      deleted_by_name: data.deleted_by_name || '',
+      delete_reason: data.delete_reason || ''
     };
   }
 
-  // Di bagian method handleStatusUpdate() atau method yang menangani perubahan status
-async handleStatusUpdate(ticketId, newStatus, note = '') {
-  try {
-    const ticketRef = doc(this.db, "tickets", ticketId);
-    const ticketDoc = await getDoc(ticketRef);
+  // Method untuk extract admin ID dari string action_by
+  extractAdminId(actionByString) {
+    if (!actionByString) return '';
     
-    if (!ticketDoc.exists()) {
-      throw new Error('Ticket not found');
-    }
-
-    const ticketData = ticketDoc.data();
-    
-    // VALIDASI: Jika status berubah ke resolved/closed/finished, wajib ada note
-    const resolvingStatuses = ['resolved', 'closed', 'completed', 'finished', 'finish'];
-    const isResolving = resolvingStatuses.includes(newStatus.toLowerCase());
-    
-    if (isResolving && (!note || note.trim() === '')) {
-      throw new Error('Note is required when resolving a ticket. Please describe the solution or reason for closure.');
-    }
-
-    const updateData = {
-      status: newStatus,
-      last_updated: serverTimestamp(),
-      action_by: this.currentUser.full_name || 'Admin'
-    };
-
-    // Jika ada note, tambahkan ke updateData
-    if (note && note.trim() !== '') {
-      updateData.note = note.trim();
-      
-      // Tambahkan ke history updates
-      const newUpdate = {
-        status: newStatus,
-        notes: note.trim(),
-        timestamp: new Date().toISOString(),
-        updatedBy: this.currentUser.full_name || 'Admin'
-      };
-
-      const existingUpdates = ticketData.updates || [];
-      updateData.updates = [...existingUpdates, newUpdate];
-    }
-
-    // Untuk status finish di field qa
-    if (newStatus.toLowerCase() === 'finish') {
-      updateData.qa = 'Finish';
-      
-      // Validasi tambahan untuk qa finish
-      if (!note || note.trim() === '') {
-        throw new Error('Note is required when marking ticket as finished in QA. Please describe the final resolution.');
-      }
-    }
-
-    await updateDoc(ticketRef, updateData);
-    
-    return true;
-  } catch (error) {
-    console.error('Error updating ticket status:', error);
-    throw error;
+    // Pattern: "Admin (ZlATPRsp...)"
+    const match = actionByString.match(/Admin\s*\(([^)]+)\)/);
+    return match ? match[1] : '';
   }
-}
 
-// Method untuk menampilkan modal konfirmasi dengan note
-async showResolveConfirmation(ticket) {
-  const { value: note } = await Swal.fire({
-    title: `Resolve Ticket ${ticket.code}`,
-    html: `
-      <div class="resolve-modal">
-        <p><strong>Current Status:</strong> ${ticket.status}</p>
-        <p><strong>Subject:</strong> ${ticket.subject}</p>
-        <div class="form-group">
-          <label for="resolveNote"><strong>Resolution Notes *</strong></label>
-          <textarea 
-            id="resolveNote" 
-            class="swal2-textarea" 
-            placeholder="Please describe the solution, steps taken, or reason for closure. This will be included in reports."
-            rows="4"
-            required
-          >${ticket.note || ''}</textarea>
-        </div>
-        <div class="form-group">
-          <label for="resolveStatus"><strong>Final Status *</strong></label>
-          <select id="resolveStatus" class="swal2-select" required>
-            <option value="">Select Status</option>
-            <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-            <option value="Closed" ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option>
-            <option value="Completed" ${ticket.status === 'Completed' ? 'selected' : ''}>Completed</option>
-            <option value="Finish" ${ticket.qa === 'Finish' ? 'selected' : ''}>Finish (QA)</option>
-          </select>
-        </div>
-      </div>
-    `,
-    showCancelButton: true,
-    confirmButtonText: 'Confirm Resolution',
-    cancelButtonText: 'Cancel',
-    confirmButtonColor: '#10b981',
-    cancelButtonColor: '#6b7280',
-    preConfirm: () => {
-      const note = document.getElementById('resolveNote').value.trim();
-      const status = document.getElementById('resolveStatus').value;
-      
-      if (!note) {
-        Swal.showValidationMessage('Resolution notes are required');
-        return false;
-      }
-      
-      if (!status) {
-        Swal.showValidationMessage('Please select a status');
-        return false;
-      }
-      
-      return { note, status };
-    }
-  });
-
-  if (note) {
+  // Method untuk mendapatkan nama admin dari ID
+  async getAdminName(adminId) {
+    if (!adminId) return 'Admin';
+    
     try {
-      await this.handleStatusUpdate(ticket.id, note.status, note.note);
+      const adminDoc = await getDoc(doc(this.db, "admins", adminId));
+      if (adminDoc.exists()) {
+        const adminData = adminDoc.data();
+        return adminData.full_name || adminData.name || 'Admin';
+      }
       
-      Swal.fire({
-        title: 'Success!',
-        text: `Ticket ${ticket.code} has been resolved`,
-        icon: 'success',
-        confirmButtonColor: '#10b981'
-      });
+      // Fallback: cek di users collection
+      const userDoc = await getDoc(doc(this.db, "users", adminId));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        return userData.full_name || 'Admin';
+      }
+      
+      return 'Admin';
     } catch (error) {
-      Swal.fire({
-        title: 'Error!',
-        text: error.message,
-        icon: 'error',
-        confirmButtonColor: '#ef4444'
-      });
+      console.error('Error getting admin name:', error);
+      return 'Admin';
     }
   }
-}
 
-  // Debug method untuk melihat status semua ticket
-  debugTicketStatus() {
-    console.log('🔍 DEBUG TICKET STATUS:');
+  // Helper method untuk menentukan apakah ticket open
+  isTicketOpen(ticket) {
+    const status = (ticket.status || '').toLowerCase().trim();
+    const qa = (ticket.qa || '').toLowerCase().trim();
     
-    const activeTickets = this.tickets.filter(ticket => 
-      !ticket.deleted && !ticket.archived
-    );
-    
-    console.log('📋 ACTIVE TICKETS (' + activeTickets.length + '):');
-    if (activeTickets.length === 0) {
-      console.log('   No active tickets found');
-    } else {
-      activeTickets.forEach((ticket, index) => {
-        const isOpen = this.isTicketOpen(ticket);
-        const isResolved = this.isTicketResolved(ticket);
-        
-        console.log(`  ${index + 1}. ${ticket.code}`, {
-          status: ticket.status,
-          qa: ticket.qa,
-          isOpen: isOpen,
-          isResolved: isResolved,
-          category: isOpen ? 'OPEN' : (isResolved ? 'RESOLVED' : 'OTHER')
-        });
-      });
+    // PRIORITIZE STATUS over QA
+    // Jika status sudah jelas resolved/closed, abaikan qa
+    if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
+      return false;
     }
-
-    // Tampilkan deleted/archived tickets juga untuk reference
-    const inactiveTickets = this.tickets.filter(ticket => 
-      ticket.deleted || ticket.archived
-    );
     
-    if (inactiveTickets.length > 0) {
-      console.log('🚫 INACTIVE TICKETS (deleted/archived): ' + inactiveTickets.length);
-      inactiveTickets.forEach((ticket, index) => {
-        console.log(`  ${index + 1}. ${ticket.code} - status:${ticket.status} deleted:${ticket.deleted} archived:${ticket.archived}`);
-      });
+    // Jika status jelas open/in progress
+    if (status === 'open' || status === 'in progress' || status === 'pending') {
+      return true;
     }
-
-    console.log('📊 SUMMARY:');
-    console.log('   Total tickets:', this.tickets.length);
-    console.log('   Active tickets:', activeTickets.length);
-    console.log('   Inactive tickets:', inactiveTickets.length);
-  }
-
-// Helper method untuk menentukan apakah ticket open - FIXED VERSION
-isTicketOpen(ticket) {
-  const status = (ticket.status || '').toLowerCase().trim();
-  const qa = (ticket.qa || '').toLowerCase().trim();
-  
-  console.log(`🔍 STATUS CHECK for ${ticket.code}:`, { status, qa });
-  
-  // PRIORITIZE STATUS over QA
-  // Jika status sudah jelas resolved/closed, abaikan qa
-  if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
-    console.log(`   ❌ ${ticket.code} - RESOLVED (status is clearly "${status}")`);
+    
+    // Jika status tidak jelas, check qa sebagai fallback
+    if (qa === 'open') {
+      return true;
+    }
+    
+    if (qa === 'finish' || qa === 'finished') {
+      return false;
+    }
+    
+    // Default case: jika tidak ada info yang jelas, consider as resolved untuk safety
     return false;
   }
-  
-  // Jika status jelas open/in progress
-  if (status === 'open' || status === 'in progress' || status === 'pending') {
-    console.log(`   ✅ ${ticket.code} - OPEN (status is "${status}")`);
-    return true;
-  }
-  
-  // Jika status tidak jelas, check qa sebagai fallback
-  if (qa === 'open') {
-    console.log(`   ✅ ${ticket.code} - OPEN (qa is "open", status ambiguous: "${status}")`);
-    return true;
-  }
-  
-  if (qa === 'finish' || qa === 'finished') {
-    console.log(`   ❌ ${ticket.code} - RESOLVED (qa is "${qa}")`);
-    return false;
-  }
-  
-  // Default case: jika tidak ada info yang jelas, consider as resolved untuk safety
-  console.warn(`❓ ${ticket.code} - AMBIGUOUS (status:"${status}", qa:"${qa}") - defaulting to RESOLVED for safety`);
-  return false;
-}
 
   // Helper method untuk menentukan apakah ticket resolved
   isTicketResolved(ticket) {
@@ -423,6 +331,260 @@ isTicketOpen(ticket) {
       ticket.status === 'Closed' ||
       ticket.status === 'Completed'
     );
+  }
+
+  // Method untuk mendapatkan display status
+  getTicketStatusDisplay(ticket) {
+    const status = (ticket.status || '').toLowerCase().trim();
+    const qa = (ticket.qa || '').toLowerCase().trim();
+    
+    // Prioritize status over qa
+    if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
+      return 'Resolved';
+    }
+    
+    if (status === 'in progress') {
+      return 'In Progress';
+    }
+    
+    if (status === 'pending') {
+      return 'Pending';
+    }
+    
+    // Fallback to qa
+    if (qa === 'finish' || qa === 'finished') {
+      return 'Resolved';
+    }
+    
+    // Default case - jika tidak ada status yang jelas, anggap Open
+    if (!status || status === 'open' || qa === 'open') {
+      return 'Open';
+    }
+    
+    return status.charAt(0).toUpperCase() + status.slice(1);
+  }
+
+  // Method untuk menentukan apakah ticket bisa di-delete oleh user
+  canDeleteTicket(ticket) {
+    // 1. User hanya bisa delete ticket yang mereka buat sendiri
+    if (ticket.user_id !== this.currentUser.id) {
+      return false;
+    }
+    
+    // 2. Hanya ticket dengan status tertentu yang bisa di-delete
+    const currentStatus = this.getTicketStatusDisplay(ticket);
+    const deletableStatuses = ['Open', 'Pending'];
+    
+    return deletableStatuses.includes(currentStatus);
+  }
+
+  // Render tickets ke UI
+  renderTickets() {
+    const ticketsList = document.getElementById('ticketsList');
+    if (!ticketsList) {
+      console.error('❌ ticketsList element not found!');
+      return;
+    }
+
+    const activeTickets = this.tickets.filter(ticket => 
+      !ticket.deleted && !ticket.archived
+    );
+
+    if (activeTickets.length === 0) {
+      ticketsList.innerHTML = `
+        <div class="empty-state">
+          <i class="fas fa-ticket-alt"></i>
+          <h3>No tickets yet</h3>
+          <p>Submit your first support ticket above</p>
+        </div>
+      `;
+      return;
+    }
+
+    const ticketsToShow = activeTickets.slice(0, 5);
+    
+    const ticketsHtml = ticketsToShow.map(ticket => {
+      const statusDisplay = this.getTicketStatusDisplay(ticket);
+      const canDelete = this.canDeleteTicket(ticket);
+      
+      return `
+        <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''} ${canDelete ? 'deletable' : ''}">
+          <div class="ticket-content">
+            <div class="ticket-header">
+              <div class="ticket-code">${ticket.code}</div>
+              <div class="ticket-priority priority-${(ticket.priority || 'medium').toLowerCase()}">
+                ${ticket.priority || 'Medium'}
+              </div>
+            </div>
+            <h4 class="ticket-subject">${ticket.subject || 'No subject'}</h4>
+            <div class="ticket-meta">
+              <span class="ticket-device">${ticket.device || 'No device'}</span>
+              <span class="ticket-location">${ticket.location || 'No location'}</span>
+              <span class="ticket-status status-${statusDisplay.toLowerCase().replace(' ', '-')}">
+                ${statusDisplay}
+              </span>
+              <span class="ticket-date">
+                ${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Unknown date'}
+              </span>
+            </div>
+            ${ticket.action_by && ticket.action_by !== 'Admin' ? `
+              <div class="ticket-assigned">
+                <small><strong>Assigned to:</strong> ${ticket.action_by}</small>
+              </div>
+            ` : ''}
+            ${ticket.note ? `
+              <div class="ticket-notes">
+                <small><strong>Admin Notes:</strong> ${ticket.note}</small>
+              </div>
+            ` : ''}
+            ${ticket.updates && ticket.updates.length > 1 ? `
+              <div class="ticket-updates">
+                <small><strong>Latest Update:</strong> ${ticket.updates[ticket.updates.length - 1].notes}</small>
+              </div>
+            ` : ''}
+            
+            <!-- Tombol Delete -->
+            ${canDelete ? `
+              <div class="ticket-actions">
+                <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}">
+                  <i class="fas fa-trash"></i> Delete Ticket
+                </button>
+              </div>
+            ` : ''}
+            
+            ${ticket.id.startsWith('temp-') ? `
+              <div class="ticket-saving">
+                <small><i class="fas fa-spinner fa-spin"></i> Saving...</small>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    ticketsList.innerHTML = ticketsHtml;
+    
+    // Add event listeners untuk tombol delete
+    this.attachDeleteEventListeners();
+  }
+
+  // Method untuk attach event listeners ke tombol delete
+  attachDeleteEventListeners() {
+    const deleteButtons = document.querySelectorAll('.btn-delete-ticket');
+    
+    deleteButtons.forEach(button => {
+      button.addEventListener('click', (e) => {
+        e.preventDefault();
+        const ticketId = button.getAttribute('data-ticket-id');
+        const ticketCode = button.getAttribute('data-ticket-code');
+        
+        this.handleDeleteTicket(ticketId, ticketCode);
+      });
+    });
+  }
+
+  // Method untuk handle delete ticket
+  async handleDeleteTicket(ticketId, ticketCode) {
+    try {
+      // Konfirmasi delete
+      const result = await Swal.fire({
+        title: 'Delete Ticket?',
+        html: `
+          <div class="delete-confirmation">
+            <p>Are you sure you want to delete ticket <strong>${ticketCode}</strong>?</p>
+            <p class="warning-text">This action cannot be undone!</p>
+            <div class="form-group">
+              <label for="deleteReason"><strong>Reason for deletion (optional):</strong></label>
+              <textarea 
+                id="deleteReason" 
+                class="swal2-textarea" 
+                placeholder="Please provide a reason for deleting this ticket..."
+                rows="3"
+              ></textarea>
+            </div>
+          </div>
+        `,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Yes, Delete',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#6b7280',
+        reverseButtons: true,
+        focusCancel: true
+      });
+
+      if (result.isConfirmed) {
+        const deleteReason = document.getElementById('deleteReason')?.value.trim() || 'No reason provided';
+        
+        // Show loading
+        Swal.fire({
+          title: 'Deleting Ticket...',
+          text: 'Please wait while we delete your ticket',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        // Update ticket dengan status deleted
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        await updateDoc(ticketRef, {
+          deleted: true,
+          deleted_at: serverTimestamp(),
+          deleted_by: this.currentUser.id,
+          deleted_by_name: this.currentUser.full_name || 'User',
+          delete_reason: deleteReason,
+          last_updated: serverTimestamp()
+        });
+
+        // Success message
+        await Swal.fire({
+          title: 'Deleted!',
+          html: `
+            <div class="delete-success">
+              <i class="fas fa-check-circle text-success"></i>
+              <p>Ticket <strong>${ticketCode}</strong> has been deleted successfully.</p>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonText: 'OK',
+          confirmButtonColor: '#10b981',
+          timer: 3000,
+          timerProgressBar: true
+        });
+
+        console.log(`✅ Ticket ${ticketCode} deleted by user`);
+      }
+    } catch (error) {
+      console.error('❌ Error deleting ticket:', error);
+      
+      await Swal.fire({
+        title: 'Error!',
+        text: error.message || 'Failed to delete ticket. Please try again.',
+        icon: 'error',
+        confirmButtonText: 'OK',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  }
+
+  // Update stats dashboard
+  updateStats() {
+    const activeTickets = this.tickets.filter(ticket => 
+      !ticket.deleted && !ticket.archived
+    );
+
+    const openTickets = activeTickets.filter(ticket => this.isTicketOpen(ticket));
+    const resolvedTickets = activeTickets.filter(ticket => !this.isTicketOpen(ticket));
+
+    const openEl = document.getElementById('openTickets');
+    const resolvedEl = document.getElementById('resolvedTickets');
+    
+    if (openEl) openEl.textContent = openTickets.length;
+    if (resolvedEl) resolvedEl.textContent = resolvedTickets.length;
+
+    console.log(`📊 Stats updated: ${openTickets.length} open, ${resolvedTickets.length} resolved`);
   }
 
   // Show real-time notification
@@ -598,8 +760,8 @@ isTicketOpen(ticket) {
     if (profileModal) profileModal.style.display = 'none';
   }
 
- // ✅ FIX: Enhanced profile update dengan ticket sync
-async handleProfileUpdate(e) {
+  // Enhanced profile update dengan ticket sync
+  async handleProfileUpdate(e) {
     e.preventDefault();
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -611,12 +773,8 @@ async handleProfileUpdate(e) {
     try {
         const formData = this.getFormData(form);
         
-        console.log('📝 Raw form data:', formData);
-
         // Pre-process data sebelum validasi
         const processedData = this.preProcessFormData(formData);
-        
-        console.log('🔧 Processed form data:', processedData);
 
         // Validasi form
         const validation = this.validateProfileForm(processedData);
@@ -663,10 +821,10 @@ async handleProfileUpdate(e) {
         submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
     }
-}
+  }
 
-// ✅ FIX: Pre-process form data untuk handle empty values
-preProcessFormData(formData) {
+  // Pre-process form data untuk handle empty values
+  preProcessFormData(formData) {
     const processed = { ...formData };
     
     // Handle empty employee_id (ubah "-" jadi empty string)
@@ -687,10 +845,10 @@ preProcessFormData(formData) {
     });
     
     return processed;
-}
+  }
 
-// ✅ FIX: Enhanced form validation
-validateProfileForm(formData) {
+  // Enhanced form validation
+  validateProfileForm(formData) {
     const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location'];
     
     for (const field of requiredFields) {
@@ -712,40 +870,7 @@ validateProfileForm(formData) {
     }
 
     return { isValid: true };
-}
-
-// Validasi form yang lebih komprehensif
-validateProfileForm(formData) {
-    const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location'];
-    
-    for (const field of requiredFields) {
-        if (!formData[field]?.trim()) {
-            return { 
-                isValid: false, 
-                message: `Please fill in ${field.replace('_', ' ')}` 
-            };
-        }
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-        return {
-            isValid: false,
-            message: 'Please enter a valid email address'
-        };
-    }
-
-    // Phone validation (optional)
-    if (formData.phone && !/^[\+]?[0-9\s\-\(\)]+$/.test(formData.phone)) {
-        return {
-            isValid: false,
-            message: 'Please enter a valid phone number'
-        };
-    }
-
-    return { isValid: true };
-}
+  }
 
   getFormData(form) {
     const data = {};
@@ -753,18 +878,6 @@ validateProfileForm(formData) {
       data[key] = value;
     }
     return data;
-  }
-
-  validateProfileForm(formData) {
-    const required = ['full_name', 'email', 'department', 'location'];
-    for (const field of required) {
-      if (!formData[field]?.trim()) return { isValid: false, message: 'Please fill in all required fields' };
-    }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      return { isValid: false, message: 'Please enter a valid email address' };
-    }
-    return { isValid: true };
   }
 
   async handleTicketSubmit(e) {
@@ -814,9 +927,6 @@ validateProfileForm(formData) {
       });
 
       console.log('🔍 DEBUG - Firestore ID:', ticketRef.id);
-      console.log('🔍 DEBUG - Department:', this.currentUser.department);
-      console.log('🔍 DEBUG - Device:', formData.device);
-      console.log('🔍 DEBUG - Location:', formData.location);
 
       // ✅ GENERATE CODE DENGAN FIRESTORE ID (3 karakter terakhir)
       const ticketCode = window.generateTicketId(
@@ -833,7 +943,8 @@ validateProfileForm(formData) {
         code: ticketCode
       });
 
-      this.showSuccess(`Ticket ${ticketCode} created successfully!`);
+      // ✅ TAMPILKAN SWEETALERT SUCCESS DENGAN DURASI
+      await this.showSuccessAlert(ticketCode, formData);
       form.reset();
 
     } catch (error) {
@@ -856,225 +967,75 @@ validateProfileForm(formData) {
     return { isValid: true };
   }
 
-  // Tambahkan method ini di class Dashboard
-getTicketStatusDisplay(ticket) {
-  const status = (ticket.status || '').toLowerCase();
-  const qa = (ticket.qa || '').toLowerCase();
-  
-  // Prioritize status over qa
-  if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
-    return 'Resolved';
-  }
-  
-  if (status === 'in progress' || status === 'pending') {
-    return 'In Progress';
-  }
-  
-  // Fallback to qa
-  if (qa === 'finish' || qa === 'finished') {
-    return 'Resolved';
-  }
-  
-  if (qa === 'open') {
-    return 'Open';
-  }
-  
-  return status.charAt(0).toUpperCase() + status.slice(1);
-}
-
-// Update method renderTickets() - ganti bagian ticket-status
-renderTickets() {
-  const ticketsList = document.getElementById('ticketsList');
-  if (!ticketsList) return;
-
-  const activeTickets = this.tickets.filter(ticket => 
-    !ticket.deleted && !ticket.archived
-  );
-
-  console.log('🎫 Rendering', activeTickets.length, 'active tickets out of', this.tickets.length, 'total');
-
-  if (activeTickets.length === 0) {
-    ticketsList.innerHTML = `
-      <div class="empty-state">
-        <i class="fas fa-ticket-alt"></i>
-        <h3>No tickets yet</h3>
-        <p>Submit your first support ticket above</p>
-      </div>
-    `;
-    return;
-  }
-
-  const ticketsToShow = activeTickets.slice(0, 5);
-  
-  const ticketsHtml = ticketsToShow.map(ticket => {
-    const statusDisplay = this.getTicketStatusDisplay(ticket);
+  // Method untuk menampilkan SweetAlert sukses dengan durasi
+  async showSuccessAlert(ticketCode, formData) {
+    // Format priority untuk display
+    const priorityMap = {
+      'low': 'Low',
+      'medium': 'Medium', 
+      'high': 'High',
+      'urgent': 'Urgent'
+    };
     
-    return `
-      <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''}">
-        <div class="ticket-content">
-          <div class="ticket-header">
-            <div class="ticket-code">${ticket.code}</div>
-            <div class="ticket-priority priority-${(ticket.priority || 'medium').toLowerCase()}">
-              ${ticket.priority || 'Medium'}
+    const priorityDisplay = priorityMap[formData.priority] || formData.priority;
+
+    return Swal.fire({
+      title: '🎉 Ticket Created Successfully!',
+      html: `
+        <div class="ticket-success-alert">
+          <div class="success-header">
+            <i class="fas fa-check-circle"></i>
+            <h3>Your ticket has been submitted</h3>
+          </div>
+          
+          <div class="ticket-details">
+            <div class="detail-row">
+              <span class="detail-label">Ticket Code:</span>
+              <span class="detail-value ticket-code">${ticketCode}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Subject:</span>
+              <span class="detail-value">${formData.subject}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Priority:</span>
+              <span class="detail-value priority-${formData.priority}">${priorityDisplay}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Device:</span>
+              <span class="detail-value">${formData.device}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Location:</span>
+              <span class="detail-value">${formData.location}</span>
             </div>
           </div>
-          <h4 class="ticket-subject">${ticket.subject || 'No subject'}</h4>
-          <div class="ticket-meta">
-            <span class="ticket-device">${ticket.device || 'No device'}</span>
-            <span class="ticket-location">${ticket.location || 'No location'}</span>
-            <span class="ticket-status status-${statusDisplay.toLowerCase().replace(' ', '-')}">
-              ${statusDisplay}
-            </span>
-            <span class="ticket-date">
-              ${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Unknown date'}
-            </span>
+
+          <div class="success-message">
+            <p>✅ Your ticket has been logged and our team will review it shortly.</p>
+            <p>📧 You will receive updates via email.</p>
+            <p>⏰ Expected response time: <strong>1-2 business days</strong></p>
           </div>
-          ${ticket.action_by ? `
-            <div class="ticket-assigned">
-              <small>Assigned to: ${ticket.action_by}</small>
-            </div>
-          ` : ''}
-          ${ticket.note ? `
-            <div class="ticket-notes">
-              <small><strong>Admin Notes:</strong> ${ticket.note}</small>
-            </div>
-          ` : ''}
-          ${ticket.updates && ticket.updates.length > 1 ? `
-            <div class="ticket-updates">
-              <small><strong>Latest Update:</strong> ${ticket.updates[ticket.updates.length - 1].notes}</small>
-            </div>
-          ` : ''}
-          ${ticket.id.startsWith('temp-') ? `
-            <div class="ticket-saving">
-              <small><i class="fas fa-spinner fa-spin"></i> Saving...</small>
-            </div>
-          ` : ''}
         </div>
-      </div>
-    `;
-  }).join('');
-
-  ticketsList.innerHTML = ticketsHtml;
-}
-
- updateStats() {
-  console.log('🔄 UPDATING STATS - Detailed mismatch investigation');
-  
-  // 1. Filter hanya ticket aktif
-  const activeTickets = this.tickets.filter(ticket => 
-    !ticket.deleted && !ticket.archived
-  );
-
-  console.log('🔍 INVESTIGATING MISMATCH:');
-  
-  // 2. Temukan ticket mana yang dihitung sebagai OPEN tapi di UI tidak
-  const calculatedOpenTickets = [];
-  const calculatedResolvedTickets = [];
-  
-  activeTickets.forEach((ticket) => {
-    const isOpen = this.isTicketOpen(ticket);
-    if (isOpen) {
-      calculatedOpenTickets.push(ticket);
-      console.log(`❓ CALCULATED AS OPEN: ${ticket.code}`, {
-        status: ticket.status,
-        qa: ticket.qa,
-        isOpen: true
-      });
-    } else {
-      calculatedResolvedTickets.push(ticket);
-    }
-  });
-
-  // 3. Periksa UI untuk setiap ticket yang dihitung sebagai OPEN
-  console.log('👀 CHECKING UI FOR CALCULATED OPEN TICKETS:');
-  calculatedOpenTickets.forEach(openTicket => {
-    const ticketElement = Array.from(document.querySelectorAll('.ticket-item')).find(el => {
-      const codeEl = el.querySelector('.ticket-code');
-      return codeEl && codeEl.textContent === openTicket.code;
+      `,
+      icon: 'success',
+      iconColor: '#10b981',
+      confirmButtonText: 'Got It!',
+      confirmButtonColor: '#ef070a',
+      background: '#f8fafc',
+      showClass: {
+        popup: 'animate__animated animate__fadeInDown animate__faster'
+      },
+      hideClass: {
+        popup: 'animate__animated animate__fadeOutUp animate__faster'
+      },
+      timer: 8000, // Auto close setelah 8 detik
+      timerProgressBar: true,
+      willClose: () => {
+        console.log('✅ Success alert closed for ticket:', ticketCode);
+      }
     });
-    
-    if (ticketElement) {
-      const statusEl = ticketElement.querySelector('.ticket-status');
-      const statusText = statusEl ? statusEl.textContent : 'NO STATUS ELEMENT';
-      console.log(`   ${openTicket.code} - UI shows: "${statusText}"`);
-      
-      // Cek apakah UI menunjukkan sebagai resolved
-      const isUIResolved = statusText.toLowerCase().includes('resolved') || 
-                          statusText.toLowerCase().includes('closed') ||
-                          statusText.toLowerCase().includes('finish') ||
-                          statusText.toLowerCase().includes('completed');
-      
-      if (isUIResolved) {
-        console.error(`🚨 CONFLICT FOUND: ${openTicket.code} is calculated as OPEN but UI shows as RESOLVED!`);
-        console.error(`   Firestore data: status="${openTicket.status}", qa="${openTicket.qa}"`);
-        console.error(`   UI shows: "${statusText}"`);
-      }
-    } else {
-      console.warn(`   ${openTicket.code} - NOT FOUND IN UI (might be filtered out)`);
-    }
-  });
-
-  // 4. Hitung stats seperti biasa
-  const calculatedOpenCount = calculatedOpenTickets.length;
-  const calculatedResolvedCount = calculatedResolvedTickets.length;
-
-  // 5. Hitung berdasarkan UI
-  const visibleTickets = document.querySelectorAll('.ticket-item');
-  let uiOpenCount = 0;
-  
-  visibleTickets.forEach(ticketEl => {
-    const statusEl = ticketEl.querySelector('.ticket-status');
-    if (statusEl) {
-      const statusText = statusEl.textContent.toLowerCase();
-      if (statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending')) {
-        uiOpenCount++;
-      }
-    }
-  });
-
-  const uiResolvedCount = visibleTickets.length - uiOpenCount;
-
-  console.log('📊 COMPARISON:');
-  console.log('   Calculated - Open:', calculatedOpenCount, 'Resolved:', calculatedResolvedCount);
-  console.log('   UI Visible - Open:', uiOpenCount, 'Resolved:', uiResolvedCount);
-
-  // 6. Tampilkan semua ticket untuk reference
-  console.log('📋 ALL ACTIVE TICKETS FOR REFERENCE:');
-  activeTickets.forEach((ticket, index) => {
-    console.log(`   ${index + 1}. ${ticket.code} - status:"${ticket.status}" qa:"${ticket.qa}"`);
-  });
-
-  // 7. Gunakan UI-based count (prioritize what user sees)
-  const finalOpenCount = uiOpenCount;
-  const finalResolvedCount = uiResolvedCount;
-
-  console.warn(`⚠️  USING UI-BASED COUNT: ${finalOpenCount} open, ${finalResolvedCount} resolved`);
-
-  // 8. Update UI
-  const openEl = document.getElementById('openTickets');
-  const resolvedEl = document.getElementById('resolvedTickets');
-  
-  if (openEl) openEl.textContent = finalOpenCount;
-  if (resolvedEl) resolvedEl.textContent = finalResolvedCount;
-
-  return {
-    calculated: { open: calculatedOpenCount, resolved: calculatedResolvedCount },
-    ui: { open: uiOpenCount, resolved: uiResolvedCount },
-    final: { open: finalOpenCount, resolved: finalResolvedCount },
-    problematicTickets: calculatedOpenTickets.filter(ticket => {
-      const ticketElement = Array.from(document.querySelectorAll('.ticket-item')).find(el => {
-        const codeEl = el.querySelector('.ticket-code');
-        return codeEl && codeEl.textContent === ticket.code;
-      });
-      if (ticketElement) {
-        const statusEl = ticketElement.querySelector('.ticket-status');
-        const statusText = statusEl ? statusEl.textContent.toLowerCase() : '';
-        return !(statusText.includes('open') || statusText.includes('progress') || statusText.includes('pending'));
-      }
-      return false;
-    })
-  };
-}
+  }
 
   showError(message) {
     const el = document.getElementById('ticketErrorMessage');
@@ -1122,7 +1083,9 @@ style.textContent = `
     }
   }
   
+  .status-open { color: #ef070a; }
   .status-in-progress { color: #f59e0b; }
+  .status-pending { color: #8b5cf6; }
   .status-resolved { color: #10b981; }
   .status-closed { color: #6b7280; }
   .status-finish { color: #10b981; }
@@ -1137,5 +1100,210 @@ style.textContent = `
     color: #6c757d;
     font-style: italic;
   }
+  
+  .ticket-assigned {
+    background: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    border-left: 3px solid #ef070a;
+  }
+  
+  .ticket-assigned small {
+    color: #495057;
+    font-weight: 500;
+  }
+  
+  .ticket-notes, .ticket-updates {
+    background: #fff3cd;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 6px 0;
+    border-left: 3px solid #ffc107;
+  }
+  
+  .ticket-notes small, .ticket-updates small {
+    color: #856404;
+  }
+  
+  .ticket-actions {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    justify-content: flex-end;
+  }
+  
+  .btn-delete-ticket {
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .btn-delete-ticket:hover {
+    background: #fecaca;
+    color: #b91c1c;
+    border-color: #fca5a5;
+  }
+  
+  .btn-delete-ticket:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .ticket-item.deletable {
+    border: 2px solid #f59e0b;
+    background: #fffbeb;
+  }
+  
+  .priority-low { color: #10b981; }
+  .priority-medium { color: #f59e0b; }
+  .priority-high { color: #ef4444; }
+  .priority-urgent { color: #dc2626; font-weight: bold; }
+  
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6b7280;
+  }
+  
+  .empty-state i {
+    font-size: 3rem;
+    margin-bottom: 16px;
+    color: #d1d5db;
+  }
+  
+  .empty-state h3 {
+    margin: 0 0 8px 0;
+    color: #374151;
+  }
+  
+  .empty-state p {
+    margin: 0;
+    color: #6b7280;
+  }
 `;
+
+// CSS untuk success alert
+const successAlertStyle = document.createElement('style');
+successAlertStyle.textContent = `
+  .ticket-success-alert {
+    text-align: left;
+    padding: 10px 0;
+  }
+  
+  .success-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: center;
+  }
+  
+  .success-header i {
+    font-size: 2rem;
+    color: #10b981;
+  }
+  
+  .success-header h3 {
+    margin: 0;
+    color: #065f46;
+    font-size: 1.4rem;
+  }
+  
+  .ticket-details {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 15px 0;
+    border: 1px solid #e5e7eb;
+  }
+  
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+  
+  .detail-row:last-child {
+    border-bottom: none;
+  }
+  
+  .detail-label {
+    font-weight: 600;
+    color: #374151;
+  }
+  
+  .detail-value {
+    color: #6b7280;
+  }
+  
+  .ticket-code {
+    font-weight: bold;
+    color: #ef070a;
+    font-size: 1.1em;
+  }
+  
+  .success-message {
+    background: #d1fae5;
+    border: 1px solid #a7f3d0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 15px;
+  }
+  
+  .success-message p {
+    margin: 5px 0;
+    color: #065f46;
+  }
+  
+  .swal2-popup {
+    border-radius: 12px !important;
+  }
+  
+  .swal2-timer-progress-bar {
+    background: #ef070a !important;
+  }
+`;
+
+// CSS untuk delete confirmation
+const deleteConfirmationStyle = document.createElement('style');
+deleteConfirmationStyle.textContent = `
+  .delete-confirmation {
+    text-align: left;
+  }
+  
+  .warning-text {
+    color: #dc2626;
+    font-weight: 600;
+    margin: 10px 0;
+  }
+  
+  .delete-success {
+    text-align: center;
+  }
+  
+  .delete-success i {
+    font-size: 3rem;
+    margin-bottom: 15px;
+  }
+  
+  .text-success {
+    color: #10b981;
+  }
+`;
+
+// Tambahkan semua styles ke document head
 document.head.appendChild(style);
+document.head.appendChild(successAlertStyle);
+document.head.appendChild(deleteConfirmationStyle);
