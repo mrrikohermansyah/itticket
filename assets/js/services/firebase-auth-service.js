@@ -336,6 +336,34 @@ async updateUserProfile(uid, updates) {
         throw new Error('Failed to update profile: ' + error.message);
     }
 }
+// Tambahkan method ini di class FirebaseAuthService
+validateUserProfileUpdates(userData) {
+  const requiredFields = ['full_name', 'email', 'department', 'location'];
+  const errors = [];
+
+  for (const field of requiredFields) {
+    if (!userData[field] || userData[field].toString().trim() === '') {
+      const fieldName = field.replace('_', ' ');
+      errors.push(`${this.capitalizeFirstLetter(fieldName)} is required`);
+    }
+  }
+
+  // Email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (userData.email && !emailRegex.test(userData.email)) {
+    errors.push('Please enter a valid email address');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors: errors
+  };
+}
+
+// Helper method untuk capitalize
+capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
 
 // ✅ NEW: Update semua tickets user di Firestore
 async updateUserTicketsInFirestore(userId, userUpdates) {
