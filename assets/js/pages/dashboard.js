@@ -200,6 +200,141 @@ class Dashboard {
     };
   }
 
+  // Di bagian method handleStatusUpdate() atau method yang menangani perubahan status
+async handleStatusUpdate(ticketId, newStatus, note = '') {
+  try {
+    const ticketRef = doc(this.db, "tickets", ticketId);
+    const ticketDoc = await getDoc(ticketRef);
+    
+    if (!ticketDoc.exists()) {
+      throw new Error('Ticket not found');
+    }
+
+    const ticketData = ticketDoc.data();
+    
+    // VALIDASI: Jika status berubah ke resolved/closed/finished, wajib ada note
+    const resolvingStatuses = ['resolved', 'closed', 'completed', 'finished', 'finish'];
+    const isResolving = resolvingStatuses.includes(newStatus.toLowerCase());
+    
+    if (isResolving && (!note || note.trim() === '')) {
+      throw new Error('Note is required when resolving a ticket. Please describe the solution or reason for closure.');
+    }
+
+    const updateData = {
+      status: newStatus,
+      last_updated: serverTimestamp(),
+      action_by: this.currentUser.full_name || 'Admin'
+    };
+
+    // Jika ada note, tambahkan ke updateData
+    if (note && note.trim() !== '') {
+      updateData.note = note.trim();
+      
+      // Tambahkan ke history updates
+      const newUpdate = {
+        status: newStatus,
+        notes: note.trim(),
+        timestamp: new Date().toISOString(),
+        updatedBy: this.currentUser.full_name || 'Admin'
+      };
+
+      const existingUpdates = ticketData.updates || [];
+      updateData.updates = [...existingUpdates, newUpdate];
+    }
+
+    // Untuk status finish di field qa
+    if (newStatus.toLowerCase() === 'finish') {
+      updateData.qa = 'Finish';
+      
+      // Validasi tambahan untuk qa finish
+      if (!note || note.trim() === '') {
+        throw new Error('Note is required when marking ticket as finished in QA. Please describe the final resolution.');
+      }
+    }
+
+    await updateDoc(ticketRef, updateData);
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating ticket status:', error);
+    throw error;
+  }
+}
+
+// Method untuk menampilkan modal konfirmasi dengan note
+async showResolveConfirmation(ticket) {
+  const { value: note } = await Swal.fire({
+    title: `Resolve Ticket ${ticket.code}`,
+    html: `
+      <div class="resolve-modal">
+        <p><strong>Current Status:</strong> ${ticket.status}</p>
+        <p><strong>Subject:</strong> ${ticket.subject}</p>
+        <div class="form-group">
+          <label for="resolveNote"><strong>Resolution Notes *</strong></label>
+          <textarea 
+            id="resolveNote" 
+            class="swal2-textarea" 
+            placeholder="Please describe the solution, steps taken, or reason for closure. This will be included in reports."
+            rows="4"
+            required
+          >${ticket.note || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label for="resolveStatus"><strong>Final Status *</strong></label>
+          <select id="resolveStatus" class="swal2-select" required>
+            <option value="">Select Status</option>
+            <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+            <option value="Closed" ${ticket.status === 'Closed' ? 'selected' : ''}>Closed</option>
+            <option value="Completed" ${ticket.status === 'Completed' ? 'selected' : ''}>Completed</option>
+            <option value="Finish" ${ticket.qa === 'Finish' ? 'selected' : ''}>Finish (QA)</option>
+          </select>
+        </div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: 'Confirm Resolution',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#10b981',
+    cancelButtonColor: '#6b7280',
+    preConfirm: () => {
+      const note = document.getElementById('resolveNote').value.trim();
+      const status = document.getElementById('resolveStatus').value;
+      
+      if (!note) {
+        Swal.showValidationMessage('Resolution notes are required');
+        return false;
+      }
+      
+      if (!status) {
+        Swal.showValidationMessage('Please select a status');
+        return false;
+      }
+      
+      return { note, status };
+    }
+  });
+
+  if (note) {
+    try {
+      await this.handleStatusUpdate(ticket.id, note.status, note.note);
+      
+      Swal.fire({
+        title: 'Success!',
+        text: `Ticket ${ticket.code} has been resolved`,
+        icon: 'success',
+        confirmButtonColor: '#10b981'
+      });
+    } catch (error) {
+      Swal.fire({
+        title: 'Error!',
+        text: error.message,
+        icon: 'error',
+        confirmButtonColor: '#ef4444'
+      });
+    }
+  }
+}
+
   // Debug method untuk melihat status semua ticket
   debugTicketStatus() {
     console.log('🔍 DEBUG TICKET STATUS:');
@@ -611,32 +746,60 @@ isTicketOpen(ticket) {
     return { isValid: true };
   }
 
-  renderTickets() {
-    const ticketsList = document.getElementById('ticketsList');
-    if (!ticketsList) return;
+  // Tambahkan method ini di class Dashboard
+getTicketStatusDisplay(ticket) {
+  const status = (ticket.status || '').toLowerCase();
+  const qa = (ticket.qa || '').toLowerCase();
+  
+  // Prioritize status over qa
+  if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
+    return 'Resolved';
+  }
+  
+  if (status === 'in progress' || status === 'pending') {
+    return 'In Progress';
+  }
+  
+  // Fallback to qa
+  if (qa === 'finish' || qa === 'finished') {
+    return 'Resolved';
+  }
+  
+  if (qa === 'open') {
+    return 'Open';
+  }
+  
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
 
-    // HANYA tampilkan ticket yang aktif
-    const activeTickets = this.tickets.filter(ticket => 
-      !ticket.deleted && !ticket.archived
-    );
+// Update method renderTickets() - ganti bagian ticket-status
+renderTickets() {
+  const ticketsList = document.getElementById('ticketsList');
+  if (!ticketsList) return;
 
-    console.log('🎫 Rendering', activeTickets.length, 'active tickets out of', this.tickets.length, 'total');
+  const activeTickets = this.tickets.filter(ticket => 
+    !ticket.deleted && !ticket.archived
+  );
 
-    if (activeTickets.length === 0) {
-      ticketsList.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-ticket-alt"></i>
-          <h3>No tickets yet</h3>
-          <p>Submit your first support ticket above</p>
-        </div>
-      `;
-      return;
-    }
+  console.log('🎫 Rendering', activeTickets.length, 'active tickets out of', this.tickets.length, 'total');
 
-    // Hanya ambil 10 ticket aktif terbaru
-    const ticketsToShow = activeTickets.slice(0, 5);
+  if (activeTickets.length === 0) {
+    ticketsList.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-ticket-alt"></i>
+        <h3>No tickets yet</h3>
+        <p>Submit your first support ticket above</p>
+      </div>
+    `;
+    return;
+  }
+
+  const ticketsToShow = activeTickets.slice(0, 5);
+  
+  const ticketsHtml = ticketsToShow.map(ticket => {
+    const statusDisplay = this.getTicketStatusDisplay(ticket);
     
-    const ticketsHtml = ticketsToShow.map(ticket => `
+    return `
       <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''}">
         <div class="ticket-content">
           <div class="ticket-header">
@@ -649,8 +812,8 @@ isTicketOpen(ticket) {
           <div class="ticket-meta">
             <span class="ticket-device">${ticket.device || 'No device'}</span>
             <span class="ticket-location">${ticket.location || 'No location'}</span>
-            <span class="ticket-status status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
-              ${ticket.status || 'Open'}
+            <span class="ticket-status status-${statusDisplay.toLowerCase().replace(' ', '-')}">
+              ${statusDisplay}
             </span>
             <span class="ticket-date">
               ${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Unknown date'}
@@ -678,10 +841,11 @@ isTicketOpen(ticket) {
           ` : ''}
         </div>
       </div>
-    `).join('');
+    `;
+  }).join('');
 
-    ticketsList.innerHTML = ticketsHtml;
-  }
+  ticketsList.innerHTML = ticketsHtml;
+}
 
  updateStats() {
   console.log('🔄 UPDATING STATS - Detailed mismatch investigation');

@@ -6,17 +6,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Team - IT Support</title>
     <script src="../../assets/js/utils/config.js"></script>
-    <!-- TAMBAHKAN INI -->
     <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
-    <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="../../assets/images/meitech-logo.png">
+    <link rel="stylesheet" href="../admin/assets/css/manage-admin.css">
     <link rel="stylesheet" href="../../assets/css/base/styles.css">
-    <link rel="stylesheet" href="assets/css/admin.css">
+
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+    
 </head>
 
 <body class="admin-body">
@@ -63,7 +69,8 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_name">Full Name *</label>
-                            <input type="text" id="it_name" name="name" required placeholder="Enter full name" autocomplete="name">
+                            <input type="text" id="it_name" name="name" required placeholder="Enter full name"
+                                autocomplete="name">
                         </div>
                         <div class="form-group">
                             <label for="it_email">Email Address *</label>
@@ -71,11 +78,12 @@
                                 autocomplete="email">
                         </div>
                     </div>
-                
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_role">Role *</label>
-                            <select id="it_role" name="role" required class="role-select" autocomplete="organization-title">
+                            <select id="it_role" name="role" required class="role-select"
+                                autocomplete="organization-title">
                                 <option value="">Select Role</option>
                                 <option value="Super Admin">Super Admin (Full Access)</option>
                                 <option value="IT Engineer">IT Engineer</option>
@@ -85,55 +93,63 @@
                         </div>
                         <div class="form-group">
                             <label for="it_department">Department *</label>
-                            <input type="text" id="it_department" name="department" required value="IT" readonly class="readonly-field"
-                                autocomplete="organization">
+                            <input type="text" id="it_department" name="department" required value="IT" readonly
+                                class="readonly-field" autocomplete="organization">
                         </div>
                     </div>
-                
-                    <!-- ✅ PERBAIKAN: Specialization tanpa for attribute -->
+
+                    <!-- Specialization Section -->
                     <div class="form-group">
                         <label>Specialization</label>
                         <div class="specialization-options" id="specializationContainer">
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_network" name="specialization" value="Network" autocomplete="off">
+                                <input type="checkbox" id="spec_network" name="specialization" value="Network"
+                                    autocomplete="off">
                                 <label for="spec_network">Network</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_hardware" name="specialization" value="Hardware" autocomplete="off">
+                                <input type="checkbox" id="spec_hardware" name="specialization" value="Hardware"
+                                    autocomplete="off">
                                 <label for="spec_hardware">Hardware</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_software" name="specialization" value="Software" autocomplete="off">
+                                <input type="checkbox" id="spec_software" name="specialization" value="Software"
+                                    autocomplete="off">
                                 <label for="spec_software">Software</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_printer" name="specialization" value="Printer" autocomplete="off">
+                                <input type="checkbox" id="spec_printer" name="specialization" value="Printer"
+                                    autocomplete="off">
                                 <label for="spec_printer">Printer</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_projector" name="specialization" value="Projector" autocomplete="off">
+                                <input type="checkbox" id="spec_projector" name="specialization" value="Projector"
+                                    autocomplete="off">
                                 <label for="spec_projector">Projector</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_server" name="specialization" value="Server" autocomplete="off">
+                                <input type="checkbox" id="spec_server" name="specialization" value="Server"
+                                    autocomplete="off">
                                 <label for="spec_server">Server</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_backup" name="specialization" value="Data Backup" autocomplete="off">
+                                <input type="checkbox" id="spec_backup" name="specialization" value="Data Backup"
+                                    autocomplete="off">
                                 <label for="spec_backup">Data Backup</label>
                             </div>
                             <div class="specialization-checkbox">
-                                <input type="checkbox" id="spec_support" name="specialization" value="User Support" autocomplete="off">
+                                <input type="checkbox" id="spec_support" name="specialization" value="User Support"
+                                    autocomplete="off">
                                 <label for="spec_support">User Support</label>
                             </div>
                         </div>
                     </div>
-                
+
                     <div class="form-row">
                         <div class="form-group">
                             <label for="it_password">Temporary Password *</label>
-                            <input type="password" id="it_password" name="password" required placeholder="Set temporary password"
-                                minlength="6" autocomplete="new-password">
+                            <input type="password" id="it_password" name="password" required
+                                placeholder="Set temporary password" minlength="6" autocomplete="new-password">
                         </div>
                         <div class="form-group">
                             <label for="it_confirm_password">Confirm Password *</label>
@@ -141,9 +157,9 @@
                                 placeholder="Confirm password" autocomplete="new-password">
                         </div>
                     </div>
-                
+
                     <div id="formMessage" class="error-message" style="display: none"></div>
-                
+
                     <div class="form-actions">
                         <button type="submit" class="btn-primary" autocomplete="off">
                             <i class="fas fa-user-plus"></i>

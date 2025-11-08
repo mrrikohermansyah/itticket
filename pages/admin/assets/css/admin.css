@@ -2525,3 +2525,43 @@ body.modal-open {
     flex-direction: column;
   }
 }
+
+/* Tambahkan di admin.css */
+.resolve-modal .form-group {
+  margin-bottom: 1rem;
+}
+
+.resolve-modal label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.resolve-modal .swal2-textarea,
+.resolve-modal .swal2-select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+}
+
+.resolve-modal .swal2-textarea:focus,
+.resolve-modal .swal2-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.resolve-modal .ticket-info {
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border-left: 4px solid #ef070a;
+}
+
+.resolve-modal .ticket-info p {
+  margin: 0.25rem 0;
+  font-size: 0.875rem;
+}
