@@ -598,44 +598,154 @@ isTicketOpen(ticket) {
     if (profileModal) profileModal.style.display = 'none';
   }
 
-  async handleProfileUpdate(e) {
+ // ✅ FIX: Enhanced profile update dengan ticket sync
+async handleProfileUpdate(e) {
     e.preventDefault();
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+    
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating Profile & Tickets...';
     submitBtn.disabled = true;
 
     try {
-      const formData = this.getFormData(form);
-      const validation = this.validateProfileForm(formData);
-      if (!validation.isValid) throw new Error(validation.message);
+        const formData = this.getFormData(form);
+        
+        console.log('📝 Raw form data:', formData);
 
-      await updateDoc(doc(this.db, "users", this.currentUser.id), formData);
-      this.currentUser = { ...this.currentUser, ...formData };
-      this.loadUserInfo();
+        // Pre-process data sebelum validasi
+        const processedData = this.preProcessFormData(formData);
+        
+        console.log('🔧 Processed form data:', processedData);
 
-      await Swal.fire({
-        title: 'Success!',
-        text: 'Profile updated successfully!',
-        icon: 'success',
-        confirmButtonColor: '#ef070a',
-        confirmButtonText: 'OK'
-      });
-      this.closeProfileModal();
+        // Validasi form
+        const validation = this.validateProfileForm(processedData);
+        if (!validation.isValid) {
+            throw new Error(validation.message);
+        }
+
+        // Update profile menggunakan service (sekarang termasuk ticket update)
+        const result = await firebaseAuthService.updateUserProfile(this.currentUser.id, processedData);
+        
+        if (!result.success) {
+            throw new Error(result.message);
+        }
+
+        // Update current user data dengan data yang sudah diproses
+        this.currentUser = { 
+            ...this.currentUser, 
+            ...processedData,
+            updated_at: new Date().toISOString()
+        };
+        
+        this.loadUserInfo();
+
+        await Swal.fire({
+            title: 'Success!',
+            text: result.message || 'Profile updated successfully! All related tickets have been updated.',
+            icon: 'success',
+            confirmButtonColor: '#ef070a',
+            confirmButtonText: 'OK'
+        });
+        
+        this.closeProfileModal();
+
     } catch (error) {
-      Swal.fire({
-        title: 'Error!',
-        text: error.message,
-        icon: 'error',
-        confirmButtonColor: '#ef070a',
-        confirmButtonText: 'OK'
-      });
+        console.error('❌ Profile update error:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: error.message,
+            icon: 'error',
+            confirmButtonColor: '#ef070a',
+            confirmButtonText: 'OK'
+        });
     } finally {
-      submitBtn.innerHTML = originalText;
-      submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
     }
-  }
+}
+
+// ✅ FIX: Pre-process form data untuk handle empty values
+preProcessFormData(formData) {
+    const processed = { ...formData };
+    
+    // Handle empty employee_id (ubah "-" jadi empty string)
+    if (processed.employee_id === '-' || processed.employee_id === 'null') {
+        processed.employee_id = '';
+    }
+    
+    // Handle empty phone
+    if (!processed.phone || processed.phone === 'null' || processed.phone === 'undefined') {
+        processed.phone = '';
+    }
+    
+    // Trim semua string values
+    Object.keys(processed).forEach(key => {
+        if (typeof processed[key] === 'string') {
+            processed[key] = processed[key].trim();
+        }
+    });
+    
+    return processed;
+}
+
+// ✅ FIX: Enhanced form validation
+validateProfileForm(formData) {
+    const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location'];
+    
+    for (const field of requiredFields) {
+        if (!formData[field] || formData[field].toString().trim() === '') {
+            return { 
+                isValid: false, 
+                message: `${field.replace('_', ' ')} is required` 
+            };
+        }
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        return {
+            isValid: false,
+            message: 'Please enter a valid email address'
+        };
+    }
+
+    return { isValid: true };
+}
+
+// Validasi form yang lebih komprehensif
+validateProfileForm(formData) {
+    const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location'];
+    
+    for (const field of requiredFields) {
+        if (!formData[field]?.trim()) {
+            return { 
+                isValid: false, 
+                message: `Please fill in ${field.replace('_', ' ')}` 
+            };
+        }
+    }
+
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+        return {
+            isValid: false,
+            message: 'Please enter a valid email address'
+        };
+    }
+
+    // Phone validation (optional)
+    if (formData.phone && !/^[\+]?[0-9\s\-\(\)]+$/.test(formData.phone)) {
+        return {
+            isValid: false,
+            message: 'Please enter a valid phone number'
+        };
+    }
+
+    return { isValid: true };
+}
 
   getFormData(form) {
     const data = {};

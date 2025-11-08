@@ -300,17 +300,210 @@ async migrateAdminToCorrectUID(correctUID, oldDocId, adminData) {
         }
     }
 
-    async updateUserProfile(uid, updates) {
-        try {
-            await updateDoc(doc(db, 'users', uid), {
-                ...updates,
-                updated_at: new Date().toISOString()
+ // ========== COMPREHENSIVE USER PROFILE UPDATE WITH TICKET SYNC ==========
+
+async updateUserProfile(uid, updates) {
+    try {
+        console.log('🔄 USER PROFILE SYNC STARTED:', { uid, updates });
+        
+        // Validasi data yang akan diupdate
+        const validatedUpdates = this.validateUserProfileUpdates(updates);
+        
+        // Update di Firestore - user data
+        const userRef = doc(db, 'users', uid);
+        await updateDoc(userRef, {
+            ...validatedUpdates,
+            updated_at: new Date().toISOString(),
+            last_synced: new Date().toISOString()
+        });
+
+        console.log('✅ User profile updated in Firestore');
+
+        // ✅ FIX: UPDATE ALL TICKETS YANG DIBUAT OLEH USER INI
+        await this.updateUserTicketsInFirestore(uid, validatedUpdates);
+
+        // ✅ TRIGGER REAL-TIME UPDATE KE SEMUA LISTENER
+        await this.triggerGlobalUserUpdate(uid, validatedUpdates);
+
+        return {
+            success: true,
+            message: 'Profile updated successfully! All related tickets have been updated.',
+            user: { uid, ...validatedUpdates }
+        };
+
+    } catch (error) {
+        console.error('❌ User profile sync failed:', error);
+        throw new Error('Failed to update profile: ' + error.message);
+    }
+}
+
+// ✅ NEW: Update semua tickets user di Firestore
+async updateUserTicketsInFirestore(userId, userUpdates) {
+    try {
+        console.log('🎫 Updating user tickets in Firestore for:', {
+            userId,
+            userUpdates: {
+                name: userUpdates.full_name,
+                department: userUpdates.department,
+                email: userUpdates.email
+            }
+        });
+
+        // Cari semua tickets yang dibuat oleh user ini
+        const ticketsQuery = query(
+            collection(db, "tickets"),
+            where("user_id", "==", userId)
+        );
+
+        const querySnapshot = await getDocs(ticketsQuery);
+        
+        console.log(`📝 Found ${querySnapshot.size} tickets for user ${userId}`);
+
+        let updatedTicketsCount = 0;
+
+        // Update setiap ticket
+        for (const docSnapshot of querySnapshot.docs) {
+            const ticketRef = doc(db, "tickets", docSnapshot.id);
+            const ticketData = docSnapshot.data();
+            
+            console.log(`🔄 Updating ticket ${ticketData.code}:`, {
+                currentDepartment: ticketData.user_department,
+                newDepartment: userUpdates.department
             });
-            return { success: true, message: 'Profile updated successfully!' };
-        } catch (error) {
-            throw new Error('Failed to update profile: ' + error.message);
+
+            // Update ticket dengan data user terbaru
+            await updateDoc(ticketRef, {
+                user_name: userUpdates.full_name || ticketData.user_name,
+                user_department: userUpdates.department || ticketData.user_department,
+                user_email: userUpdates.email || ticketData.user_email,
+                user_phone: userUpdates.phone || ticketData.user_phone,
+                last_updated: serverTimestamp()
+            });
+
+            updatedTicketsCount++;
+            console.log(`✅ Updated ticket ${ticketData.code}`);
+        }
+
+        console.log(`🎉 Successfully updated ${updatedTicketsCount} tickets in Firestore`);
+
+        return updatedTicketsCount;
+
+    } catch (error) {
+        console.error('❌ Error updating user tickets in Firestore:', error);
+        throw new Error('Failed to update related tickets: ' + error.message);
+    }
+}
+
+// ✅ FIX: Validasi dan cleaning data yang lebih robust
+validateAndCleanUserUpdates(updates) {
+    const cleaned = {};
+    
+    // Field yang akan diupdate
+    const fields = [
+        'employee_id', 'full_name', 'email', 'phone', 
+        'department', 'location'
+    ];
+
+    fields.forEach(field => {
+        if (updates[field] !== undefined && updates[field] !== null) {
+            // ✅ FIX: Handle empty strings and "-" values
+            let value = updates[field].toString().trim();
+            
+            // ✅ FIX: Jika employee_id adalah "-", ubah jadi empty string
+            if (field === 'employee_id' && value === '-') {
+                value = '';
+            }
+            
+            // ✅ FIX: Pastikan phone tidak null/undefined
+            if (field === 'phone' && (!value || value === 'null' || value === 'undefined')) {
+                value = '';
+            }
+            
+            cleaned[field] = value;
+        }
+    });
+
+    // ✅ FIX: Validasi email
+    if (cleaned.email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(cleaned.email)) {
+            throw new Error('Invalid email format');
         }
     }
+
+    // ✅ FIX: Validasi required fields
+    const requiredFields = ['full_name', 'email', 'department', 'location'];
+    for (const field of requiredFields) {
+        if (!cleaned[field] || cleaned[field].trim() === '') {
+            throw new Error(`${field.replace('_', ' ')} is required`);
+        }
+    }
+
+    return cleaned;
+}
+
+// ✅ FIX: Global update trigger dengan error handling
+async triggerGlobalUserUpdate(uid, updates) {
+    try {
+        console.log('🌐 Triggering global user update for:', uid);
+        
+        // Clear cache
+        if (window.userCache && window.userCache[uid]) {
+            delete window.userCache[uid];
+        }
+        
+        // Dispatch custom event untuk admin panel
+        const updateEvent = new CustomEvent('userProfileUpdated', {
+            detail: { uid, updates }
+        });
+        window.dispatchEvent(updateEvent);
+        
+        console.log('✅ Global update triggered');
+        
+    } catch (error) {
+        console.error('❌ Error triggering global update:', error);
+    }
+}
+
+// ========== REAL-TIME SYNC TRIGGER ==========
+
+triggerUserDataUpdate(uid) {
+    // Method ini akan memicu update real-time di admin panel
+    console.log('🔄 Triggering user data update for:', uid);
+    
+    // Anda bisa menambahkan custom event atau langsung update cache
+    if (window.adminCache && window.adminCache[uid]) {
+        delete window.adminCache[uid]; // Clear cache untuk force reload
+    }
+}
+
+// ========== GET USER DATA WITH CACHE MANAGEMENT ==========
+
+async getUserData(uid) {
+    try {
+        // Check cache first
+        if (window.userCache && window.userCache[uid]) {
+            return window.userCache[uid];
+        }
+
+        const userDoc = await getDoc(doc(db, 'users', uid));
+        if (!userDoc.exists()) {
+            throw new Error('User data not found');
+        }
+
+        const userData = userDoc.data();
+        
+        // Cache the data
+        if (!window.userCache) window.userCache = {};
+        window.userCache[uid] = userData;
+
+        return userData;
+
+    } catch (error) {
+        console.error('Error getting user data:', error);
+        throw error;
+    }
+}
 
     // ========== ADMIN MANAGEMENT ==========
 

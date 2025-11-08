@@ -51,6 +51,7 @@ class AdminDashboard {
         this.tickets = [];
         this.filteredTickets = [];
         this.currentFilter = 'all';
+        this.userUnsubscribe = null;
         this.unsubscribe = null;
         this.db = db;
         this.auth = auth;
@@ -212,8 +213,9 @@ class AdminDashboard {
             // Load tickets
             await this.loadTickets();
             
-            // Setup real-time updates
-            this.setupRealTimeListener();
+            // ✅ SETUP BOTH REAL-TIME LISTENERS
+        this.setupRealTimeListener();       // Untuk tickets
+        this.setupUserDataListener();       // Untuk user data
             
             console.log('✅ Admin Dashboard ready');
             
@@ -221,6 +223,361 @@ class AdminDashboard {
             console.error('❌ Admin Dashboard init error:', error);
         }
     }
+
+    // ========== REAL-TIME USER DATA LISTENER ==========
+// ✅ FIX: Enhanced user data real-time listener dengan ticket reload
+setupUserDataListener() {
+    try {
+        console.log('🔍 [DEBUG] Setting up user data listener...');
+        
+        const usersQuery = query(collection(this.db, "users"));
+        
+        this.userUnsubscribe = onSnapshot(usersQuery, 
+            // ✅ Success callback
+            (snapshot) => {
+                console.log('🔄 [DEBUG] User data snapshot received:', {
+                    totalUsers: snapshot.size,
+                    changes: snapshot.docChanges().length
+                });
+                
+                let hasUserUpdates = false;
+
+                snapshot.docChanges().forEach((change, index) => {
+                    const userData = change.doc.data();
+                    const userId = change.doc.id;
+                    
+                    console.log(`📝 [DEBUG] Change ${index + 1}:`, {
+                        type: change.type,
+                        userId: userId,
+                        userData: {
+                            name: userData.full_name,
+                            email: userData.email,
+                            department: userData.department,
+                            location: userData.location,
+                            updated_at: userData.updated_at
+                        }
+                    });
+
+                    if (change.type === "modified") {
+                        console.log('🎯 [DEBUG] User MODIFIED - triggering update handler');
+                        this.handleUserProfileUpdate(userId, userData);
+                        hasUserUpdates = true;
+                    }
+                });
+
+                // ✅ FIX: RELOAD TICKETS JIKA ADA USER UPDATES
+                if (hasUserUpdates) {
+                    console.log('🔄 [DEBUG] User updates detected - reloading tickets...');
+                    this.loadTickets(); // Ini akan memuat data terbaru dari Firestore
+                }
+            },
+            // ✅ Error callback
+            (error) => {
+                console.error('❌ [DEBUG] User data listener ERROR:', error);
+                this.showToastNotification('User data sync error', 'error');
+            }
+        );
+        
+        console.log('✅ [DEBUG] User data listener ACTIVATED');
+        
+    } catch (error) {
+        console.error('❌ [DEBUG] Error setting up user data listener:', error);
+    }
+}
+
+// ✅ FIX: Enhanced user profile update handler dengan debug
+handleUserProfileUpdate(userId, userData) {
+    try {
+        console.log('🎯 [REAL-TIME] User profile update detected:', {
+            userId,
+            userData: {
+                name: userData.full_name,
+                email: userData.email,
+                department: userData.department,
+                location: userData.location,
+                updated_at: userData.updated_at
+            }
+        });
+
+        // ✅ SELALU TAMPILKAN NOTIFICATION - bahkan tanpa users table
+        this.showRealTimeUserUpdateNotification(userData);
+
+        // ✅ UPDATE TICKETS YANG TERKAIT USER INI
+        this.updateUserTicketsInRealTime(userId, userData);
+        
+        // ✅ CLEAR CACHE untuk memastikan data terbaru
+        if (window.userCache && window.userCache[userId]) {
+            delete window.userCache[userId];
+        }
+
+    } catch (error) {
+        console.error('❌ Error handling user profile update:', error);
+    }
+}
+
+// ✅ DEBUG: Check ticket data in Firestore
+async debugTicketData(ticketId) {
+    try {
+        console.log('🔍 [DEBUG] Checking ticket data in Firestore:', ticketId);
+        
+        const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
+        if (ticketDoc.exists()) {
+            const ticketData = ticketDoc.data();
+            console.log('📋 [DEBUG] Firestore ticket data:', {
+                code: ticketData.code,
+                user_name: ticketData.user_name,
+                user_department: ticketData.user_department, // ← INI YANG DICEK!
+                user_email: ticketData.user_email,
+                user_id: ticketData.user_id
+            });
+        } else {
+            console.error('❌ [DEBUG] Ticket not found in Firestore');
+        }
+    } catch (error) {
+        console.error('❌ [DEBUG] Error checking ticket data:', error);
+    }
+}
+
+// ✅ NEW: Show real-time notification untuk user updates
+showRealTimeUserUpdateNotification(userData) {
+    const notification = document.createElement('div');
+    notification.className = 'realtime-user-notification';
+    notification.innerHTML = `
+        <div class="notification-content">
+            <i class="fas fa-user-edit"></i>
+            <div>
+                <strong>User Profile Updated</strong>
+                <p>${userData.full_name} - ${userData.department}</p>
+                <small>Department: ${userData.department} | Location: ${userData.location}</small>
+            </div>
+            <button class="notification-close">&times;</button>
+        </div>
+    `;
+    
+    // Styling untuk notification
+    notification.style.cssText = `
+        position: fixed;
+        top: 80px;
+        right: 20px;
+        background: white;
+        border-left: 4px solid #3b82f6;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 16px;
+        z-index: 10000;
+        max-width: 350px;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto remove setelah 8 detik (lebih lama untuk debugging)
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 8000);
+    
+    // Close button handler
+    notification.querySelector('.notification-close').addEventListener('click', () => {
+        notification.remove();
+    });
+}
+
+// ✅ NEW: Update tickets yang terkait user ini
+updateUserTicketsInRealTime(userId, userData) {
+    try {
+         console.log('🔄 [REAL-TIME] Updating tickets for user:', {
+            userId,
+            userName: userData.full_name,
+            userDepartment: userData.department,
+            userEmail: userData.email
+        });
+        // Cari tickets yang dibuat oleh user ini
+        const userTickets = this.tickets.filter(ticket => 
+            ticket.user_id === userId || 
+            ticket.user_email === userData.email
+    );
+    
+    if (userTickets.length > 0) {
+            console.log(`📝 Found ${userTickets.length} tickets for user ${userData.full_name}`);
+            
+            // Update local tickets data dengan info user terbaru
+            userTickets.forEach(ticket => {
+                const ticketIndex = this.tickets.findIndex(t => t.id === ticket.id);
+                if (ticketIndex !== -1) {
+                    this.tickets[ticketIndex].user_name = userData.full_name;
+                    this.tickets[ticketIndex].user_department = userData.department;
+                    this.tickets[ticketIndex].user_email = userData.email;
+                    this.tickets[ticketIndex].user_phone = userData.phone;
+                }
+            });
+            
+            // Re-render tickets untuk menampilkan perubahan
+            this.renderTickets();
+            this.updateStats();
+            
+            console.log('✅ Tickets updated with latest user data');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error updating user tickets:', error);
+    }
+}
+
+// ✅ FIX: Refresh users table
+async refreshUsersTable() {
+    try {
+        console.log('🔄 Refreshing users table...');
+        
+        const usersQuery = query(collection(this.db, "users"));
+        const querySnapshot = await getDocs(usersQuery);
+        
+        const users = [];
+        querySnapshot.forEach((doc) => {
+            users.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        // Render table
+        this.renderUsersTable(users);
+        
+        console.log('✅ Users table refreshed with', users.length, 'users');
+        
+    } catch (error) {
+        console.error('❌ Error refreshing users table:', error);
+    }
+}
+
+// ✅ FIX: Render users table
+renderUsersTable(users) {
+    const usersTable = document.getElementById('usersTable');
+    if (!usersTable) return;
+    
+    const tbody = usersTable.querySelector('tbody');
+    if (!tbody) return;
+    
+    tbody.innerHTML = users.map(user => `
+        <tr>
+            <td>${this.escapeHtml(user.employee_id || '-')}</td>
+            <td>
+                <strong>${this.escapeHtml(user.full_name)}</strong>
+                <br><small>${this.escapeHtml(user.email)}</small>
+            </td>
+            <td>${this.escapeHtml(user.phone || '-')}</td>
+            <td>${this.escapeHtml(user.department)}</td>
+            <td>${this.escapeHtml(user.location)}</td>
+            <td>
+                <span class="status-badge status-${user.is_active ? 'active' : 'inactive'}">
+                    ${user.is_active ? 'Active' : 'Inactive'}
+                </span>
+            </td>
+            <td>
+                <button class="btn-action btn-view" onclick="adminDashboard.viewUser('${user.id}')">
+                    <i class="fas fa-eye"></i> View
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+// ✅ FIX: Enhanced notification
+showUserUpdateNotification(userName, userData) {
+    this.showToastNotification(
+        `User Updated: ${userName}`,
+        'info',
+        `Department: ${userData.department}, Location: ${userData.location}`
+    );
+}
+
+// Method untuk load users data (jika ada halaman manage users)
+async loadUsersData() {
+    try {
+        const usersQuery = query(collection(this.db, "users"));
+        const querySnapshot = await getDocs(usersQuery);
+        
+        const users = [];
+        querySnapshot.forEach((doc) => {
+            users.push({
+                id: doc.id,
+                ...doc.data()
+            });
+        });
+        
+        this.renderUsersTable(users);
+        
+    } catch (error) {
+        console.error('Error loading users data:', error);
+    }
+}
+
+// Notification untuk update user data
+showUserUpdateNotification(snapshot) {
+    snapshot.docChanges().forEach((change) => {
+        if (change.type === "modified") {
+            const userData = change.doc.data();
+            console.log('👤 User data updated:', userData.full_name);
+            
+            // Show subtle notification
+            this.showToastNotification(
+                `User profile updated: ${userData.full_name}`,
+                'info'
+            );
+        }
+    });
+}
+
+// Toast notification helper
+showToastNotification(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `admin-toast admin-toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="fas fa-${type === 'info' ? 'info-circle' : 'check-circle'}"></i>
+            <span>${message}</span>
+            <button class="toast-close">&times;</button>
+        </div>
+    `;
+    
+    // Styling untuk toast
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border-left: 4px solid ${type === 'info' ? '#3b82f6' : '#10b981'};
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        padding: 12px 16px;
+        z-index: 10000;
+        max-width: 300px;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto remove setelah 5 detik
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.remove();
+        }
+    }, 5000);
+    
+    // Close button handler
+    toast.querySelector('.toast-close').addEventListener('click', () => {
+        toast.remove();
+    });
+}
+
+// ✅ FIX: Check if we should show user updates
+isOnUsersPage() {
+    // Cek jika ada element users table ATAU jika kita ingin selalu show notifications
+    return document.getElementById('usersTable') || 
+           document.getElementById('usersSection') ||
+           true; // Selalu return true untuk testing
+}
 
     // ✅ CHECK DOM ELEMENTS - MATCH WITH ACTUAL HTML
     checkDOMElements() {
@@ -291,7 +648,11 @@ class AdminDashboard {
 
     // ==================== PERMISSION SYSTEM ====================
     canDeleteTicket(ticket) {
-        return this.adminUser.role === 'Super Admin';
+        if(this.adminUser.role === 'Super Admin') {
+            return true;}
+        // Admin biasa hanya bisa hapus jika mereka adalah action_by atau assigned_to ticket
+    const isTicketOwner = this.isAssignedToCurrentAdmin(ticket);
+    return isTicketOwner;
     }
 
     canStartTicket(ticket) {
@@ -332,7 +693,10 @@ class AdminDashboard {
     }
 
     canUpdateTicket(ticket) {
-        return true;
+        if (this.adminUser.role === 'Super Admin') {
+        return true;}
+
+        return this.isAssignedToCurrentAdmin(ticket);
     }
 
     // ✅ HELPER METHOD UNTUK CHECK ASSIGNMENT (FLEXIBLE)
@@ -359,6 +723,7 @@ class AdminDashboard {
 
     // ✅ METHOD UNTUK CHECK PERMISSIONS
     checkPermissions(ticket) {
+        const isTicketOwner = this.isAssignedToCurrentAdmin(ticket);
         return {
             canDelete: this.canDeleteTicket(ticket),
             canReopen: this.canReopenTicket(ticket),
@@ -367,7 +732,7 @@ class AdminDashboard {
             canStart: this.canStartTicket(ticket),
             canResolve: this.canResolveTicket(ticket),
             isSuperAdmin: this.adminUser.role === 'Super Admin',
-            isTicketOwner: this.isAssignedToCurrentAdmin(ticket)
+            isTicketOwner: isTicketOwner
         };
     }
 
@@ -634,7 +999,10 @@ class AdminDashboard {
         
         let message = '';
         if (action.includes('delete')) {
-            message = `Only Super Admin can ${action}. Your role (${roleName}) does not have delete permission.`;
+            if(this.adminUser.role === 'Super Admin') {
+                message = 'Only super admin and owner can ${action}.';
+             } else{
+            message = `Only Super Admin can ${action}. Your role (${roleName}) does not have delete permission.`;}
         } else {
             message = `You don't have permission to ${action}. Please contact Super Admin if you need this access.`;
         }
@@ -691,41 +1059,50 @@ class AdminDashboard {
         }
     }
 
-    // ✅ LOAD TICKETS
-    async loadTickets() {
-        try {
-            console.log('🔄 Loading tickets...');
-            
-            const q = query(
-                collection(this.db, "tickets"), 
-                orderBy("created_at", "desc")
-            );
+   // ✅ FIX: Enhanced loadTickets dengan user data sync
+async loadTickets() {
+    try {
+        console.log('🔄 Loading tickets dengan user data sync...');
+        
+        const q = query(
+            collection(this.db, "tickets"), 
+            orderBy("created_at", "desc")
+        );
 
-            const querySnapshot = await getDocs(q);
-            const allTickets = [];
-            
-            querySnapshot.forEach((doc) => {
-                try {
-                    const data = doc.data();
-                    const ticket = this.normalizeTicketData(doc.id, data);
-                    allTickets.push(ticket);
-                } catch (error) {
-                    console.error(`❌ Error processing ticket ${doc.id}:`, error);
-                }
-            });
+        const querySnapshot = await getDocs(q);
+        const allTickets = [];
+        
+        querySnapshot.forEach((doc) => {
+            try {
+                const data = doc.data();
+                const ticket = this.normalizeTicketData(doc.id, data);
+                
+                console.log(`🎫 [LOAD] Ticket ${ticket.code}:`, {
+                    department: ticket.user_department,
+                    name: ticket.user_name,
+                    email: ticket.user_email
+                });
+                
+                allTickets.push(ticket);
+            } catch (error) {
+                console.error(`❌ Error processing ticket ${doc.id}:`, error);
+            }
+        });
 
-            this.tickets = allTickets;
-            this.filteredTickets = [...this.tickets];
-            
-            this.updateGlobalTicketsData();
-            this.renderTickets();
-            this.updateStats();
-            
-        } catch (error) {
-            console.error('❌ Error loading tickets:', error);
-            this.showError('Failed to load tickets: ' + error.message);
-        }
+        this.tickets = allTickets;
+        this.filteredTickets = [...this.tickets];
+        
+        this.updateGlobalTicketsData();
+        this.renderTickets();
+        this.updateStats();
+        
+        console.log(`✅ Loaded ${allTickets.length} tickets`);
+        
+    } catch (error) {
+        console.error('❌ Error loading tickets:', error);
+        this.showError('Failed to load tickets: ' + error.message);
     }
+}
 
     // ✅ NORMALIZE TICKET DATA
     normalizeTicketData(id, data) {
@@ -1071,10 +1448,17 @@ async renderTickets() {
         const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
         
         console.log(`?? Rendering ticket ${ticket.id}:`, {
+            id: ticket.id,
             code: ticket.code,
-            status: ticket.status,
-            assignedAdmin: assignedAdminDisplay
+            user_name: ticket.user_name,
+            user_department: ticket.user_department, // ← INI YANG DIPERIKSA!
+            user_email: ticket.user_email,
+            user_id: ticket.user_id
         });
+        
+        // ✅ DEBUG: Cek department yang akan di-render
+        const displayDepartment = ticket.user_department || 'N/A';
+        console.log(`🏢 [DEBUG RENDER] Ticket ${ticket.code} department: "${displayDepartment}"`);
         
         // Tentukan action buttons berdasarkan status dan permissions
         let actionButtons = '';
@@ -1995,211 +2379,976 @@ async renderTickets() {
         }
     }
 
-    // ✅ METHOD UPDATE TICKET MODAL - FIXED
-    async updateTicketModal(ticketId) {
-        try {
-            console.log('✏️ Opening update modal for ticket:', ticketId);
-            
-            const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
-            if (!ticketDoc.exists()) {
-                throw new Error('Ticket not found');
-            }
-
-            const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
-            this.currentUpdatingTicketId = ticketId;
-            
-            await this.showUpdateFormModal(ticket);
-            
-        } catch (error) {
-            console.error('❌ Error opening update modal:', error);
-            await Swal.fire({
-                title: 'Error!',
-                text: 'Failed to open update form',
-                icon: 'error',
-                confirmButtonColor: '#ef070a'
-            });
+// ✅ FIX: updateTicketModal dengan simple approach
+async updateTicketModal(ticketId) {
+    try {
+        console.log('✏️ Opening update modal for ticket:', ticketId);
+        
+        const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
+        if (!ticketDoc.exists()) {
+            throw new Error('Ticket not found');
         }
-    }
 
-    // ✅ METHOD SHOW UPDATE FORM MODAL
-    async showUpdateFormModal(ticket) {
-        try {
-            let updateModal = document.getElementById('updateTicketModal');
-            
-            if (!updateModal) {
-                // Create modal jika belum ada
-                updateModal = document.createElement('div');
-                updateModal.id = 'updateTicketModal';
-                updateModal.className = 'modal';
-                updateModal.innerHTML = `
-                    <div class="modal-content update-modal-content">
-                        <div class="modal-header">
-                            <h3>Update Ticket: ${ticket.code}</h3>
-                            <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
-                                <i class="fas fa-times"></i>
+        const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+        this.currentUpdatingTicketId = ticketId;
+        
+        // Gunakan simple modal
+        await this.showUpdateFormModalSimple(ticket);
+        
+    } catch (error) {
+        console.error('❌ Error opening update modal:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: 'Failed to open update form',
+            icon: 'error'
+        });
+    }
+}
+
+// ✅ SIMPLE SOLUTION: Gunakan modal basic tanpa tab
+async showUpdateFormModalSimple(ticket) {
+    try {
+        console.log('🔧 [SIMPLE] Creating simple update modal...');
+        
+        // Remove existing modal if any
+        const existingModal = document.getElementById('updateTicketModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Create simple modal
+        const updateModal = document.createElement('div');
+        updateModal.id = 'updateTicketModal';
+        updateModal.className = 'modal';
+        updateModal.style.display = 'flex';
+        
+        // Simple HTML tanpa tab - hanya form basic
+        updateModal.innerHTML = `
+            <div class="modal-content" style="max-width: 700px;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-edit"></i> Update Ticket: ${ticket.code}</h3>
+                    <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="updateTicketForm">
+                        <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <!-- BASIC TICKET INFO -->
+                            <div class="form-group">
+                                <label for="updateSubject">Subject *</label>
+                                <input type="text" id="updateSubject" class="form-control" value="${this.escapeHtml(ticket.subject)}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updatePriority">Priority *</label>
+                                <select id="updatePriority" class="form-control" required>
+                                    <option value="Low" ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
+                                    <option value="Medium" ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                                    <option value="High" ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
+                                    <option value="Critical" ${ticket.priority === 'Critical' ? 'selected' : ''}>Critical</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updateStatus">Status *</label>
+                                <select id="updateStatus" class="form-control" required>
+                                    <option value="Open" ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
+                                    <option value="In Progress" ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                    <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                                </select>
+                            </div>
+
+<div class="form-group">
+    <label for="updateLocation">Location *</label>
+    <select id="updateLocation" class="form-control" required>
+        <option value="">Select Location</option>
+        <option value="Blue Office" ${ticket.location === 'Blue Office' ? 'selected' : ''}>Blue Office</option>
+        <option value="Clinic" ${ticket.location === 'Clinic' ? 'selected' : ''}>Clinic</option>
+        <option value="Control Room" ${ticket.location === 'Control Room' ? 'selected' : ''}>Control Room</option>
+        <option value="Dark Room" ${ticket.location === 'Dark Room' ? 'selected' : ''}>Dark Room</option>
+        <option value="Green Office" ${ticket.location === 'Green Office' ? 'selected' : ''}>Green Office</option>
+        <option value="HRD" ${ticket.location === 'HRD' ? 'selected' : ''}>HR Department</option>
+        <option value="HSE Yard" ${ticket.location === 'HSE Yard' ? 'selected' : ''}>HSE Yard</option>
+        <option value="IT Server" ${ticket.location === 'IT Server' ? 'selected' : ''}>IT Server</option>
+        <option value="IT Store" ${ticket.location === 'IT Store' ? 'selected' : ''}>IT Store</option>
+        <option value="Multi Purposes Building" ${ticket.location === 'Multi Purposes Building' ? 'selected' : ''}>Multi Purposes Building</option>
+        <option value="Red Office" ${ticket.location === 'Red Office' ? 'selected' : ''}>Red Office</option>
+        <option value="Security" ${ticket.location === 'Security' ? 'selected' : ''}>Security</option>
+        <option value="White Office" ${ticket.location === 'White Office' ? 'selected' : ''}>White Office</option>
+        <option value="White Office 2nd Fl" ${ticket.location === 'White Office 2nd Fl' ? 'selected' : ''}>White Office 2nd Floor</option>
+        <option value="White Office 3rd Fl" ${ticket.location === 'White Office 3rd Fl' ? 'selected' : ''}>White Office 3rd Floor</option>
+        <option value="Welding School" ${ticket.location === 'Welding School' ? 'selected' : ''}>Welding School</option>
+        <option value="Workshop9" ${ticket.location === 'Workshop9' ? 'selected' : ''}>Workshop 9</option>
+        <option value="Workshop10" ${ticket.location === 'Workshop10' ? 'selected' : ''}>Workshop 10</option>
+        <option value="Workshop11" ${ticket.location === 'Workshop11' ? 'selected' : ''}>Workshop 11</option>
+        <option value="Workshop12" ${ticket.location === 'Workshop12' ? 'selected' : ''}>Workshop 12</option>
+        <option value="Yard" ${ticket.location === 'Yard' ? 'selected' : ''}>Yard</option>
+        <option value="Lainlain" ${ticket.location === 'Lainlain' ? 'selected' : ''}>Other Location</option>
+    </select>
+</div>
+
+                            <!-- USER INFO -->
+                            <div class="form-group">
+                                <label for="updateUserName">User Name *</label>
+                                <input type="text" id="updateUserName" class="form-control" value="${this.escapeHtml(ticket.user_name)}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="updateUserEmail">User Email *</label>
+                                <input type="email" id="updateUserEmail" class="form-control" value="${this.escapeHtml(ticket.user_email)}" required>
+                            </div>
+                            
+                            <div class="form-group">
+    <label for="updateUserDepartment">Department *</label>
+    <select id="updateUserDepartment" class="form-control" required>
+        <option value="">Select Department</option>
+        <option value="Admin" ${ticket.user_department === 'Admin' ? 'selected' : ''}>Admin</option>
+        <option value="Civil" ${ticket.user_department === 'Civil' ? 'selected' : ''}>Civil</option>
+        <option value="Clinic" ${ticket.user_department === 'Clinic' ? 'selected' : ''}>Clinic</option>
+        <option value="Completion" ${ticket.user_department === 'Completion' ? 'selected' : ''}>Completion</option>
+        <option value="DC" ${ticket.user_department === 'DC' ? 'selected' : ''}>Dimentional Control (DC)</option>
+        <option value="Document Control" ${ticket.user_department === 'Document Control' ? 'selected' : ''}>Document Control</option>
+        <option value="Engineer" ${ticket.user_department === 'Engineer' ? 'selected' : ''}>Engineering</option>
+        <option value="Finance" ${ticket.user_department === 'Finance' ? 'selected' : ''}>Finance</option>
+        <option value="HR" ${ticket.user_department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
+        <option value="HSE" ${ticket.user_department === 'HSE' ? 'selected' : ''}>HSE</option>
+        <option value="IT" ${ticket.user_department === 'IT' ? 'selected' : ''}>IT</option>
+        <option value="Maintenance" ${ticket.user_department === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+        <option value="Management" ${ticket.user_department === 'Management' ? 'selected' : ''}>Management</option>
+        <option value="Planner" ${ticket.user_department === 'Planner' ? 'selected' : ''}>Planner</option>
+        <option value="Procurement" ${ticket.user_department === 'Procurement' ? 'selected' : ''}>Procurement</option>
+        <option value="QC" ${ticket.user_department === 'QC' ? 'selected' : ''}>Quality Control (QC)</option>
+        <option value="Vendor" ${ticket.user_department === 'Vendor' ? 'selected' : ''}>Vendor</option>
+        <option value="Warehouse" ${ticket.user_department === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
+        <option value="Lainlain" ${ticket.user_department === 'Lainlain' ? 'selected' : ''}>Other Department</option>
+    </select>
+</div>
+
+                            <div class="form-group">
+                                <label for="updateUserPhone">Phone</label>
+                                <input type="text" id="updateUserPhone" class="form-control" value="${this.escapeHtml(ticket.user_phone || '')}" placeholder="Phone number">
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="updateAdminNotes">Admin Notes</label>
+                            <textarea id="updateAdminNotes" class="form-control" rows="3" placeholder="Admin notes...">${this.escapeHtml(ticket.note || '')}</textarea>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
+                                <i class="fas fa-times"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn-primary">
+                                <i class="fas fa-save"></i> Update Ticket
                             </button>
                         </div>
-                        <div class="modal-body">
-                            <form id="updateTicketForm">
-                                <div class="form-group">
-                                    <label for="updateSubject">Subject:</label>
-                                    <input type="text" id="updateSubject" class="form-control" value="${this.escapeHtml(ticket.subject)}" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="updatePriority">Priority:</label>
-                                    <select id="updatePriority" class="form-control" required>
-                                        <option value="Low" ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
-                                        <option value="Medium" ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                                        <option value="High" ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
-                                        <option value="Critical" ${ticket.priority === 'Critical' ? 'selected' : ''}>Critical</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="updateStatus">Status:</label>
-                                    <select id="updateStatus" class="form-control" required>
-                                        <option value="Open" ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
-                                        <option value="In Progress" ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                                        <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-                                    </select>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="updateAdminNotes">Admin Notes:</label>
-                                    <textarea id="updateAdminNotes" class="form-control" rows="4" placeholder="Add admin notes...">${this.escapeHtml(ticket.note || '')}</textarea>
-                                </div>
-                                
-                                <div class="form-actions">
-                                    <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
-                                        <i class="fas fa-times"></i> Cancel
-                                    </button>
-                                    <button type="submit" class="btn-primary">
-                                        <i class="fas fa-save"></i> Update Ticket
-                                    </button>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                `;
-                document.body.appendChild(updateModal);
-                
-                // Add form submit event
-                document.getElementById('updateTicketForm').addEventListener('submit', (e) => {
+                    </form>
+                </div>
+            </div>
+        `;
+        
+        // Append to body
+        document.body.appendChild(updateModal);
+        document.body.classList.add('modal-open');
+        
+        // Add form submit event
+        document.getElementById('updateTicketForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.handleTicketUpdateSimple(this.currentUpdatingTicketId);
+        });
+        
+        console.log('✅ Simple modal created successfully');
+        
+        // Verify elements exist
+        this.verifyModalElements();
+            
+    } catch (error) {
+        console.error('❌ Error creating simple modal:', error);
+    }
+}
+
+// ✅ Verify modal elements
+verifyModalElements() {
+    console.log('🔍 Verifying modal elements:');
+    const elements = [
+        'updateSubject', 'updatePriority', 'updateStatus', 'updateLocation',
+        'updateUserName', 'updateUserEmail', 'updateUserDepartment', 'updateUserPhone',
+        'updateAdminNotes'
+    ];
+    
+    elements.forEach(id => {
+        const element = document.getElementById(id);
+        console.log(`   ${id}: ${element ? '✅ EXISTS' : '❌ MISSING'}`);
+    });
+}
+
+// ✅ FIX: Enhanced showUpdateFormModal dengan DOM verification
+async showUpdateFormModal(ticket) {
+    try {
+        console.log('🔧 [DEBUG] showUpdateFormModal called for ticket:', ticket.code);
+        
+        let updateModal = document.getElementById('updateTicketModal');
+        
+        if (!updateModal) {
+            console.log('🔄 Creating update modal...');
+            
+            // Create modal element
+            updateModal = document.createElement('div');
+            updateModal.id = 'updateTicketModal';
+            updateModal.className = 'modal';
+            
+            console.log('📝 Modal element created, setting innerHTML...');
+            
+            // Set HTML content
+            updateModal.innerHTML = this.getUpdateModalHTML(ticket);
+            
+            console.log('📦 Appending modal to document body...');
+            
+            // Append to body
+            document.body.appendChild(updateModal);
+            
+            console.log('✅ Modal created and appended to DOM');
+            
+            // Verify modal exists in DOM
+            const verifiedModal = document.getElementById('updateTicketModal');
+            if (!verifiedModal) {
+                throw new Error('Modal failed to create in DOM');
+            }
+            
+            console.log('🔍 Modal verified in DOM:', verifiedModal);
+            
+            // Add form submit event
+            const updateForm = document.getElementById('updateTicketForm');
+            if (updateForm) {
+                updateForm.addEventListener('submit', (e) => {
                     e.preventDefault();
                     if (this.currentUpdatingTicketId) {
                         this.handleTicketUpdate(this.currentUpdatingTicketId);
                     }
                 });
+                console.log('✅ Form event listener added');
+            } else {
+                console.error('❌ Update form not found');
             }
-            
-            // Show modal dan isi data
-            updateModal.style.display = 'flex';
-            updateModal.classList.add('show');
-            document.body.classList.add('modal-open');
-            
-            document.getElementById('updateSubject').value = ticket.subject;
-            document.getElementById('updatePriority').value = ticket.priority;
-            document.getElementById('updateStatus').value = ticket.status;
-            document.getElementById('updateAdminNotes').value = ticket.note || '';
-            
-        } catch (error) {
-            console.error('❌ Error showing update form:', error);
-            throw error;
-        }
-    }
 
-    // ✅ METHOD UNTUK HANDLE TICKET UPDATE
-    async handleTicketUpdate(ticketId) {
-        try {
-            const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
+            // Initialize tab switching
+            this.initializeTabSwitching();
+        } else {
+            console.log('ℹ️ Modal already exists, reusing...');
+        }
+        
+        // Show modal
+        console.log('🎯 Showing modal...');
+        updateModal.style.display = 'flex';
+        updateModal.classList.add('show');
+        document.body.classList.add('modal-open');
+        
+        console.log('🔍 [DEBUG] Starting to populate form data...');
+        
+        // Populate form data dengan delay untuk memastikan DOM ready
+        setTimeout(() => {
+            this.populateFormDataSafely(ticket);
+        }, 100);
+        
+        console.log('✅ Update modal process completed');
             
-            // Show loading
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
-            submitBtn.disabled = true;
+    } catch (error) {
+        console.error('❌ Error showing update form:', error);
+        throw error;
+    }
+}
+
+// ✅ NEW: Separate method untuk modal HTML
+getUpdateModalHTML(ticket) {
+    return `
+        <div class="modal-content update-modal-content large">
+            <div class="modal-header">
+                <h3><i class="fas fa-edit"></i> Update Ticket: ${ticket.code}</h3>
+                <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-tabs">
+                    <button type="button" class="tab-btn active" data-tab="ticket-tab">Ticket Details</button>
+                    <button type="button" class="tab-btn" data-tab="user-tab">User Information</button>
+                </div>
+
+                <form id="updateTicketForm">
+                    <!-- TAB 1: TICKET DETAILS -->
+                    <div id="ticket-tab" class="tab-content active">
+                        <div class="form-section">
+                            <h4><i class="fas fa-ticket-alt"></i> Ticket Information</h4>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="updateSubject">Subject *</label>
+                                    <input type="text" id="updateSubject" class="form-control" value="" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updatePriority">Priority *</label>
+                                    <select id="updatePriority" class="form-control" required>
+                                        <option value="">Select Priority</option>
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High">High</option>
+                                        <option value="Critical">Critical</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateStatus">Status *</label>
+                                    <select id="updateStatus" class="form-control" required>
+                                        <option value="">Select Status</option>
+                                        <option value="Open">Open</option>
+                                        <option value="In Progress">In Progress</option>
+                                        <option value="Resolved">Resolved</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="updateLocation">Location</label>
+                                    <select id="updateLocation" class="form-control">
+                                        <option value="">Select Location</option>
+                                        <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+                                        <option value="Blue Office">Blue Office</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Warehouse">Warehouse</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="updateDevice">Device Type</label>
+                                    <select id="updateDevice" class="form-control">
+                                        <option value="">Select Device</option>
+                                        <option value="PC Hardware">PC Hardware</option>
+                                        <option value="PC Software">PC Software</option>
+                                        <option value="Laptop">Laptop</option>
+                                        <option value="Printer">Printer</option>
+                                        <option value="Network">Network</option>
+                                        <option value="Projector">Projector</option>
+                                        <option value="Backup Data">Backup Data</option>
+                                        <option value="Others">Others</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label for="updateInventory">Inventory Number</label>
+                                    <input type="text" id="updateInventory" class="form-control" value="" placeholder="e.g., IT-001">
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="updateAdminNotes">Admin Notes</label>
+                                <textarea id="updateAdminNotes" class="form-control" rows="4" placeholder="Add admin notes, resolution details, or updates..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: USER INFORMATION -->
+                    <div id="user-tab" class="tab-content">
+                        <div class="form-section">
+                            <h4><i class="fas fa-user-edit"></i> User Information</h4>
+                            <div class="form-notice">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Updating user information here will also update the user's profile.</span>
+                            </div>
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label for="updateEmployeeId">Employee ID</label>
+                                    <input type="text" id="updateEmployeeId" class="form-control" value="" placeholder="e.g., EMP001">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateUserName">Full Name *</label>
+                                    <input type="text" id="updateUserName" class="form-control" value="" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateUserEmail">Email Address *</label>
+                                    <input type="email" id="updateUserEmail" class="form-control" value="" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateUserPhone">Phone Number</label>
+                                    <input type="tel" id="updateUserPhone" class="form-control" value="" placeholder="e.g., +628123456789">
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateUserDepartment">Department *</label>
+                                    <select id="updateUserDepartment" class="form-control" required>
+                                        <option value="">Select Department</option>
+                                        <option value="IT">IT Department</option>
+                                        <option value="Admin">Admin</option>
+                                        <option value="HR">HR Department</option>
+                                        <option value="Finance">Finance</option>
+                                        <option value="Marketing">Marketing</option>
+                                        <option value="Operations">Operations</option>
+                                        <option value="Lainlain">Lain-lain</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="updateUserLocation">User Location</label>
+                                    <select id="updateUserLocation" class="form-control">
+                                        <option value="">Select Location</option>
+                                        <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+                                        <option value="Blue Office">Blue Office</option>
+                                        <option value="Workshop">Workshop</option>
+                                        <option value="Warehouse">Warehouse</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="updateUserMessage">Problem Description</label>
+                                <textarea id="updateUserMessage" class="form-control" rows="4" placeholder="Original problem description from user..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save"></i> Update All Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+}
+
+// ✅ FIX: Enhanced populateFormData dengan retry mechanism
+populateFormDataSafely(ticket) {
+    try {
+        console.log('📝 Populating form data for ticket:', ticket.code);
+        
+        // List semua element yang perlu diisi
+        const formElements = [
+            // Ticket elements
+            { id: 'updateSubject', value: ticket.subject, type: 'input' },
+            { id: 'updatePriority', value: ticket.priority, type: 'select' },
+            { id: 'updateStatus', value: ticket.status, type: 'select' },
+            { id: 'updateLocation', value: ticket.location || '', type: 'select' },
+            { id: 'updateDevice', value: ticket.device || '', type: 'select' },
+            { id: 'updateInventory', value: ticket.inventory || '', type: 'input' },
+            { id: 'updateAdminNotes', value: ticket.note || '', type: 'textarea' },
             
-            const updateData = {
-                subject: document.getElementById('updateSubject').value,
-                priority: document.getElementById('updatePriority').value,
-                status: document.getElementById('updateStatus').value,
-                note: document.getElementById('updateAdminNotes').value,
-                last_updated: serverTimestamp()
-            };
+            // User elements  
+            { id: 'updateEmployeeId', value: ticket.employee_id || '', type: 'input' },
+            { id: 'updateUserName', value: ticket.user_name || '', type: 'input' },
+            { id: 'updateUserEmail', value: ticket.user_email || '', type: 'input' },
+            { id: 'updateUserPhone', value: ticket.user_phone || '', type: 'input' },
+            { id: 'updateUserDepartment', value: ticket.user_department || '', type: 'select' },
+            { id: 'updateUserLocation', value: ticket.user_location || '', type: 'select' },
+            { id: 'updateUserMessage', value: ticket.message || '', type: 'textarea' }
+        ];
+
+        console.log('🔍 Checking and populating form elements:');
+        
+        let successCount = 0;
+        let failCount = 0;
+        const failedElements = [];
+
+        // Try to populate each element
+        formElements.forEach(element => {
+            if (this.setElementValueWithRetry(element.id, element.value, element.type)) {
+                successCount++;
+            } else {
+                failCount++;
+                failedElements.push(element.id);
+            }
+        });
+
+        console.log(`📊 Form population result: ${successCount} success, ${failCount} failed`);
+        
+        if (failedElements.length > 0) {
+            console.warn('⚠️ Failed to set these elements:', failedElements);
             
-            // Add to updates array
-            const updateNote = {
-                status: updateData.status,
-                notes: `Ticket updated by ${this.adminUser.name || this.adminUser.email}`,
-                timestamp: new Date().toISOString(),
-                updatedBy: this.adminUser.name || this.adminUser.email,
-                changes: {
-                    subject: updateData.subject,
-                    priority: updateData.priority,
-                    status: updateData.status
+            // Retry failed elements after short delay
+            setTimeout(() => {
+                console.log('🔄 Retrying failed elements...');
+                this.retryFailedElements(failedElements, ticket);
+            }, 200);
+        }
+
+    } catch (error) {
+        console.error('❌ Error populating form data:', error);
+    }
+}
+
+// ✅ NEW: Set element value dengan retry mechanism
+setElementValueWithRetry(elementId, value, elementType, retryCount = 0) {
+    try {
+        const element = document.getElementById(elementId);
+        
+        if (!element) {
+            if (retryCount < 3) {
+                console.log(`🔄 Retrying ${elementId} (attempt ${retryCount + 1})...`);
+                setTimeout(() => {
+                    this.setElementValueWithRetry(elementId, value, elementType, retryCount + 1);
+                }, 100 * (retryCount + 1));
+                return false;
+            }
+            
+            console.warn(`⚠️ Element not found after ${retryCount} retries: ${elementId}`);
+            return false;
+        }
+        
+        // Set value berdasarkan element type
+        switch (elementType) {
+            case 'select':
+                element.value = value || '';
+                break;
+            case 'textarea':
+                element.value = value || '';
+                break;
+            case 'input':
+            default:
+                element.value = value || '';
+                break;
+        }
+        
+        console.log(`   ✅ Set ${elementId} = "${value}"`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Error setting value for ${elementId}:`, error);
+        return false;
+    }
+}
+
+// ✅ NEW: Retry failed elements
+retryFailedElements(failedElements, ticket) {
+    failedElements.forEach(elementId => {
+        const value = this.getValueFromTicket(elementId, ticket);
+        const elementType = this.getElementType(elementId);
+        this.setElementValueWithRetry(elementId, value, elementType);
+    });
+}
+
+// ✅ NEW: Helper untuk mendapatkan value dari ticket data
+getValueFromTicket(elementId, ticket) {
+    const valueMap = {
+        'updateSubject': ticket.subject,
+        'updatePriority': ticket.priority,
+        'updateStatus': ticket.status,
+        'updateLocation': ticket.location || '',
+        'updateDevice': ticket.device || '',
+        'updateInventory': ticket.inventory || '',
+        'updateAdminNotes': ticket.note || '',
+        'updateEmployeeId': ticket.employee_id || '',
+        'updateUserName': ticket.user_name || '',
+        'updateUserEmail': ticket.user_email || '',
+        'updateUserPhone': ticket.user_phone || '',
+        'updateUserDepartment': ticket.user_department || '',
+        'updateUserLocation': ticket.user_location || '',
+        'updateUserMessage': ticket.message || ''
+    };
+    
+    return valueMap[elementId] || '';
+}
+
+// ✅ NEW: Helper untuk menentukan element type
+getElementType(elementId) {
+    if (elementId.includes('Notes') || elementId.includes('Message')) {
+        return 'textarea';
+    }
+    if (elementId.includes('Priority') || elementId.includes('Status') || 
+        elementId.includes('Location') || elementId.includes('Device') || 
+        elementId.includes('Department')) {
+        return 'select';
+    }
+    return 'input';
+}
+
+// ✅ NEW: Helper method untuk set value dengan safety
+setElementValueSafely(elementId, value) {
+    try {
+        const element = document.getElementById(elementId);
+        if (!element) {
+            console.warn(`⚠️ Element not found: ${elementId}`);
+            return false;
+        }
+        
+        if (element.tagName === 'SELECT') {
+            element.value = value || '';
+        } else if (element.tagName === 'TEXTAREA') {
+            element.value = value || '';
+        } else if (element.tagName === 'INPUT') {
+            element.value = value || '';
+        }
+        
+        console.log(`   ✅ Set ${elementId} = "${value}"`);
+        return true;
+        
+    } catch (error) {
+        console.error(`❌ Error setting value for ${elementId}:`, error);
+        return false;
+    }
+}
+
+// ✅ FIX: Enhanced tab switching dengan error handling
+initializeTabSwitching() {
+    try {
+        console.log('🔧 Initializing tab switching...');
+        
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        console.log(`📊 Found ${tabBtns.length} tab buttons and ${tabContents.length} tab contents`);
+        
+        if (tabBtns.length === 0 || tabContents.length === 0) {
+            console.warn('⚠️ No tabs found for initialization');
+            return;
+        }
+        
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.dataset.tab;
+                
+                console.log(`🎯 Tab clicked: ${targetTab}`);
+                
+                // Remove active class from all tabs
+                tabBtns.forEach(b => b.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+                
+                // Add active class to current tab
+                btn.classList.add('active');
+                
+                const targetElement = document.getElementById(targetTab);
+                if (targetElement) {
+                    targetElement.classList.add('active');
+                    console.log(`✅ Activated tab: ${targetTab}`);
+                } else {
+                    console.error(`❌ Tab content not found: ${targetTab}`);
                 }
-            };
-            
-            // Get current updates
-            const ticketRef = doc(this.db, "tickets", ticketId);
-            const ticketDoc = await getDoc(ticketRef);
-            const currentData = ticketDoc.data();
-            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
-            updateData.updates = [...currentUpdates, updateNote];
-            
-            // Update QA field based on status
-            if (updateData.status === 'Resolved' && (!updateData.note || updateData.note.trim() === '')) {
-                await Swal.fire({
-                    title: 'Note Required!',
-                    text: 'Resolution notes are required when setting status to Resolved',
-                    icon: 'warning',
-                    confirmButtonColor: '#ef070a'
-                });
-                return;
-            } else if (updateData.status === 'Open') {
-                updateData.qa = 'Open';
-            } else if (updateData.status === 'In Progress') {
-                updateData.qa = 'In Progress';
-            }
-            
-            console.log('📝 Update data:', updateData);
-            
-            // Execute update
-            await updateDoc(ticketRef, updateData);
-            
-            // Close modal
-            this.closeUpdateModal();
-            
-            // Show success message
-            await Swal.fire({
-                title: 'Success!',
-                text: 'Ticket updated successfully',
-                icon: 'success',
-                timer: 2000,
-                showConfirmButton: false
             });
+        });
+        
+        console.log('✅ Tab switching initialized successfully');
+        
+    } catch (error) {
+        console.error('❌ Error initializing tab switching:', error);
+    }
+}
+
+// ✅ SIMPLE: Handle ticket update
+async handleTicketUpdateSimple(ticketId) {
+    try {
+        const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        submitBtn.disabled = true;
+        
+        // Collect data
+        const updateData = {
+            // Ticket data
+            subject: document.getElementById('updateSubject').value,
+            priority: document.getElementById('updatePriority').value,
+            status: document.getElementById('updateStatus').value,
+            location: document.getElementById('updateLocation').value,
+            note: document.getElementById('updateAdminNotes').value,
+            last_updated: serverTimestamp(),
             
-            // Refresh data
-            await this.loadTickets();
-            
-        } catch (error) {
-            console.error('❌ Error updating ticket:', error);
-            
-            // Reset button
-            const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
-            if (submitBtn) {
-                submitBtn.innerHTML = '<i class="fas fa-save"></i> Update Ticket';
-                submitBtn.disabled = false;
-            }
-            
+            // User data (update ticket juga)
+            user_name: document.getElementById('updateUserName').value,
+            user_email: document.getElementById('updateUserEmail').value,
+            user_department: document.getElementById('updateUserDepartment').value,
+            user_phone: document.getElementById('updateUserPhone').value
+        };
+
+        console.log('📝 Update data:', updateData);
+
+        // Get ticket untuk dapat user_id
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        const ticketDoc = await getDoc(ticketRef);
+        const currentData = ticketDoc.data();
+        const userId = currentData.user_id;
+
+        if (!userId) {
+            throw new Error('User ID not found');
+        }
+
+        // ✅ UPDATE USER PROFILE
+        const userRef = doc(this.db, "users", userId);
+        await updateDoc(userRef, {
+            full_name: updateData.user_name,
+            email: updateData.user_email,
+            department: updateData.user_department,
+            phone: updateData.user_phone,
+            updated_at: new Date().toISOString()
+        });
+
+        console.log('✅ User profile updated');
+
+        // ✅ UPDATE TICKET
+        await updateDoc(ticketRef, updateData);
+
+        // Close modal
+        this.closeUpdateModal();
+        
+        // Show success
+        await Swal.fire({
+            title: 'Success!',
+            text: 'Ticket and user data updated successfully',
+            icon: 'success',
+            timer: 2000
+        });
+
+        // Refresh data
+        await this.loadTickets();
+        
+    } catch (error) {
+        console.error('❌ Error updating:', error);
+        
+        // Reset button
+        const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Update Ticket';
+            submitBtn.disabled = false;
+        }
+        
+        await Swal.fire({
+            title: 'Error!',
+            text: error.message,
+            icon: 'error'
+        });
+    }
+}
+
+    // ✅ FIX: Enhanced ticket update dengan user data sync
+async handleTicketUpdate(ticketId) {
+    try {
+        const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        
+        // Show loading
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating Ticket & User Data...';
+        submitBtn.disabled = true;
+        
+        // Collect ticket update data
+        const ticketUpdateData = {
+            subject: document.getElementById('updateSubject').value,
+            priority: document.getElementById('updatePriority').value,
+            status: document.getElementById('updateStatus').value,
+            location: document.getElementById('updateLocation').value,
+            device: document.getElementById('updateDevice').value,
+            inventory: document.getElementById('updateInventory').value,
+            note: document.getElementById('updateAdminNotes').value,
+            last_updated: serverTimestamp()
+        };
+
+        // Collect user update data
+        const userUpdateData = {
+            employee_id: document.getElementById('updateEmployeeId').value,
+            full_name: document.getElementById('updateUserName').value,
+            email: document.getElementById('updateUserEmail').value,
+            phone: document.getElementById('updateUserPhone').value,
+            department: document.getElementById('updateUserDepartment').value,
+            location: document.getElementById('updateUserLocation').value
+        };
+
+        // Validate required user fields
+        if (!userUpdateData.full_name || !userUpdateData.email || !userUpdateData.department) {
             await Swal.fire({
-                title: 'Update Failed!',
-                text: 'Failed to update ticket: ' + error.message,
-                icon: 'error',
+                title: 'Validation Error!',
+                text: 'Please fill in all required user fields (Name, Email, Department)',
+                icon: 'warning',
                 confirmButtonColor: '#ef070a'
             });
+            return;
         }
+
+        // Validate email format
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(userUpdateData.email)) {
+            await Swal.fire({
+                title: 'Invalid Email!',
+                text: 'Please enter a valid email address',
+                icon: 'warning',
+                confirmButtonColor: '#ef070a'
+            });
+            return;
+        }
+
+        console.log('📝 Update data collected:', {
+            ticket: ticketUpdateData,
+            user: userUpdateData
+        });
+
+        // Get ticket data untuk mendapatkan user_id
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        const ticketDoc = await getDoc(ticketRef);
+        const currentTicketData = ticketDoc.data();
+        const userId = currentTicketData.user_id;
+
+        if (!userId) {
+            throw new Error('User ID not found in ticket data');
+        }
+
+        // ✅ UPDATE USER PROFILE DI FIRESTORE
+        console.log('👤 Updating user profile for:', userId);
+        const userRef = doc(this.db, "users", userId);
+        await updateDoc(userRef, {
+            ...userUpdateData,
+            updated_at: new Date().toISOString()
+        });
+
+        console.log('✅ User profile updated successfully');
+
+        // ✅ UPDATE ALL TICKETS USER INI (untuk konsistensi data)
+        await this.updateUserTicketsInFirestore(userId, userUpdateData);
+
+        // Add to updates array untuk ticket
+        const updateNote = {
+            status: ticketUpdateData.status,
+            notes: `Ticket and user information updated by ${this.adminUser.name || this.adminUser.email}`,
+            timestamp: new Date().toISOString(),
+            updatedBy: this.adminUser.name || this.adminUser.email,
+            changes: {
+                ticket: {
+                    subject: ticketUpdateData.subject,
+                    priority: ticketUpdateData.priority,
+                    status: ticketUpdateData.status
+                },
+                user: {
+                    name: userUpdateData.full_name,
+                    department: userUpdateData.department,
+                    email: userUpdateData.email
+                }
+            }
+        };
+
+        // Get current updates
+        const currentUpdates = Array.isArray(currentTicketData.updates) ? currentTicketData.updates : [];
+        ticketUpdateData.updates = [...currentUpdates, updateNote];
+
+        // Update ticket dengan user data terbaru juga
+        const finalTicketUpdate = {
+            ...ticketUpdateData,
+            user_name: userUpdateData.full_name,
+            user_email: userUpdateData.email,
+            user_department: userUpdateData.department,
+            user_phone: userUpdateData.phone,
+            employee_id: userUpdateData.employee_id
+        };
+
+        // Update QA field based on status
+        if (ticketUpdateData.status === 'Resolved' && (!ticketUpdateData.note || ticketUpdateData.note.trim() === '')) {
+            await Swal.fire({
+                title: 'Note Required!',
+                text: 'Resolution notes are required when setting status to Resolved',
+                icon: 'warning',
+                confirmButtonColor: '#ef070a'
+            });
+            return;
+        } else if (ticketUpdateData.status === 'Open') {
+            finalTicketUpdate.qa = 'Open';
+        } else if (ticketUpdateData.status === 'In Progress') {
+            finalTicketUpdate.qa = 'In Progress';
+        }
+        
+        console.log('🎯 Final update data:', finalTicketUpdate);
+
+        // Execute update ticket
+        await updateDoc(ticketRef, finalTicketUpdate);
+        
+        // Close modal
+        this.closeUpdateModal();
+        
+        // Show success message
+        await Swal.fire({
+            title: 'Success!',
+            html: `
+                <div class="update-success">
+                    <p><strong>✅ Ticket and User Data Updated Successfully!</strong></p>
+                    <div class="update-details">
+                        <p><strong>Ticket Changes:</strong></p>
+                        <ul>
+                            <li>Status: ${ticketUpdateData.status}</li>
+                            <li>Priority: ${ticketUpdateData.priority}</li>
+                        </ul>
+                        <p><strong>User Changes:</strong></p>
+                        <ul>
+                            <li>Name: ${userUpdateData.full_name}</li>
+                            <li>Department: ${userUpdateData.department}</li>
+                            <li>Email: ${userUpdateData.email}</li>
+                        </ul>
+                    </div>
+                </div>
+            `,
+            icon: 'success',
+            confirmButtonColor: '#10b981',
+            confirmButtonText: 'OK'
+        });
+
+        // Refresh data
+        await this.loadTickets();
+        
+    } catch (error) {
+        console.error('❌ Error updating ticket and user data:', error);
+        
+        // Reset button
+        const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-save"></i> Update All Changes';
+            submitBtn.disabled = false;
+        }
+        
+        await Swal.fire({
+            title: 'Update Failed!',
+            text: 'Failed to update: ' + error.message,
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
     }
+}
+
+// ✅ NEW: Helper method untuk update semua tickets user
+async updateUserTicketsInFirestore(userId, userUpdates) {
+    try {
+        console.log('🔄 Updating all tickets for user:', userId);
+        
+        const ticketsQuery = query(
+            collection(this.db, "tickets"),
+            where("user_id", "==", userId)
+        );
+
+        const querySnapshot = await getDocs(ticketsQuery);
+        let updatedCount = 0;
+
+        for (const docSnapshot of querySnapshot.docs) {
+            const ticketRef = doc(this.db, "tickets", docSnapshot.id);
+            
+            await updateDoc(ticketRef, {
+                user_name: userUpdates.full_name,
+                user_email: userUpdates.email,
+                user_department: userUpdates.department,
+                user_phone: userUpdates.phone,
+                employee_id: userUpdates.employee_id,
+                last_updated: serverTimestamp()
+            });
+            
+            updatedCount++;
+        }
+
+        console.log(`✅ Updated ${updatedCount} tickets for user consistency`);
+        return updatedCount;
+        
+    } catch (error) {
+        console.error('❌ Error updating user tickets:', error);
+        return 0;
+    }
+}
 
     // ✅ METHOD UNTUK CLOSE UPDATE MODAL
     closeUpdateModal() {
