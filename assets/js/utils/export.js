@@ -1,8 +1,8 @@
 // ======================================================
-// 🔹 js/export.js - Excel Export with Admin Panel Support
+// ?? js/export.js - Excel Export with Current User Filter (FIXED DURATION)
 // ======================================================
 
-// ==================== 🔹 ExcelJS Loader ====================
+// ==================== ?? ExcelJS Loader ====================
 function loadExcelJS() {
   return new Promise((resolve, reject) => {
     if (window.ExcelJS) {
@@ -17,110 +17,215 @@ function loadExcelJS() {
     document.head.appendChild(script);
   });
 }
-function convertToGMTPlus7(timestamp) {
+
+// ==================== ?? UNIVERSAL TIMESTAMP PARSER ====================
+function parseUniversalTimestamp(timestamp) {
   if (!timestamp) return null;
   
   try {
-    let date;
-    if (timestamp.toDate) {
-      date = timestamp.toDate();
-    } else {
-      date = new Date(timestamp);
+    // Case 1: Firebase Timestamp object with toDate() method
+    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+      return timestamp.toDate();
     }
     
-    if (isNaN(date.getTime())) return null;
+    // Case 2: Firebase Timestamp object with seconds/nanoseconds
+    if (timestamp.seconds !== undefined) {
+      return new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+    }
     
-    // ✅ GUNAKAN MOMENT.JS UNTUK TIMEZONE CONVERSION
-    return moment(date).tz('Asia/Jakarta').toDate();
+    // Case 3: ISO string
+    if (typeof timestamp === 'string') {
+      // Handle Firebase ISO string format
+      if (timestamp.includes('T') && timestamp.includes('Z')) {
+        return new Date(timestamp);
+      }
+      // Handle other string formats
+      const date = new Date(timestamp);
+      return !isNaN(date.getTime()) ? date : null;
+    }
+    
+    // Case 4: Regular Date object or milliseconds
+    const date = new Date(timestamp);
+    return !isNaN(date.getTime()) ? date : null;
     
   } catch (error) {
-    console.warn("Timezone conversion error:", error);
+    console.warn("?? Error parsing timestamp:", timestamp, error);
     return null;
   }
 }
 
+// ==================== 🛠️ FIXED Duration Calculation (ALWAYS IN MINUTES) ====================
+function calculateDurationForExport(ticket) {
+  try {
+    console.log("🛠️ Calculating duration for ticket:", ticket.id, ticket.code);
+
+    // Helper function to parse any timestamp format dengan prioritas yang benar
+    function parseTimestamp(timestamp) {
+      if (!timestamp) return null;
+      
+      try {
+        // 🎯 PRIORITAS 1: Firebase Timestamp object dengan toDate()
+        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
+          return timestamp.toDate();
+        }
+        
+        // 🎯 PRIORITAS 2: Firebase Timestamp object dengan seconds/nanoseconds
+        if (timestamp.seconds !== undefined) {
+          return new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
+        }
+        
+        // 🎯 PRIORITAS 3: ISO string
+        if (typeof timestamp === 'string') {
+          return new Date(timestamp);
+        }
+        
+        // 🎯 PRIORITAS 4: Regular Date object
+        const date = new Date(timestamp);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+        
+        return null;
+      } catch (error) {
+        console.warn("🛠️ Error parsing timestamp:", timestamp, error);
+        return null;
+      }
+    }
+
+    // 🎯 CARI START DATE DENGAN BERBAGAI KEMUNGKINAN FIELD NAME
+    let startDate = null;
+    
+    // Priority order untuk created date
+    const createdDateFields = [
+      ticket.created_at,    // Format dari admin dashboard
+      ticket.createdAt,     // Format dari export data  
+      ticket.timestamp,     // Fallback
+      ticket.date_created   // Fallback lain
+    ];
+    
+    for (const field of createdDateFields) {
+      startDate = parseTimestamp(field);
+      if (startDate && !isNaN(startDate.getTime())) {
+        console.log(`🛠️ Found start date from field: ${field}`, startDate);
+        break;
+      }
+    }
+    
+    if (!startDate || isNaN(startDate.getTime())) {
+      console.warn("🛠️ Invalid start date for ticket:", ticket.id, "Available fields:", {
+        created_at: ticket.created_at,
+        createdAt: ticket.createdAt,
+        timestamp: ticket.timestamp,
+        date_created: ticket.date_created
+      });
+      return "0 Minutes";
+    }
+
+    // 🎯 CARI END DATE BERDASARKAN STATUS
+    const status = ticket.status_ticket || ticket.status || "Open";
+    let endDate = null;
+
+    if (status === "Resolved" || status === "Closed") {
+      // Priority order untuk end date
+      const endDateFields = [
+        ticket.last_updated,  // Format dari admin dashboard
+        ticket.updatedAt,     // Format dari export data
+        ticket.resolved_at,   // Field khusus resolved
+        ticket.closed_at      // Field khusus closed
+      ];
+      
+      for (const field of endDateFields) {
+        endDate = parseTimestamp(field);
+        if (endDate && !isNaN(endDate.getTime())) {
+          console.log(`🛠️ Found end date from field: ${field}`, endDate);
+          break;
+        }
+      }
+      
+      // Jika tidak ditemukan, gunakan current time
+      if (!endDate || isNaN(endDate.getTime())) {
+        console.warn("🛠️ No valid end date found, using current time");
+        endDate = new Date();
+      }
+    } else {
+      // Untuk non-resolved tickets, duration adalah 0
+      console.log("🛠️ Ticket not resolved, duration = 0");
+      return "0 Minutes";
+    }
+
+    // 🎯 VALIDASI: Pastikan endDate tidak sebelum startDate
+    if (endDate < startDate) {
+      console.warn("🛠️ End date is before start date, using current time");
+      endDate = new Date();
+    }
+
+    // 🎯 HITUNG DURASI DALAM MENIT
+    const diffMs = endDate - startDate;
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    
+    console.log("🛠️ Duration calculation result:", {
+      ticketId: ticket.id,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      diffMs: diffMs,
+      diffMinutes: diffMinutes,
+      status: status
+    });
+
+    // 🎯 FORMAT DURASI: SELALU DALAM MENIT
+    return diffMinutes === 1 ? "1 Minute" : `${diffMinutes} Minutes`;
+
+  } catch (error) {
+    console.error("🛠️ Error calculating duration for ticket:", ticket.id, error);
+    return "0 Minutes";
+  }
+}
+
+// ==================== ?? FIXED Date Formatting ====================
 function formatDateForExcel(ts) {
   if (!ts) return "-";
   
   try {
-    // ✅ FORMAT LANGSUNG DENGAN MOMENT.JS + TIMEZONE
-    return moment(ts.toDate ? ts.toDate() : new Date(ts))
-      .tz('Asia/Jakarta')
-      .format('DD/MM/YYYY');
+    const date = parseUniversalTimestamp(ts);
+    
+    if (!date || isNaN(date.getTime())) {
+      console.warn("?? Invalid date for formatting:", ts);
+      return "-";
+    }
+
+    // Format: DD/MM/YYYY
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
     
   } catch (error) {
-    console.warn("Date formatting error:", error);
+    console.warn("?? Date formatting error:", error, "for timestamp:", ts);
     return "-";
   }
 }
 
-
-function calculateDurationForExport(ticket) {
-  try {
-    const startDate = ticket.createdAt;
-    
-    let endDate;
-    const status = ticket.status_ticket || ticket.status || "Open";
-    
-    if (status === "Resolved" || status === "Closed") {
-      endDate = ticket.last_updated || ticket.updatedAt;
-    } else {
-      return "0 Minute";
-    }
-
-    if (!startDate || !endDate) return "0 Minute";
-
-    let createdDate = convertToGMTPlus7(startDate);
-    let endDateObj = convertToGMTPlus7(endDate);
-
-    if (!createdDate || !endDateObj) return "0 Minute";
-
-    const diffMs = endDateObj - createdDate;
-    if (diffMs < 0) return "0 Minute";
-
-    const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    
-    // ✅ VERSI RINGKAS:
-    return diffMinutes === 1 ? "1 Minute" : `${diffMinutes} Minutes`;
-
-  } catch (error) {
-    console.error("Error calculating duration for ticket:", ticket.id, error);
-    return "0 Minute";
-  }
-}
-
-// ==================== 🔹 Device Type Mapping Function ====================
+// ==================== ?? Device Type Mapping Function ====================
 function getDeviceCode(deviceType) {
     const deviceMapping = {
-        // Hardware devices
         "PC Hardware": "HW",
         "Laptop": "HW", 
         "Printer": "HW",
         "Projector": "HW",
-        
-        // Software
         "PC Software": "SW",
-        
-        // Network
         "Network": "NW",
-        
-        // Data Recovery & Drone
         "Backup Data": "DR",
         "Drone": "DR",
-        
-        // Others
         "Others": "OT"
     };
     
-    // Handle case sensitivity and variations
     const normalizedDevice = (deviceType || "").trim();
     
-    // Find exact match first
     if (deviceMapping[normalizedDevice]) {
         return deviceMapping[normalizedDevice];
     }
     
-    // Fallback: check for partial matches
     const lowerDevice = normalizedDevice.toLowerCase();
     if (lowerDevice.includes('hardware') || lowerDevice.includes('pc') || lowerDevice.includes('laptop') || 
         lowerDevice.includes('printer') || lowerDevice.includes('projector')) {
@@ -136,204 +241,198 @@ function getDeviceCode(deviceType) {
         return "DR";
     }
     
-    // Default for unknown devices
     return "OT";
 }
 
-// ==================== 🔹 Admin Panel Support ====================
-function getAdminDisplayedTickets() {
+// ==================== ?? Get Current Admin User ====================
+function getCurrentAdminUser() {
   try {
-    console.log("🔍 Looking for admin dashboard data...");
-    
-    // ✅ OPTION 1: Coba akses dari admin dashboard instance
-    if (window.adminDashboard && typeof window.adminDashboard.getDisplayedTicketsForExport === 'function') {
-      const tickets = window.adminDashboard.getDisplayedTicketsForExport();
-      console.log("✅ Got tickets from admin dashboard method:", tickets.length);
-      return tickets;
+    if (window.adminDashboard && window.adminDashboard.adminUser) {
+      return window.adminDashboard.adminUser;
     }
     
-    // ✅ OPTION 2: Coba akses filtered tickets langsung
-    if (window.adminDashboard && window.adminDashboard.filteredTickets) {
-      console.log("✅ Using adminDashboard.filteredTickets directly");
-      return window.adminDashboard.filteredTickets;
+    const adminUser = localStorage.getItem('adminUser');
+    if (adminUser) {
+      return JSON.parse(adminUser);
     }
     
-    // ✅ OPTION 3: Coba akses dari global admin data
+    if (window.firebaseAuthService && typeof window.firebaseAuthService.getCurrentUser === 'function') {
+      const user = window.firebaseAuthService.getCurrentUser();
+      if (user) {
+        return {
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName || user.email
+        };
+      }
+    }
+    
+    if (window.auth && window.auth.currentUser) {
+      return {
+        uid: window.auth.currentUser.uid,
+        email: window.auth.currentUser.email,
+        name: window.auth.currentUser.displayName || window.auth.currentUser.email
+      };
+    }
+    
+    return null;
+    
+  } catch (error) {
+    console.error("? Error getting current admin user:", error);
+    return null;
+  }
+}
+
+// ==================== ?? Check Ticket Assignment ====================
+function isTicketAssignedToCurrentUser(ticket, currentUser) {
+  if (!ticket || !currentUser) return false;
+
+  // Check by UID
+  if (currentUser.uid) {
+    if (ticket.action_by === currentUser.uid || ticket.assigned_to === currentUser.uid) {
+      return true;
+    }
+  }
+  
+  // Check by name
+  if (currentUser.name) {
+    if (ticket.action_by === currentUser.name || ticket.assigned_to === currentUser.name) {
+      return true;
+    }
+  }
+  
+  // Check by email
+  if (currentUser.email) {
+    if (ticket.action_by === currentUser.email || ticket.assigned_to === currentUser.email) {
+      return true;
+    }
+  }
+  
+  // Check assigned_name field
+  if (ticket.assigned_name && currentUser.name && ticket.assigned_name === currentUser.name) {
+    return true;
+  }
+  
+  return false;
+}
+
+// ==================== ?? Get My Assigned Tickets ====================
+function getMyAssignedTickets() {
+  try {
+    const currentUser = getCurrentAdminUser();
+    if (!currentUser) return [];
+
+    const allTickets = getAllAvailableTickets();
+    const myTickets = allTickets.filter(ticket => 
+      isTicketAssignedToCurrentUser(ticket, currentUser)
+    );
+
+    console.log("?? My assigned tickets:", {
+      currentUser: currentUser.name || currentUser.email,
+      totalTickets: allTickets.length,
+      myTickets: myTickets.length
+    });
+
+    return myTickets;
+    
+  } catch (error) {
+    console.error("? Error getting my assigned tickets:", error);
+    return [];
+  }
+}
+
+// ==================== ?? Get All Available Tickets ====================
+function getAllAvailableTickets() {
+  try {
+    if (window.adminDashboard) {
+      if (window.adminDashboard.filteredTickets && window.adminDashboard.filteredTickets.length > 0) {
+        return window.adminDashboard.filteredTickets;
+      }
+      if (window.adminDashboard.tickets && window.adminDashboard.tickets.length > 0) {
+        return window.adminDashboard.tickets;
+      }
+    }
+    
     if (window.adminData && window.adminData.tickets) {
-      console.log("✅ Using window.adminData.tickets");
       return window.adminData.tickets;
     }
     
-    // ✅ OPTION 4: Fallback ke global data
-    console.log("🔄 Using global tickets data as fallback");
-    return window.allTickets || [];
+    if (window.allTickets && Array.isArray(window.allTickets)) {
+      return window.allTickets;
+    }
+    
+    const recoveredTickets = recoverTicketsData();
+    if (recoveredTickets) {
+      return recoveredTickets;
+    }
+    
+    return [];
     
   } catch (error) {
-    console.error('❌ Error getting admin tickets:', error);
-    return window.allTickets || [];
+    console.error("? Error getting all available tickets:", error);
+    return [];
   }
 }
 
-// ==================== 🔹 Get Currently Displayed Tickets ====================
-function getCurrentlyDisplayedTickets() {
-  try {
-    console.log("🔍 Getting currently displayed tickets...");
-
-    // ✅ OPTION 1: Jika di admin panel
-    const isAdminPanel = window.location.pathname.includes('/admin/') || 
-                        window.location.pathname.includes('admin.html') ||
-                        document.querySelector('.admin-body') ||
-                        document.querySelector('.admin-header');
-
-    if (isAdminPanel) {
-      console.log("🎯 Admin panel detected, using admin data");
-      const adminTickets = getAdminDisplayedTickets();
-      console.log("✅ Using admin dashboard tickets:", adminTickets.length);
-      return adminTickets;
-    }
-
-    // ✅ OPTION 2: Jika ada admin.js dengan function getDisplayedTickets
-    if (typeof window.getDisplayedTickets === "function") {
-      const tickets = window.getDisplayedTickets();
-      console.log("✅ Using admin.js getDisplayedTickets:", tickets.length);
-      return tickets;
-    }
-
-    // ✅ OPTION 3: Coba deteksi filter dari DOM dan apply manual
-    const filterSelect = document.getElementById("statusFilter") || document.getElementById("filterSelect");
-    const priorityFilter = document.getElementById("priorityFilter");
-    const actionByFilter = document.getElementById("actionByFilter");
-    const allTickets = window.allTickets || [];
-
-    if (allTickets.length === 0) {
-      console.warn("⚠️ No tickets available");
-      return [];
-    }
-
-    let filteredTickets = allTickets;
-
-    // Apply status filter
-    if (filterSelect && filterSelect.value !== "all") {
-      filteredTickets = filteredTickets.filter(
-        (t) => (t.status_ticket || t.status) === filterSelect.value,
-      );
-    }
-
-    // Apply priority filter
-    if (priorityFilter && priorityFilter.value !== "all") {
-      filteredTickets = filteredTickets.filter(
-        (t) => t.priority === priorityFilter.value,
-      );
-    }
-
-    // Apply action_by filter
-    if (actionByFilter && actionByFilter.value !== "all") {
-      filteredTickets = filteredTickets.filter(
-        (t) => t.action_by === actionByFilter.value,
-      );
-    }
-
-    console.log("✅ Applied filters manually:", {
-      original: allTickets.length,
-      filtered: filteredTickets.length,
-      statusFilter: filterSelect?.value,
-      priorityFilter: priorityFilter?.value,
-      actionByFilter: actionByFilter?.value,
-    });
-
-    return filteredTickets;
-  } catch (error) {
-    console.error("❌ Error getting displayed tickets:", error);
-    return window.allTickets || [];
-  }
-}
-
-// ==================== 🔹 Get Current Filter Info ====================
+// ==================== ?? Get Current Filter Info ====================
 function getCurrentFilterInfo() {
   try {
-    const filterSelect = document.getElementById("statusFilter") || document.getElementById("filterSelect");
-    const priorityFilter = document.getElementById("priorityFilter");
-    const actionByFilter = document.getElementById("actionByFilter");
-
-    const activeFilters = [];
-
-    if (filterSelect && filterSelect.value !== "all") {
-      activeFilters.push(
-        `Status: ${filterSelect.options[filterSelect.selectedIndex].text}`,
-      );
+    const currentUser = getCurrentAdminUser();
+    let userInfo = "Unknown User";
+    
+    if (currentUser) {
+      userInfo = currentUser.name || currentUser.email || currentUser.uid || "Current User";
     }
-
-    if (priorityFilter && priorityFilter.value !== "all") {
-      activeFilters.push(
-        `Priority: ${priorityFilter.options[priorityFilter.selectedIndex].text}`,
-      );
-    }
-
-    if (actionByFilter && actionByFilter.value !== "all") {
-      activeFilters.push(
-        `IT Staff: ${actionByFilter.options[actionByFilter.selectedIndex].text}`,
-      );
-    }
-
-    return activeFilters.length > 0 ? activeFilters.join(", ") : "All Tickets";
+    
+    return `My Assigned Tickets - ${userInfo}`;
+    
   } catch (error) {
-    console.error("❌ Error getting filter info:", error);
-    return "All Tickets";
+    console.error("? Error getting filter info:", error);
+    return "My Assigned Tickets";
   }
 }
 
-// ==================== 🔹 Wrapper Function for HTML Button ====================
+// ==================== ?? Wrapper Function for HTML Button ====================
 async function handleExportToExcel() {
   try {
-    console.log("🔍 Starting export process...");
+    const currentUser = getCurrentAdminUser();
+    if (!currentUser) {
+      await Swal.fire({
+        title: "Authentication Required",
+        text: "Please login to export your assigned tickets.",
+        icon: "warning",
+        confirmButtonColor: "#ef070a",
+      });
+      return;
+    }
 
-    // ✅ GUNAKAN TICKETS YANG SEDANG DITAMPILKAN
-    const displayedTickets = getCurrentlyDisplayedTickets();
+    const myTickets = getMyAssignedTickets();
     const filterInfo = getCurrentFilterInfo();
 
-    if (
-      !displayedTickets ||
-      !Array.isArray(displayedTickets) ||
-      displayedTickets.length === 0
-    ) {
-      // Fallback ke semua tickets jika tidak ada yang ditampilkan
-      const allTickets = window.allTickets || [];
-
-      if (
-        !allTickets ||
-        !Array.isArray(allTickets) ||
-        allTickets.length === 0
-      ) {
-        await Swal.fire({
-          title: "Data Not Available",
-          html: `
-            <div style="text-align: left;">
-              <p>Tickets data is not available for export.</p>
-              <p><strong>Possible solutions:</strong></p>
-              <ul>
-                <li>Refresh the page and try again</li>
-                <li>Wait for data to load completely</li>
-                <li>Check if you have any tickets created</li>
-              </ul>
-            </div>
-          `,
-          icon: "warning",
-          confirmButtonColor: "#ef070a",
-        });
-        return;
-      }
-
-      console.log("🔄 Using all tickets as fallback:", allTickets.length);
-      await exportToExcel(allTickets, "All Tickets");
-    } else {
-      console.log(
-        "📊 Exporting currently displayed tickets:",
-        displayedTickets.length,
-      );
-      await exportToExcel(displayedTickets, filterInfo);
+    if (!myTickets || myTickets.length === 0) {
+      await Swal.fire({
+        title: "No Tickets Assigned To You",
+        html: `
+          <div style="text-align: left;">
+            <p><strong>You don't have any tickets assigned to your account.</strong></p>
+            <p><strong>Current User:</strong> ${currentUser.name || currentUser.email}</p>
+            <p><strong>To get tickets assigned to you:</strong></p>
+            <ul>
+              <li>Click "Take" button on unassigned tickets</li>
+              <li>Ask Super Admin to assign tickets to you</li>
+            </ul>
+          </div>
+        `,
+        icon: "info",
+        confirmButtonColor: "#ef070a",
+      });
+      return;
     }
+
+    await exportToExcel(myTickets, filterInfo);
+    
   } catch (error) {
-    console.error("❌ Export handler error:", error);
+    console.error("? Export handler error:", error);
     await Swal.fire({
       title: "Export Failed",
       text: "Could not start export process. Please try again.",
@@ -343,14 +442,12 @@ async function handleExportToExcel() {
   }
 }
 
-// ==================== 🔹 Data Recovery Function ====================
+// ==================== ?? Data Recovery Function ====================
 async function recoverTicketsData() {
   try {
     const savedTickets = localStorage.getItem("tickets-backup");
     if (savedTickets) {
-      const parsedTickets = JSON.parse(savedTickets);
-      console.log("🔄 Recovered tickets from backup:", parsedTickets.length);
-      return parsedTickets;
+      return JSON.parse(savedTickets);
     }
 
     const possibleSources = [
@@ -364,51 +461,38 @@ async function recoverTicketsData() {
 
     for (const source of possibleSources) {
       if (source && Array.isArray(source)) {
-        console.log("🔄 Found tickets in alternative source:", source.length);
         return source;
       }
     }
 
     return null;
   } catch (error) {
-    console.error("❌ Recovery failed:", error);
+    console.error("? Recovery failed:", error);
     return null;
   }
 }
 
-// ==================== 🔹 Main Export Function ====================
-async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
+// ==================== ?? Main Export Function ====================
+async function exportToExcel(displayedTickets, filterInfo = "My Assigned Tickets") {
   try {
-    if (!displayedTickets) {
-      console.error("❌ displayedTickets is undefined or null");
-      throw new Error("Tickets data is not available (undefined)");
+    if (!displayedTickets || displayedTickets.length === 0) {
+      throw new Error("No tickets data available");
     }
 
-    if (!Array.isArray(displayedTickets)) {
-      console.error(
-        "❌ displayedTickets is not an array:",
-        typeof displayedTickets,
-        displayedTickets,
-      );
-      throw new Error("Tickets data is not a valid array");
-    }
-
-    console.log("📊 Exporting tickets:", displayedTickets.length);
-    console.log("🔍 Active filter:", filterInfo);
+    console.log("?? Exporting MY tickets:", displayedTickets.length);
 
     const { value: accept } = await Swal.fire({
-      title: "Export to Excel",
+      title: "Export Your Tickets",
       html: `
-        <div style="text-align: center; padding: 1rem;">
+        <div style="text-align: center;">
           <i class="fa-solid fa-file-excel" style="font-size: 3rem; color: #217346; margin-bottom: 1rem;"></i>
-          <p>Export ${displayedTickets.length} tickets to Excel format?</p>
-          <p style="font-size: 0.9rem; color: #666;"><strong>Filter:</strong> ${filterInfo}</p>
-          <p style="font-size: 0.8rem; color: #888;">Hanya data yang sedang ditampilkan yang akan diekspor</p>
+          <p><strong>Export ${displayedTickets.length} of YOUR tickets to Excel?</strong></p>
+          <p style="font-size: 0.9rem; color: #666;">${filterInfo}</p>
         </div>
       `,
       icon: "question",
       showCancelButton: true,
-      confirmButtonText: "Export Now",
+      confirmButtonText: "Export My Tickets",
       cancelButtonText: "Cancel",
       confirmButtonColor: "#217346",
       cancelButtonColor: "#6b7280",
@@ -418,90 +502,41 @@ async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
 
     await loadExcelJS();
 
-    if (!displayedTickets || displayedTickets.length === 0) {
-      await Swal.fire({
-        title: "No Data",
-        text: "Tidak ada data tiket untuk diekspor.",
-        icon: "warning",
-        confirmButtonColor: "#ef070a",
-      });
-      return;
-    }
-
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet("Aktivitas IT");
 
-    // ===== FONTS & STYLE DASAR =====
-    workbook.creator = "IT Support System";
-    sheet.properties.defaultRowHeight = 20;
-
-    // ===== JUDUL UTAMA =====
+    // ===== JUDUL & HEADER =====
     sheet.mergeCells("A1:H1");
     const titleCell = sheet.getCell("A1");
     titleCell.value = "AKTIVITAS-AKTIVITAS IT / IT ACTIVITIES";
-    titleCell.font = {
-      name: "Times New Roman",
-      italic: true,
-      size: 18,
-      bold: true,
-    };
+    titleCell.font = { name: "Times New Roman", italic: true, size: 18, bold: true };
     titleCell.alignment = { horizontal: "center", vertical: "middle" };
+    titleCell.border = { top: { style: "thick" }, left: { style: "thick" }, bottom: { style: "thick" }, right: { style: "thick" } };
+    titleCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE6E6E6" } };
 
-    // BORDER TEBAAL untuk judul utama
-    titleCell.border = {
-      top: { style: "thick" },
-      left: { style: "thick" },
-      bottom: { style: "thick" },
-      right: { style: "thick" },
-    };
-
-    titleCell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFE6E6E6" },
-    };
-
-    // ===== BARIS KOSONG =====
     sheet.addRow([]);
 
-    // ===== BARIS PERIOD & FILTER INFO =====
+    // Period & Filter Info
     const now = new Date();
     const periodText = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-    // Baris Period
     sheet.mergeCells("A3:H3");
     const periodCell = sheet.getCell("A3");
     periodCell.value = `Period: ${periodText}`;
     periodCell.font = { name: "Arial", size: 11, bold: true };
     periodCell.alignment = { horizontal: "left", vertical: "middle" };
+    periodCell.border = { top: { style: "thick" }, left: { style: "thick" }, bottom: { style: "thick" }, right: { style: "thick" } };
 
-    // BORDER TEBAAL untuk period
-    periodCell.border = {
-      top: { style: "thick" },
-      left: { style: "thick" },
-      bottom: { style: "thick" },
-      right: { style: "thick" },
-    };
-
-    // Baris Filter Info (baris baru)
     sheet.mergeCells("A4:H4");
     const filterCell = sheet.getCell("A4");
     filterCell.value = `Filter: ${filterInfo}`;
     filterCell.font = { name: "Arial", size: 10, italic: true };
     filterCell.alignment = { horizontal: "left", vertical: "middle" };
+    filterCell.border = { top: { style: "thick" }, left: { style: "thick" }, bottom: { style: "thick" }, right: { style: "thick" } };
 
-    // BORDER TEBAAL untuk filter info
-    filterCell.border = {
-      top: { style: "thick" },
-      left: { style: "thick" },
-      bottom: { style: "thick" },
-      right: { style: "thick" },
-    };
-
-    // ===== BARIS KOSONG =====
     sheet.addRow([]);
 
-    // ===== HEADER TABEL =====
+    // Headers
     const headers = [
       "Tgl. / Date",
       "Kode Inv. (uraian) / Inv. Code (Description)",
@@ -514,66 +549,34 @@ async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
     ];
 
     const headerRow = sheet.addRow(headers);
-    headerRow.font = {
-      bold: true,
-      name: "Arial",
-      size: 10,
-      color: { argb: "FF000000" },
-    };
-    headerRow.alignment = {
-      horizontal: "center",
-      vertical: "middle",
-      wrapText: true,
-    };
+    headerRow.font = { bold: true, name: "Arial", size: 10, color: { argb: "FF000000" } };
+    headerRow.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    headerRow.height = 69 * 0.75;
 
-    // BORDER TEBAAL untuk semua header
-    headerRow.eachCell((cell, colNumber) => {
-      cell.border = {
-        top: { style: "thick" },
-        left: { style: "thick" },
-        bottom: { style: "thick" },
-        right: { style: "thick" },
-      };
-      cell.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFEFEFEF" },
-      };
+    headerRow.eachCell((cell) => {
+      cell.border = { top: { style: "thick" }, left: { style: "thick" }, bottom: { style: "thick" }, right: { style: "thick" } };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFEFEFEF" } };
     });
 
-    sheet.getRow(headerRow.number).height = 69 * 0.75;
-
-    // ===== KOLOM KOSONG ATAS (2 BARIS) =====
-    const emptyRow1 = sheet.addRow(Array(8).fill(""));
-    const emptyRow2 = sheet.addRow(Array(8).fill(""));
-
-    // Border DOTTED untuk kolom kosong atas
-    [emptyRow1, emptyRow2].forEach((row) => {
-      row.eachCell((cell, colNumber) => {
-        cell.border = {
-          top: { style: "hair" },
-          left: { style: "hair" },
-          bottom: { style: "hair" },
-          right: { style: "hair" },
-        };
+    // Empty rows
+    [1, 2].forEach(() => {
+      const emptyRow = sheet.addRow(Array(8).fill(""));
+      emptyRow.eachCell((cell) => {
+        cell.border = { top: { style: "hair" }, left: { style: "hair" }, bottom: { style: "hair" }, right: { style: "hair" } };
       });
     });
 
-    // ===== ISI DATA DARI TICKETS YANG DITAMPILKAN =====
+    // ===== TICKET DATA =====
     displayedTickets.forEach((ticket) => {
       const durationText = calculateDurationForExport(ticket);
-
-      // ✅ AUTO QA: Tentukan nilai QA berdasarkan status
       const ticketStatus = ticket.status_ticket || ticket.status || "Open";
       const kendaliMutu = (ticketStatus === "Resolved" || ticketStatus === "Closed") ? "Finish" : "Continue";
-
-      // ✅ DEVICE CODE: Ambil dari device type menggunakan mapping function
       const deviceCode = getDeviceCode(ticket.device);
 
       const rowData = [
-        formatDateForExcel(ticket.createdAt || ticket.last_update),
+        formatDateForExcel(ticket.createdAt || ticket.last_updated),
         ticket.inventory || "-",
-        deviceCode, // ✅ SEKARANG MENGGUNAKAN DEVICE CODE DARI MAPPING
+        deviceCode,
         ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
         ticket.note || "-",
         ticket.name || ticket.user_name || "-",
@@ -581,123 +584,51 @@ async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
         kendaliMutu,
       ];
 
-      console.log("📝 Export Row Data:", {
-        ticketId: ticket.id,
-        device: ticket.device,
-        deviceCode: deviceCode,
-        status: ticketStatus,
-        duration: durationText,
-        qa: kendaliMutu,
-      });
-
       const row = sheet.addRow(rowData);
 
-      // BORDER DOTTED untuk data rows
       row.eachCell((cell, colNumber) => {
         cell.font = { name: "Arial", size: 10 };
-
-        cell.border = {
-          top: { style: "hair" },
-          left: { style: "hair" },
-          bottom: { style: "hair" },
-          right: { style: "hair" },
-        };
-
-        cell.alignment = {
-          vertical: "top",
-          horizontal: "left",
-          wrapText: false,
-        };
-
-        // Format khusus per kolom
-        if (colNumber === 1) {
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: "right",
-            wrapText: true,
-          };
-        }
-
-        if (colNumber === 2) {
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: "left",
-            wrapText: false,
-          };
-        }
-
-        if (colNumber === 3) {
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: "center",
-            wrapText: true,
-          };
-        }
+        cell.border = { top: { style: "hair" }, left: { style: "hair" }, bottom: { style: "hair" }, right: { style: "hair" } };
         
-        if (colNumber === 8) {
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: "center",
-            wrapText: true,
-          };
-        }
-
-        if (colNumber === 7) {
-          cell.alignment = {
-            vertical: "middle",
-            horizontal: "left",
-            wrapText: true,
-          };
-        }
+        let alignment = { vertical: "top", horizontal: "left", wrapText: false };
+        
+        if (colNumber === 1) alignment = { vertical: "middle", horizontal: "right", wrapText: true };
+        if (colNumber === 2) alignment = { vertical: "middle", horizontal: "left", wrapText: false };
+        if (colNumber === 3) alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        if (colNumber === 8) alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+        if (colNumber === 7) alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+        
+        cell.alignment = alignment;
       });
     });
 
-    // ===== KOLOM KOSONG BAWAH (2 BARIS) =====
-    const emptyRowBottom1 = sheet.addRow(Array(8).fill(""));
-    const emptyRowBottom2 = sheet.addRow(Array(8).fill(""));
-
-    // Border DOTTED untuk kolom kosong bawah
-    [emptyRowBottom1, emptyRowBottom2].forEach((row) => {
-      row.eachCell((cell, colNumber) => {
-        cell.border = {
-          top: { style: "hair" },
-          left: { style: "hair" },
-          bottom: { style: "hair" },
-          right: { style: "hair" },
-        };
+    // Empty bottom rows
+    [1, 2].forEach(() => {
+      const emptyRow = sheet.addRow(Array(8).fill(""));
+      emptyRow.eachCell((cell) => {
+        cell.border = { top: { style: "hair" }, left: { style: "hair" }, bottom: { style: "hair" }, right: { style: "hair" } };
       });
     });
 
-    // ===== BORDER TEBAAL UNTUK SELURUH TABEL =====
-    const totalRows = headerRow.number + displayedTickets.length + 4; // +4 untuk 2 baris kosong atas + 2 baris kosong bawah
-
-    // Border tebal kiri untuk semua baris (dari header sampai baris kosong bawah terakhir)
+    // Final borders
+    const totalRows = headerRow.number + displayedTickets.length + 4;
     for (let i = headerRow.number; i <= totalRows; i++) {
-      const leftCell = sheet.getCell(`A${i}`);
-      leftCell.border = { ...leftCell.border, left: { style: "thick" } };
+      sheet.getCell(`A${i}`).border = { ...sheet.getCell(`A${i}`).border, left: { style: "thick" } };
+      sheet.getCell(`H${i}`).border = { ...sheet.getCell(`H${i}`).border, right: { style: "thick" } };
     }
-
-    // Border tebal kanan untuk semua baris
-    for (let i = headerRow.number; i <= totalRows; i++) {
-      const rightCell = sheet.getCell(`H${i}`);
-      rightCell.border = { ...rightCell.border, right: { style: "thick" } };
-    }
-
-    // Border tebal atas untuk header (sudah ada)
-    // Border tebal bawah untuk baris terakhir (baris kosong bawah ke-2)
+    
     const lastRow = sheet.getRow(totalRows);
-    lastRow.eachCell((cell, colNumber) => {
+    lastRow.eachCell((cell) => {
       cell.border = { ...cell.border, bottom: { style: "thick" } };
     });
 
-    // ===== ATUR LEBAR KOLOM =====
-    const pxToChar = (px) => Math.round(px / 7);
+    // Column widths
     const widthsPx = [80, 113, 86, 181, 487, 126, 126, 124];
     widthsPx.forEach((px, i) => {
-      sheet.getColumn(i + 1).width = pxToChar(px);
+      sheet.getColumn(i + 1).width = Math.round(px / 7);
     });
 
-    // ===== SIMPAN FILE =====
+    // Save file
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -707,26 +638,23 @@ async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
     const a = document.createElement("a");
     a.href = url;
 
-    // Buat nama file yang mencerminkan filter
-    const filterSuffix = filterInfo !== "All Tickets" 
-      ? `_${filterInfo.replace(/[^a-zA-Z0-9]/g, "_")}` 
-      : "";
-    a.download = `Aktivitas_IT_Report_${new Date().toISOString().split("T")[0]}${filterSuffix}.xlsx`;
+    const currentUser = getCurrentAdminUser();
+    const userSuffix = currentUser ? `_${(currentUser.name || currentUser.email || 'user').replace(/[^a-zA-Z0-9]/g, "_")}` : '_MyTickets';
+    
+    a.download = `My_Assigned_Tickets${userSuffix}_${new Date().toISOString().split("T")[0]}.xlsx`;
 
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    // Show success message
     await Swal.fire({
       title: "Export Successful!",
       html: `
-        <div style="text-align: center; padding: 1rem;">
+        <div style="text-align: center;">
           <i class="fa-solid fa-check-circle" style="font-size: 3rem; color: #28a745; margin-bottom: 1rem;"></i>
-          <p>${displayedTickets.length} tickets exported successfully!</p>
-          <p style="font-size: 0.9rem; color: #666;"><strong>Filter:</strong> ${filterInfo}</p>
-          <p style="font-size: 0.9rem; color: #666;">File telah didownload ke perangkat Anda.</p>
+          <p><strong>${displayedTickets.length} of YOUR tickets exported successfully!</strong></p>
+          <p style="font-size: 0.9rem; color: #666;">${filterInfo}</p>
         </div>
       `,
       icon: "success",
@@ -734,17 +662,17 @@ async function exportToExcel(displayedTickets, filterInfo = "All Tickets") {
       showConfirmButton: false,
     });
   } catch (error) {
-    console.error("❌ Export error:", error);
+    console.error("? Export error:", error);
     await Swal.fire({
       title: "Export Failed",
-      text: error.message || "Terjadi kesalahan saat mengekspor data. Silakan coba lagi.",
+      text: error.message || "Terjadi kesalahan saat mengekspor data.",
       icon: "error",
       confirmButtonColor: "#ef070a",
     });
   }
 }
 
-// ==================== 🔹 Global Initialization ====================
+// ==================== ?? Global Initialization ====================
 window.allTickets = window.allTickets || [];
 
 function updateAllTickets(newTickets) {
@@ -753,24 +681,7 @@ function updateAllTickets(newTickets) {
     try {
       localStorage.setItem("tickets-backup", JSON.stringify(newTickets));
     } catch (e) {
-      console.warn("⚠️ Could not backup tickets to localStorage:", e);
-    }
-    console.log("✅ Updated allTickets with", newTickets.length, "tickets");
-  } else {
-    console.error("❌ Cannot update allTickets: invalid data");
-  }
-}
-
-// Function untuk admin panel integration
-function setupAdminExportIntegration() {
-  if (window.adminDashboard) {
-    console.log("✅ Admin dashboard detected, setting up export integration");
-    
-    // Override atau extend admin dashboard methods jika perlu
-    if (!window.adminDashboard.getDisplayedTicketsForExport) {
-      window.adminDashboard.getDisplayedTicketsForExport = function() {
-        return this.filteredTickets || this.tickets || [];
-      };
+      console.warn("?? Could not backup tickets to localStorage:", e);
     }
   }
 }
@@ -780,14 +691,7 @@ window.exportToExcel = exportToExcel;
 window.handleExportToExcel = handleExportToExcel;
 window.updateAllTickets = updateAllTickets;
 window.getCurrentFilterInfo = getCurrentFilterInfo;
-window.getDeviceCode = getDeviceCode; // ✅ EXPORT DEVICE CODE FUNCTION
-window.setupAdminExportIntegration = setupAdminExportIntegration;
+window.getDeviceCode = getDeviceCode;
+window.getMyAssignedTickets = getMyAssignedTickets;
 
-// Auto-setup ketika halaman dimuat
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', setupAdminExportIntegration);
-} else {
-  setupAdminExportIntegration();
-}
-
-console.log("✅ Export JS loaded successfully with Device Type Mapping");
+console.log("? Export JS loaded successfully - DURATION FIXED");

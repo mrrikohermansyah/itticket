@@ -822,124 +822,361 @@ class AdminDashboard {
         this.updateStats();
     }
 
-    // ✅ RENDER TICKETS
-    renderTickets() {
-        const tableBody = document.getElementById('ticketsTableBody');
-        const emptyState = document.getElementById('emptyTicketsState');
-
-        if (!tableBody || !emptyState) {
-            console.error('❌ Required DOM elements not found');
-            return;
+    // ? METHOD UNTUK GET ADMIN INFO BY UID
+async getAdminDisplayInfo(adminUid) {
+    try {
+        if (!adminUid) return 'Unassigned';
+        
+        // Cek cache dulu
+        if (window.adminCache && window.adminCache[adminUid]) {
+            const admin = window.adminCache[adminUid];
+            return `${admin.name} (${admin.email})`;
         }
-
-        if (this.filteredTickets.length === 0) {
-            tableBody.innerHTML = '';
-            emptyState.style.display = 'block';
-            return;
+        
+        // Ambil dari Firestore
+        const adminDoc = await getDoc(doc(this.db, "admins", adminUid));
+        if (adminDoc.exists()) {
+            const adminData = adminDoc.data();
+            const displayInfo = `${adminData.name || 'Unknown Admin'} (${adminData.email || 'No Email'})`;
+            
+            // Simpan ke cache
+            if (!window.adminCache) window.adminCache = {};
+            window.adminCache[adminUid] = {
+                name: adminData.name || 'Unknown Admin',
+                email: adminData.email || 'No Email'
+            };
+            
+            return displayInfo;
         }
+        
+        return 'Unknown Admin';
+    } catch (error) {
+        console.error('Error getting admin display info:', error);
+        return 'Error loading admin info';
+    }
+}
 
-        emptyState.style.display = 'none';
+// ? METHOD UNTUK GET ASSIGNED ADMIN DISPLAY INFO
+async getAssignedAdminDisplayInfo(ticket) {
+    try {
+        let displayInfo = 'Unassigned';
+        
+        // Prioritaskan assigned_to, lalu action_by
+        if (ticket.assigned_to) {
+            displayInfo = await this.getAdminDisplayInfo(ticket.assigned_to);
+        } else if (ticket.action_by) {
+            displayInfo = await this.getAdminDisplayInfo(ticket.action_by);
+        } else if (ticket.assigned_name) {
+            // Fallback ke assigned_name (format lama)
+            displayInfo = ticket.assigned_name;
+        }
+        
+        return displayInfo;
+    } catch (error) {
+        console.error('Error getting assigned admin display info:', error);
+        return 'Error loading assignment info';
+    }
+}
 
-        const ticketsHtml = this.filteredTickets.map(ticket => {
-            const permissions = this.checkPermissions(ticket);
-            
-            console.log(`🎫 Rendering ticket ${ticket.id}:`, {
-                code: ticket.code,
-                status: ticket.status
-            });
-            
-            // Tentukan action buttons berdasarkan status dan permissions
-            let actionButtons = '';
-            
-            // ✅ VIEW BUTTON - SELALU TERSEDIA
+    // ? RENDER TICKETS TO MOBILE CARDS
+// ? RENDER TICKETS TO MOBILE CARDS - MODIFIED VERSION
+async renderTicketsToCards() {
+    const cardsContainer = document.getElementById('ticketsCards');
+    const emptyState = document.getElementById('emptyTicketsState');
+
+    if (!cardsContainer || !emptyState) {
+        console.error('? Required DOM elements for cards not found');
+        return;
+    }
+
+    if (this.filteredTickets.length === 0) {
+        cardsContainer.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    // Buat array promises untuk load semua admin info
+    const cardPromises = this.filteredTickets.map(async (ticket) => {
+        const permissions = this.checkPermissions(ticket);
+        const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
+        
+        console.log(`?? Rendering ticket card ${ticket.id}:`, {
+            code: ticket.code,
+            status: ticket.status,
+            assignedAdmin: assignedAdminDisplay
+        });
+        
+        // Tentukan action buttons berdasarkan status dan permissions
+        let actionButtons = '';
+        
+        // ? VIEW BUTTON - SELALU TERSEDIA
+        actionButtons += `
+            <button class="btn-card-action btn-view" onclick="adminDashboard.viewTicket('${ticket.id}')" title="View Ticket Details">
+                <i class="fas fa-eye"></i> View
+            </button>
+        `;
+        
+        // Take Ticket button
+        if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
             actionButtons += `
-                <button class="btn-action btn-view" data-action="view" title="View Ticket Details">
-                    <i class="fas fa-eye"></i> View
+                <button class="btn-card-action btn-take" onclick="adminDashboard.takeTicket('${ticket.id}')" title="Take this ticket">
+                    <i class="fas fa-hand-paper"></i> Take
                 </button>
             `;
-            
-            // Take Ticket button
-            if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+        }
+        
+        // Action buttons berdasarkan status
+        if (ticket.status === 'Open') {
+            if (permissions.canStart) {
                 actionButtons += `
-                    <button class="btn-action btn-take" data-action="take" title="Take this ticket">
-                        <i class="fas fa-hand-paper"></i> Take
+                    <button class="btn-card-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')" title="Start Working on this ticket">
+                        <i class="fas fa-play"></i> Start
                     </button>
                 `;
             }
-            
-            // Action buttons berdasarkan status
-            if (ticket.status === 'Open') {
-                if (permissions.canStart) {
-                    actionButtons += `
-                        <button class="btn-action btn-edit" data-action="start" title="Start Working on this ticket">
-                            <i class="fas fa-play"></i> Start
-                        </button>
-                    `;
-                }
-            } else if (ticket.status === 'In Progress') {
-                if (permissions.canResolve) {
-                    actionButtons += `
-                        <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
-                            <i class="fas fa-check"></i> Resolve
-                        </button>
-                    `;
-                }
-            } else if (ticket.status === 'Resolved') {
-                if (permissions.canReopen) {
-                    actionButtons += `
-                        <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
-                            <i class="fas fa-redo"></i> Reopen
-                        </button>
-                    `;
-                }
-            }
-            
-            // Delete button
-            if (permissions.canDelete) {
+        } else if (ticket.status === 'In Progress') {
+            if (permissions.canResolve) {
                 actionButtons += `
-                    <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
-                        <i class="fas fa-trash"></i> Delete
+                    <button class="btn-card-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')" title="Mark as Resolved">
+                        <i class="fas fa-check"></i> Resolve
                     </button>
                 `;
             }
-
-            return `
-                <tr>
-                    <td><strong>${ticket.code || 'N/A'}</strong></td>
-                    <td>${ticket.subject || 'No Subject'}</td>
-                    <td>
-                        <div>${ticket.user_name || 'Unknown'}</div>
-                        <small class="text-muted">${ticket.user_email || 'No Email'}</small>
-                    </td>
-                    <td>${ticket.user_department || 'N/A'}</td>
-                    <td>${ticket.location || 'N/A'}</td>
-                    <td>
-                        <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
-                            ${ticket.priority || 'Medium'}
-                        </span>
-                    </td>
-                    <td>
-                        <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
-                            ${ticket.status || 'Open'}
-                        </span>
-                    </td>
-                    <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}</td>
-                    <td>
-                        <div class="action-buttons" data-ticket-id="${ticket.id}">
-                            ${actionButtons}
-                        </div>
-                    </td>
-                </tr>
+        } else if (ticket.status === 'Resolved') {
+            if (permissions.canReopen) {
+                actionButtons += `
+                    <button class="btn-card-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')" title="Reopen Ticket">
+                        <i class="fas fa-redo"></i> Reopen
+                    </button>
+                `;
+            }
+        }
+        
+        // Delete button
+        if (permissions.canDelete) {
+            actionButtons += `
+                <button class="btn-card-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')" title="Delete Ticket">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
             `;
-        }).join('');
+        }
 
-        tableBody.innerHTML = ticketsHtml;
-        
-        // ✅ DEBUG: Cek apakah buttons ter-render dengan benar
-        this.debugRenderedButtons();
-        
-        this.updateTableForMobile();
+        // Format tanggal
+        const createdDate = ticket.created_at ? 
+            new Date(ticket.created_at).toLocaleDateString() : 'N/A';
+
+        return `
+            <div class="ticket-card" data-ticket-id="${ticket.id}">
+                <div class="ticket-header">
+                    <div class="ticket-id">${ticket.code || 'N/A'}</div>
+                    <div class="ticket-date">${createdDate}</div>
+                </div>
+                
+                <div class="ticket-title">${ticket.subject || 'No Subject'}</div>
+                
+                <div class="ticket-user-info">
+                    <div class="ticket-user">${ticket.user_name || 'Unknown'}</div>
+                    <div class="ticket-department">${ticket.user_department || 'N/A'}</div>
+                </div>
+                
+                <div class="ticket-location">
+                    <i class="fas fa-map-marker-alt"></i> ${ticket.location || 'N/A'}
+                </div>
+                
+                <div class="ticket-meta">
+                    <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+                        <i class="fas fa-${ticket.priority === 'High' ? 'exclamation-circle' : 'flag'}"></i> 
+                        ${ticket.priority || 'Medium'}
+                    </span>
+                    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                        <i class="fas fa-${this.getStatusIcon(ticket.status)}"></i> 
+                        ${ticket.status || 'Open'}
+                    </span>
+                </div>
+                
+                ${ticket.message ? `
+                <div class="ticket-description">
+                    ${this.truncateText(ticket.message, 100)}
+                </div>
+                ` : ''}
+                
+                <div class="ticket-footer">
+                    <div class="ticket-assignee">
+                        <i class="fas fa-user-shield"></i> 
+                        ${assignedAdminDisplay}
+                    </div>
+                    <div class="ticket-actions">
+                        ${actionButtons}
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Tunggu semua promises selesai
+    const cardsHtmlArray = await Promise.all(cardPromises);
+    const cardsHtml = cardsHtmlArray.join('');
+
+    cardsContainer.innerHTML = cardsHtml;
+    
+    console.log(`?? Rendered ${this.filteredTickets.length} ticket cards`);
+}
+
+// ? HELPER METHOD UNTUK TRUNCATE TEXT
+truncateText(text, maxLength) {
+    if (!text) return '';
+    if (text.length <= maxLength) return this.escapeHtml(text);
+    return this.escapeHtml(text.substring(0, maxLength)) + '...';
+}
+
+// ? HELPER METHOD UNTUK STATUS ICON
+getStatusIcon(status) {
+    const icons = {
+        'Open': 'clock',
+        'In Progress': 'tools', 
+        'Resolved': 'check-circle',
+        'Closed': 'check-circle',
+        'Completed': 'check-circle'
+    };
+    return icons[status] || 'ticket-alt';
+}
+
+    // ✅ RENDER TICKETS
+    // ? RENDER TICKETS - MODIFIED VERSION DENGAN ASYNC
+async renderTickets() {
+    const tableBody = document.getElementById('ticketsTableBody');
+    const emptyState = document.getElementById('emptyTicketsState');
+
+    if (!tableBody || !emptyState) {
+        console.error('? Required DOM elements not found');
+        return;
     }
+
+    if (this.filteredTickets.length === 0) {
+        tableBody.innerHTML = '';
+        emptyState.style.display = 'block';
+        // Juga clear cards container
+        const cardsContainer = document.getElementById('ticketsCards');
+        if (cardsContainer) cardsContainer.innerHTML = '';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    // Buat array promises untuk load semua admin info
+    const rowPromises = this.filteredTickets.map(async (ticket) => {
+        const permissions = this.checkPermissions(ticket);
+        const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
+        
+        console.log(`?? Rendering ticket ${ticket.id}:`, {
+            code: ticket.code,
+            status: ticket.status,
+            assignedAdmin: assignedAdminDisplay
+        });
+        
+        // Tentukan action buttons berdasarkan status dan permissions
+        let actionButtons = '';
+        
+        // ? VIEW BUTTON - SELALU TERSEDIA
+        actionButtons += `
+            <button class="btn-action btn-view" data-action="view" title="View Ticket Details">
+                <i class="fas fa-eye"></i> View
+            </button>
+        `;
+        
+        // Take Ticket button
+        if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+            actionButtons += `
+                <button class="btn-action btn-take" data-action="take" title="Take this ticket">
+                    <i class="fas fa-hand-paper"></i> Take
+                </button>
+            `;
+        }
+        
+        // Action buttons berdasarkan status
+        if (ticket.status === 'Open') {
+            if (permissions.canStart) {
+                actionButtons += `
+                    <button class="btn-action btn-edit" data-action="start" title="Start Working on this ticket">
+                        <i class="fas fa-play"></i> Start
+                    </button>
+                `;
+            }
+        } else if (ticket.status === 'In Progress') {
+            if (permissions.canResolve) {
+                actionButtons += `
+                    <button class="btn-action btn-resolve" data-action="resolve" title="Mark as Resolved">
+                        <i class="fas fa-check"></i> Resolve
+                    </button>
+                `;
+            }
+        } else if (ticket.status === 'Resolved') {
+            if (permissions.canReopen) {
+                actionButtons += `
+                    <button class="btn-action btn-edit" data-action="reopen" title="Reopen Ticket">
+                        <i class="fas fa-redo"></i> Reopen
+                    </button>
+                `;
+            }
+        }
+        
+        // Delete button
+        if (permissions.canDelete) {
+            actionButtons += `
+                <button class="btn-action btn-delete" data-action="delete" title="Delete Ticket">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            `;
+        }
+
+        return `
+            <tr>
+                <td><strong>${ticket.code || 'N/A'}</strong></td>
+                <td>${ticket.subject || 'No Subject'}</td>
+                <td>
+                    <div>${ticket.user_name || 'Unknown'}</div>
+                    <small class="text-muted">${ticket.user_email || 'No Email'}</small>
+                </td>
+                <td>${ticket.user_department || 'N/A'}</td>
+                <td>${ticket.location || 'N/A'}</td>
+                <td>
+                    <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+                        ${ticket.priority || 'Medium'}
+                    </span>
+                </td>
+                <td>
+                    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                        ${ticket.status || 'Open'}
+                    </span>
+                </td>
+                <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}</td>
+                <td>
+                    <div class="action-buttons" data-ticket-id="${ticket.id}">
+                        ${actionButtons}
+                    </div>
+                </td>
+            </tr>
+        `;
+    });
+
+    // Tunggu semua promises selesai
+    const ticketsHtmlArray = await Promise.all(rowPromises);
+    const ticketsHtml = ticketsHtmlArray.join('');
+
+    tableBody.innerHTML = ticketsHtml;
+    
+    // ? RENDER CARDS UNTUK MOBILE
+    await this.renderTicketsToCards();
+    
+    // ? DEBUG: Cek apakah buttons ter-render dengan benar
+    this.debugRenderedButtons();
+    
+    this.updateTableForMobile();
+}
+
+    
 
     // ✅ METHOD UNTUK DEBUG RENDERED BUTTONS
     debugRenderedButtons() {
