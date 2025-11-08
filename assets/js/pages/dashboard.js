@@ -751,14 +751,35 @@ class Dashboard {
       document.getElementById('edit_phone').value = this.currentUser.phone || '';
       document.getElementById('edit_department').value = this.currentUser.department || '';
       document.getElementById('edit_location').value = this.currentUser.location || '';
+       const employeeIdField = document.getElementById('edit_employee_id');
+    if (employeeIdField) {
+      employeeIdField.readOnly = false;
+      employeeIdField.placeholder = "Optional - Employee ID";
+      employeeIdField.title = "Employee ID (optional)";
+      employeeIdField.style.backgroundColor = '';
+      employeeIdField.style.color = '';
+      employeeIdField.style.cursor = '';
+    }
       profileModal.style.display = 'flex';
     }
   }
-
-  closeProfileModal() {
-    const profileModal = document.getElementById('profileModal');
-    if (profileModal) profileModal.style.display = 'none';
+closeProfileModal() {
+  const profileModal = document.getElementById('profileModal');
+  if (profileModal) {
+    // Reset employee_id field ke state normal
+    const employeeIdField = document.getElementById('edit_employee_id');
+    if (employeeIdField) {
+      employeeIdField.readOnly = false;
+      employeeIdField.style.backgroundColor = '';
+      employeeIdField.style.color = '';
+      employeeIdField.style.cursor = '';
+      employeeIdField.title = '';
+      employeeIdField.placeholder = '';
+    }
+    
+    profileModal.style.display = 'none';
   }
+}
 
   // Enhanced profile update dengan ticket sync
   async handleProfileUpdate(e) {
@@ -849,7 +870,7 @@ class Dashboard {
 
   // Enhanced form validation
   validateProfileForm(formData) {
-    const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location'];
+    const requiredFields = ['full_name', 'email', 'department', 'location'];
     
     for (const field of requiredFields) {
         if (!formData[field] || formData[field].toString().trim() === '') {
