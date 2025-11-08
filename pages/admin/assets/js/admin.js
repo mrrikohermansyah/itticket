@@ -97,8 +97,8 @@ class AdminDashboard {
             const migrationResult = await Swal.fire({
                 title: 'Migrating Ticket Assignments...',
                 html: `
-                    <div style="text-align: center;">
-                        <i class="fas fa-sync-alt fa-spin" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <div class="migration-progress">
+                        <i class="fas fa-sync-alt fa-spin migration-icon"></i>
                         <p>Converting name-based assignments to UID-based...</p>
                         <p id="migrationProgress">Preparing migration...</p>
                     </div>
@@ -160,7 +160,7 @@ class AdminDashboard {
             await Swal.fire({
                 title: 'Migration Complete!',
                 html: `
-                    <div style="text-align: left;">
+                    <div class="migration-results">
                         <p><strong>Migration Results:</strong></p>
                         <ul>
                             <li>✅ Successfully migrated: ${migratedCount} tickets</li>
@@ -592,16 +592,14 @@ class AdminDashboard {
                     this.showPermissionError('start this ticket');
                 }
                 break;
-            // Di dalam handleTableClick method - bagian switch case
-case 'resolve':
-    console.log('✅ Resolve ticket clicked:', ticketId);
-    if (permissions.canResolve) {
-        // Panggil method updateTicketStatus yang sudah dimodifikasi
-        this.updateTicketStatus(ticketId, 'Resolved');
-    } else {
-        this.showPermissionError('resolve this ticket');
-    }
-    break;
+            case 'resolve':
+                console.log('✅ Resolve ticket clicked:', ticketId);
+                if (permissions.canResolve) {
+                    this.updateTicketStatus(ticketId, 'Resolved');
+                } else {
+                    this.showPermissionError('resolve this ticket');
+                }
+                break;
             case 'reopen':
                 console.log('🔁 Reopen ticket clicked:', ticketId);
                 if (permissions.canReopen) {
@@ -1018,252 +1016,249 @@ case 'resolve':
         }
     }
 
-    // ✅ METHOD UPDATE TICKET STATUS
     // ✅ METHOD UPDATE TICKET STATUS - MODIFIED VERSION
-async updateTicketStatus(ticketId, newStatus) {
-    try {
-        console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
-        
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        const ticket = this.tickets.find(t => t.id === ticketId);
-        
-        if (!ticket) {
-            throw new Error('Ticket not found');
-        }
-
-        const permissions = this.checkPermissions(ticket);
-        let hasPermission = false;
-
-        switch (newStatus) {
-            case 'In Progress':
-                hasPermission = permissions.canStart;
-                break;
-            case 'Resolved':
-                hasPermission = permissions.canResolve;
-                break;
-            case 'Open':
-                hasPermission = permissions.canReopen;
-                break;
-            default:
-                hasPermission = permissions.canUpdate;
-        }
-
-        if (!hasPermission) {
-            await this.showPermissionError(`change status to ${newStatus}`);
-            return;
-        }
-
-        // ✅ VALIDASI KHUSUS UNTUK STATUS RESOLVED
-        if (newStatus === 'Resolved') {
-            return await this.showResolveConfirmation(ticket);
-        }
-
-        const updateData = {
-            status: newStatus,
-            last_updated: serverTimestamp()
-        };
-
-        if (newStatus === 'In Progress') {
-            updateData.action_by = this.adminUser.uid;
-            updateData.assigned_to = this.adminUser.uid;
-            updateData.assigned_name = this.adminUser.name || this.adminUser.email;
-        }
-
-        // Add to updates array
-        const updateNote = {
-            status: newStatus,
-            notes: `Status changed to ${newStatus} by ${this.adminUser.name || this.adminUser.email}`,
-            timestamp: new Date().toISOString(),
-            updatedBy: this.adminUser.name || this.adminUser.email
-        };
-
-        const ticketDoc = await getDoc(ticketRef);
-        const currentData = ticketDoc.data();
-        const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
-        updateData.updates = [...currentUpdates, updateNote];
-
-        // Update QA field
-        if (newStatus === 'Resolved') {
-            updateData.qa = 'Finish';
-        } else if (newStatus === 'Open') {
-            updateData.qa = 'Open';
-        } else if (newStatus === 'In Progress') {
-            updateData.qa = 'In Progress';
-        }
-
-        await updateDoc(ticketRef, updateData);
-        
-        await Swal.fire({
-            title: 'Success!',
-            text: `Ticket status updated to ${newStatus}`,
-            icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-        });
-
-        await this.loadTickets();
-
-    } catch (error) {
-        console.error('❌ Error updating ticket status:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: 'Failed to update ticket status: ' + error.message,
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
-    }
-}
-
-// ✅ METHOD UNTUK RESOLVE CONFIRMATION DENGAN NOTE
-async showResolveConfirmation(ticket) {
-    try {
-        const { value: formValues } = await Swal.fire({
-            title: `Resolve Ticket ${ticket.code}`,
-            html: `
-                <div class="resolve-modal" style="text-align: left;">
-                    <div class="ticket-info" style="background: #f8f9fa; padding: 12px; border-radius: 6px; margin-bottom: 16px;">
-                        <p style="margin: 4px 0;"><strong>Subject:</strong> ${this.escapeHtml(ticket.subject)}</p>
-                        <p style="margin: 4px 0;"><strong>User:</strong> ${this.escapeHtml(ticket.user_name)}</p>
-                        <p style="margin: 4px 0;"><strong>Current Status:</strong> ${this.escapeHtml(ticket.status)}</p>
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 16px;">
-                        <label for="resolveNote" style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151;">
-                            <i class="fas fa-sticky-note"></i> Resolution Notes *
-                        </label>
-                        <textarea 
-                            id="resolveNote" 
-                            class="swal2-textarea" 
-                            placeholder="Please describe the solution, steps taken, or reason for closure. This will be included in reports and is REQUIRED."
-                            rows="4"
-                            style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;"
-                            required
-                        >${ticket.note || ''}</textarea>
-                        <small style="color: #6b7280; font-size: 12px;">This note will be visible to the user and included in Excel reports</small>
-                    </div>
-                    
-                    <div class="form-group" style="margin-bottom: 16px;">
-                        <label for="resolveStatus" style="display: block; margin-bottom: 6px; font-weight: 600; color: #374151;">
-                            <i class="fas fa-flag"></i> Final Status *
-                        </label>
-                        <select 
-                            id="resolveStatus" 
-                            class="swal2-select" 
-                            style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 14px;"
-                            required
-                        >
-                            <option value="">Select Status</option>
-                            <option value="Resolved" selected>Resolved - Issue has been fixed</option>
-                            <option value="Closed">Closed - Ticket completed</option>
-                            <option value="Completed">Completed - Work finished</option>
-                        </select>
-                    </div>
-                </div>
-            `,
-            showCancelButton: true,
-            confirmButtonText: 'Confirm Resolution',
-            cancelButtonText: 'Cancel',
-            confirmButtonColor: '#10b981',
-            cancelButtonColor: '#6b7280',
-            focusConfirm: false,
-            preConfirm: () => {
-                const note = document.getElementById('resolveNote').value.trim();
-                const status = document.getElementById('resolveStatus').value;
-                
-                if (!note) {
-                    Swal.showValidationMessage('⚠️ Resolution notes are REQUIRED before resolving a ticket');
-                    return false;
-                }
-                
-                if (!status) {
-                    Swal.showValidationMessage('⚠️ Please select a final status');
-                    return false;
-                }
-                
-                if (note.length < 10) {
-                    Swal.showValidationMessage('⚠️ Please provide more detailed notes (minimum 10 characters)');
-                    return false;
-                }
-                
-                return { note, status };
-            },
-            didOpen: () => {
-                // Auto-focus ke textarea
-                setTimeout(() => {
-                    const textarea = document.getElementById('resolveNote');
-                    if (textarea) textarea.focus();
-                }, 300);
+    async updateTicketStatus(ticketId, newStatus) {
+        try {
+            console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+            
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const ticket = this.tickets.find(t => t.id === ticketId);
+            
+            if (!ticket) {
+                throw new Error('Ticket not found');
             }
-        });
 
-        if (formValues) {
-            await this.executeTicketResolution(ticket.id, formValues.status, formValues.note);
+            const permissions = this.checkPermissions(ticket);
+            let hasPermission = false;
+
+            switch (newStatus) {
+                case 'In Progress':
+                    hasPermission = permissions.canStart;
+                    break;
+                case 'Resolved':
+                    hasPermission = permissions.canResolve;
+                    break;
+                case 'Open':
+                    hasPermission = permissions.canReopen;
+                    break;
+                default:
+                    hasPermission = permissions.canUpdate;
+            }
+
+            if (!hasPermission) {
+                await this.showPermissionError(`change status to ${newStatus}`);
+                return;
+            }
+
+            // ✅ VALIDASI KHUSUS UNTUK STATUS RESOLVED
+            if (newStatus === 'Resolved') {
+                return await this.showResolveConfirmation(ticket);
+            }
+
+            const updateData = {
+                status: newStatus,
+                last_updated: serverTimestamp()
+            };
+
+            if (newStatus === 'In Progress') {
+                updateData.action_by = this.adminUser.uid;
+                updateData.assigned_to = this.adminUser.uid;
+                updateData.assigned_name = this.adminUser.name || this.adminUser.email;
+            }
+
+            // Add to updates array
+            const updateNote = {
+                status: newStatus,
+                notes: `Status changed to ${newStatus} by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
+            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+
+            // Update QA field
+            if (newStatus === 'Resolved') {
+                updateData.qa = 'Finish';
+            } else if (newStatus === 'Open') {
+                updateData.qa = 'Open';
+            } else if (newStatus === 'In Progress') {
+                updateData.qa = 'In Progress';
+            }
+
+            await updateDoc(ticketRef, updateData);
+            
+            await Swal.fire({
+                title: 'Success!',
+                text: `Ticket status updated to ${newStatus}`,
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            await this.loadTickets();
+
+        } catch (error) {
+            console.error('❌ Error updating ticket status:', error);
+            await Swal.fire({
+                title: 'Error!',
+                text: 'Failed to update ticket status: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
         }
-        
-    } catch (error) {
-        console.error('❌ Error in resolve confirmation:', error);
-        // User cancelled the action, no need to show error
     }
-}
 
-// ✅ METHOD UNTUK EKSEKUSI RESOLUTION SETELAH KONFIRMASI
-async executeTicketResolution(ticketId, newStatus, note) {
-    try {
-        console.log(`✅ Executing resolution for ticket ${ticketId} with note`);
-        
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        
-        const updateData = {
-            status: newStatus,
-            note: note,
-            last_updated: serverTimestamp(),
-            qa: 'Finish'
-        };
-
-        // Add to updates array dengan note yang lengkap
-        const updateNote = {
-            status: newStatus,
-            notes: `Ticket resolved by ${this.adminUser.name || this.adminUser.email}. Resolution: ${note}`,
-            timestamp: new Date().toISOString(),
-            updatedBy: this.adminUser.name || this.adminUser.email
-        };
-
-        const ticketDoc = await getDoc(ticketRef);
-        const currentData = ticketDoc.data();
-        const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
-        updateData.updates = [...currentUpdates, updateNote];
-
-        await updateDoc(ticketRef, updateData);
-        
-        await Swal.fire({
-            title: 'Ticket Resolved!',
-            html: `
-                <div style="text-align: left;">
-                    <p><strong>✅ Ticket has been successfully resolved</strong></p>
-                    <p><strong>Resolution Notes:</strong></p>
-                    <div style="background: #f0fdf4; padding: 8px; border-radius: 4px; margin: 8px 0;">
-                        ${this.escapeHtml(note)}
+    // ✅ METHOD UNTUK RESOLVE CONFIRMATION DENGAN NOTE
+    async showResolveConfirmation(ticket) {
+        try {
+            const { value: formValues } = await Swal.fire({
+                title: `Resolve Ticket ${ticket.code}`,
+                html: `
+                    <div class="resolve-modal">
+                        <div class="ticket-info">
+                            <p><strong>Subject:</strong> ${this.escapeHtml(ticket.subject)}</p>
+                            <p><strong>User:</strong> ${this.escapeHtml(ticket.user_name)}</p>
+                            <p><strong>Current Status:</strong> ${this.escapeHtml(ticket.status)}</p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="resolveNote">
+                                <i class="fas fa-sticky-note"></i> Resolution Notes *
+                            </label>
+                            <textarea 
+                                id="resolveNote" 
+                                class="swal2-textarea" 
+                                placeholder="Please describe the solution, steps taken, or reason for closure. This will be included in reports and is REQUIRED."
+                                rows="4"
+                                required
+                            >${ticket.note || ''}</textarea>
+                            <small>This note will be visible to the user and included in Excel reports</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="resolveStatus">
+                                <i class="fas fa-flag"></i> Final Status *
+                            </label>
+                            <select 
+                                id="resolveStatus" 
+                                class="swal2-select" 
+                                required
+                            >
+                                <option value="">Select Status</option>
+                                <option value="Resolved" selected>Resolved - Issue has been fixed</option>
+                                <option value="Closed">Closed - Ticket completed</option>
+                                <option value="Completed">Completed - Work finished</option>
+                            </select>
+                        </div>
                     </div>
-                    <small style="color: #6b7280;">These notes will be included in Excel reports</small>
-                </div>
-            `,
-            icon: 'success',
-            confirmButtonColor: '#10b981',
-            timer: 4000
-        });
+                `,
+                showCancelButton: true,
+                confirmButtonText: 'Confirm Resolution',
+                cancelButtonText: 'Cancel',
+                confirmButtonColor: '#10b981',
+                cancelButtonColor: '#6b7280',
+                focusConfirm: false,
+                preConfirm: () => {
+                    const note = document.getElementById('resolveNote').value.trim();
+                    const status = document.getElementById('resolveStatus').value;
+                    
+                    if (!note) {
+                        Swal.showValidationMessage('⚠️ Resolution notes are REQUIRED before resolving a ticket');
+                        return false;
+                    }
+                    
+                    if (!status) {
+                        Swal.showValidationMessage('⚠️ Please select a final status');
+                        return false;
+                    }
+                    
+                    if (note.length < 10) {
+                        Swal.showValidationMessage('⚠️ Please provide more detailed notes (minimum 10 characters)');
+                        return false;
+                    }
+                    
+                    return { note, status };
+                },
+                didOpen: () => {
+                    // Auto-focus ke textarea
+                    setTimeout(() => {
+                        const textarea = document.getElementById('resolveNote');
+                        if (textarea) textarea.focus();
+                    }, 300);
+                }
+            });
 
-        await this.loadTickets();
-
-    } catch (error) {
-        console.error('❌ Error executing ticket resolution:', error);
-        await Swal.fire({
-            title: 'Resolution Failed!',
-            text: 'Failed to resolve ticket: ' + error.message,
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
+            if (formValues) {
+                await this.executeTicketResolution(ticket.id, formValues.status, formValues.note);
+            }
+            
+        } catch (error) {
+            console.error('❌ Error in resolve confirmation:', error);
+            // User cancelled the action, no need to show error
+        }
     }
-}
+
+    // ✅ METHOD UNTUK EKSEKUSI RESOLUTION SETELAH KONFIRMASI
+    async executeTicketResolution(ticketId, newStatus, note) {
+        try {
+            console.log(`✅ Executing resolution for ticket ${ticketId} with note`);
+            
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            
+            const updateData = {
+                status: newStatus,
+                note: note,
+                last_updated: serverTimestamp(),
+                qa: 'Finish'
+            };
+
+            // Add to updates array dengan note yang lengkap
+            const updateNote = {
+                status: newStatus,
+                notes: `Ticket resolved by ${this.adminUser.name || this.adminUser.email}. Resolution: ${note}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            const ticketDoc = await getDoc(ticketRef);
+            const currentData = ticketDoc.data();
+            const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+
+            await updateDoc(ticketRef, updateData);
+            
+            await Swal.fire({
+                title: 'Ticket Resolved!',
+                html: `
+                    <div class="resolution-success">
+                        <p><strong>✅ Ticket has been successfully resolved</strong></p>
+                        <p><strong>Resolution Notes:</strong></p>
+                        <div class="resolution-notes">
+                            ${this.escapeHtml(note)}
+                        </div>
+                        <small>These notes will be included in Excel reports</small>
+                    </div>
+                `,
+                icon: 'success',
+                confirmButtonColor: '#10b981',
+                timer: 4000
+            });
+
+            await this.loadTickets();
+
+        } catch (error) {
+            console.error('❌ Error executing ticket resolution:', error);
+            await Swal.fire({
+                title: 'Resolution Failed!',
+                text: 'Failed to resolve ticket: ' + error.message,
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+        }
+    }
 
     // ✅ METHOD TAKE TICKET
     async takeTicket(ticketId) {
@@ -1519,31 +1514,10 @@ async executeTicketResolution(ticketId, newStatus, note) {
             // Create new modal
             const fallbackModal = document.createElement('div');
             fallbackModal.id = 'fallbackTicketModal';
-            fallbackModal.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.8);
-                z-index: 99999;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                padding: 20px;
-            `;
+            fallbackModal.className = 'fallback-modal';
             
             const modalContent = document.createElement('div');
-            modalContent.style.cssText = `
-                background: white;
-                border-radius: 8px;
-                padding: 0;
-                max-width: 90%;
-                max-height: 90vh;
-                overflow-y: auto;
-                width: 800px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            `;
+            modalContent.className = 'fallback-modal-content';
             
             const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
             modalContent.innerHTML = modalHTML;
@@ -1551,26 +1525,12 @@ async executeTicketResolution(ticketId, newStatus, note) {
             // Add close button to fallback modal
             const closeButton = document.createElement('button');
             closeButton.innerHTML = '<i class="fas fa-times"></i>';
-            closeButton.style.cssText = `
-                position: absolute;
-                top: 15px;
-                right: 15px;
-                background: #ef4444;
-                color: white;
-                border: none;
-                border-radius: 50%;
-                width: 40px;
-                height: 40px;
-                cursor: pointer;
-                font-size: 1.2rem;
-                z-index: 100000;
-            `;
+            closeButton.className = 'fallback-close-btn';
             closeButton.onclick = () => {
                 fallbackModal.remove();
                 document.body.classList.remove('modal-open', 'no-scroll');
             };
             
-            modalContent.style.position = 'relative';
             modalContent.appendChild(closeButton);
             
             fallbackModal.appendChild(modalContent);
@@ -1741,12 +1701,12 @@ async executeTicketResolution(ticketId, newStatus, note) {
                             </button>
                         ` : ''}
                         
-                        // Di dalam getTicketModalHTML method - bagian resolve button
-${ticket.status === 'In Progress' && permissions.canResolve ? `
-    <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
-        <i class="fas fa-check"></i> Resolve Ticket
-    </button>
-` : ''}
+                        ${ticket.status === 'In Progress' && permissions.canResolve ? `
+                            <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
+                                <i class="fas fa-check"></i> Resolve Ticket
+                            </button>
+                        ` : ''}
+                        
                         ${ticket.status === 'Resolved' && permissions.canReopen ? `
                             <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
                                 <i class="fas fa-redo"></i> Reopen Ticket
@@ -1835,7 +1795,7 @@ ${ticket.status === 'In Progress' && permissions.canResolve ? `
                 updateModal.id = 'updateTicketModal';
                 updateModal.className = 'modal';
                 updateModal.innerHTML = `
-                    <div class="modal-content" style="max-width: 600px;">
+                    <div class="modal-content update-modal-content">
                         <div class="modal-header">
                             <h3>Update Ticket: ${ticket.code}</h3>
                             <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
@@ -1951,16 +1911,15 @@ ${ticket.status === 'In Progress' && permissions.canResolve ? `
             updateData.updates = [...currentUpdates, updateNote];
             
             // Update QA field based on status
-            // Di dalam handleTicketUpdate method - tambahkan validasi
-if (updateData.status === 'Resolved' && (!updateData.note || updateData.note.trim() === '')) {
-    await Swal.fire({
-        title: 'Note Required!',
-        text: 'Resolution notes are required when setting status to Resolved',
-        icon: 'warning',
-        confirmButtonColor: '#ef070a'
-    });
-    return;
-} else if (updateData.status === 'Open') {
+            if (updateData.status === 'Resolved' && (!updateData.note || updateData.note.trim() === '')) {
+                await Swal.fire({
+                    title: 'Note Required!',
+                    text: 'Resolution notes are required when setting status to Resolved',
+                    icon: 'warning',
+                    confirmButtonColor: '#ef070a'
+                });
+                return;
+            } else if (updateData.status === 'Open') {
                 updateData.qa = 'Open';
             } else if (updateData.status === 'In Progress') {
                 updateData.qa = 'In Progress';

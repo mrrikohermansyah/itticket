@@ -427,6 +427,30 @@ renderTeam() {
         // - Hanya Super Admin yang bisa, dan bukan diri sendiri
         const canToggleStatus = isSuperAdmin && memberId !== this.adminUser?.uid;
         
+        // Format created_at date
+        const memberSince = member.created_at ? 
+            new Date(member.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            }) : 'N/A';
+        
+        // Generate avatar initials
+        const avatarInitials = member.name ? 
+            member.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'IT';
+        
+        // Generate specialization HTML jika ada
+        const specializationHtml = member.specialization && member.specialization.length > 0 ? `
+            <div class="team-member-specialization">
+                <label>Specialization:</label>
+                <div class="specialization-tags">
+                    ${member.specialization.map(spec => 
+                        `<span class="specialization-tag">${spec}</span>`
+                    ).join('')}
+                </div>
+            </div>
+        ` : '';
+
         return `
             <div class="team-member-card ${isInactive ? 'inactive-member' : ''}" data-member-id="${memberId}">
                 ${isInactive ? `
@@ -438,11 +462,11 @@ renderTeam() {
                 
                 <div class="team-member-header">
                     <div class="team-member-avatar ${isInactive ? 'inactive-avatar' : ''}">
-                        ${member.name ? member.name.split(' ').map(n => n[0]).join('').toUpperCase() : 'IT'}
+                        ${avatarInitials}
                     </div>
                     <div class="team-member-info">
-                        <h3>${member.name || 'Unnamed User'}</h3>
-                        <span class="team-member-role role-${member.role}">
+                        <h3>${this.escapeHtml(member.name || 'Unnamed User')}</h3>
+                        <span class="team-member-role role-${member.role ? this.escapeHtml(member.role).replace(/\s+/g, '-') : 'unknown'}">
                             ${this.getRoleDisplayName(member.role)}
                         </span>
                     </div>
@@ -451,7 +475,7 @@ renderTeam() {
                 <div class="team-member-details">
                     <div class="team-member-detail">
                         <label>Email:</label>
-                        <span>${member.email}</span>
+                        <span class="member-email">${this.escapeHtml(member.email || 'N/A')}</span>
                     </div>
                     <div class="team-member-detail">
                         <label>Status:</label>
@@ -462,41 +486,29 @@ renderTeam() {
                     </div>
                     <div class="team-member-detail">
                         <label>Member Since:</label>
-                        <span>${member.created_at ? new Date(member.created_at).toLocaleDateString() : 'N/A'}</span>
+                        <span class="member-since">${memberSince}</span>
                     </div>
                 </div>
                 
-                ${member.specialization && member.specialization.length > 0 ? `
-                <div class="team-member-specialization">
-                    <label>Specialization:</label>
-                    <div class="specialization-tags">
-                        ${member.specialization.map(spec => 
-                            `<span class="specialization-tag">${spec}</span>`
-                        ).join('')}
-                    </div>
-                </div>
-                ` : ''}
+                ${specializationHtml}
                 
                 <div class="team-member-actions">
-                    <!-- ✅ TOMBOL EDIT HANYA DITAMPILKAN JIKA BISA EDIT -->
                     ${canEdit ? `
-                    <button class="btn-action btn-edit">
+                    <button class="btn-action btn-edit" data-member-id="${memberId}">
                         <i class="fas fa-edit"></i>
                         Edit
                     </button>
                     ` : ''}
                     
-                    <!-- ✅ TOMBOL ACTIVATE/DEACTIVATE HANYA UNTUK SUPER ADMIN DAN BUKAN DIRI SENDIRI -->
                     ${canToggleStatus ? `
-                    <button class="btn-action ${member.is_active ? 'btn-deactivate' : 'btn-activate'}">
+                    <button class="btn-action ${member.is_active ? 'btn-deactivate' : 'btn-activate'}" data-member-id="${memberId}">
                         <i class="fas ${member.is_active ? 'fa-user-slash' : 'fa-user-check'}"></i>
                         ${member.is_active ? 'Deactivate' : 'Activate'}
                     </button>
                     ` : ''}
                     
-                    <!-- ✅ TOMBOL DELETE HANYA UNTUK SUPER ADMIN DAN BUKAN DIRI SENDIRI -->
                     ${isSuperAdmin && memberId !== this.adminUser?.uid ? `
-                    <button class="btn-action btn-delete" onclick="teamManagement.deleteMemberPermanently('${memberId}')">
+                    <button class="btn-action btn-delete" data-member-id="${memberId}">
                         <i class="fas fa-trash"></i>
                         Delete
                     </button>
@@ -507,7 +519,75 @@ renderTeam() {
     }).join('');
 
     teamGrid.innerHTML = teamHtml;
-    console.log('✅ Team rendered - Permissions applied (Super Admin only for deactivate/activate)');
+    
+    // ✅ RE-ATTACH EVENT LISTENERS SETELAH RENDER
+    this.attachEventListenersToCards();
+    
+    console.log('✅ Team rendered - Total members:', this.itTeam.length, 
+                '- Active:', this.itTeam.filter(m => m.is_active).length,
+                '- Inactive:', this.itTeam.filter(m => !m.is_active).length);
+}
+
+// ✅ METHOD BARU: Attach event listeners ke cards setelah render
+attachEventListenersToCards() {
+    const teamGrid = document.getElementById('teamGrid');
+    if (!teamGrid) return;
+
+    // Gunakan event delegation untuk semua buttons
+    teamGrid.addEventListener('click', (e) => {
+        const button = e.target.closest('.btn-action');
+        if (!button) return;
+
+        const memberCard = e.target.closest('.team-member-card');
+        if (!memberCard) return;
+
+        const memberId = memberCard.getAttribute('data-member-id');
+        if (!memberId) return;
+
+        const actionClass = Array.from(button.classList).find(cls => 
+            cls.startsWith('btn-') && cls !== 'btn-action'
+        );
+
+        if (!actionClass) return;
+
+        // Handle different actions
+        switch (actionClass) {
+            case 'btn-edit':
+                this.editMember(memberId);
+                break;
+            case 'btn-deactivate':
+                this.toggleMemberStatus(memberId, false);
+                break;
+            case 'btn-activate':
+                this.toggleMemberStatus(memberId, true);
+                break;
+            case 'btn-delete':
+                this.deleteMemberPermanently(memberId);
+                break;
+        }
+    });
+}
+
+// ✅ METHOD BARU: Escape HTML untuk prevent XSS
+escapeHtml(unsafe) {
+    if (typeof unsafe !== 'string') return unsafe;
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+// ✅ METHOD UNTUK GET ROLE DISPLAY NAME (pastikan ada)
+getRoleDisplayName(role) {
+    const roleNames = {
+        'Super Admin': 'Super Admin',
+        'IT Engineer': 'IT Engineer', 
+        'IT Tech Support': 'IT Tech Support',
+        'IT Visual': 'IT Visual'
+    };
+    return roleNames[role] || role || 'Unknown Role';
 }
 
 // ✅ METHOD UNTUK DELETE PERMANEN (HANYA SUPER ADMIN)
