@@ -64,20 +64,31 @@ class AdminDashboard {
         isActive: false
     };
         
-        // ✅ Binding untuk event handlers
-        this.handleTableClick = this.handleTableClick.bind(this);
+         this.handleTableClick = this.handleTableClick.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
+        this.handleDateChange = this.handleDateChange.bind(this);
+        this.handleTodayClick = this.handleTodayClick.bind(this);
+        this.handleClearDateClick = this.handleClearDateClick.bind(this);
+        this.applyAllFilters = this.applyAllFilters.bind(this);
+        this.filterTickets = this.filterTickets.bind(this);
         
         this.init();
     }
 
-    // ✅ METHOD UNTUK APPLY ALL FILTERS (COMBINE STATUS, PRIORITY, DATE)
 applyAllFilters() {
+    console.log('🔍 Applying all filters...');
+    
     const statusFilter = document.getElementById('statusFilter');
     const priorityFilter = document.getElementById('priorityFilter');
 
     const statusValue = statusFilter ? statusFilter.value : 'all';
     const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+
+    console.log('🎯 Filter values:', {
+        status: statusValue,
+        priority: priorityValue,
+        dateFilter: this.dateFilter
+    });
 
     // Apply status dan priority filter terlebih dahulu
     let filtered = this.tickets.filter(ticket => {
@@ -86,6 +97,8 @@ applyAllFilters() {
         return statusMatch && priorityMatch;
     });
 
+    console.log(`📊 After status/priority filter: ${filtered.length} tickets`);
+
     // Apply date filter
     filtered = this.applyDateFilter(filtered);
 
@@ -93,43 +106,137 @@ applyAllFilters() {
     this.renderTickets();
     this.updateStats();
     
-    console.log(`🔍 Filters applied: ${filtered.length} tickets after filtering`);
+    console.log(`✅ Final filtered tickets: ${filtered.length}`);
 }
-
-// ✅ METHOD UNTUK APPLY DATE FILTER
+// ✅ PERBAIKAN: Enhanced applyDateFilter dengan debug logging yang detail
 applyDateFilter(tickets) {
     if (!this.dateFilter.isActive) {
+        console.log('📅 Date filter is NOT active, returning all tickets:', tickets.length);
         return tickets;
     }
     
     const { startDate, endDate } = this.dateFilter;
     
-    return tickets.filter(ticket => {
-        if (!ticket.created_at) return false;
+    console.log('🔍 [DATE FILTER DEBUG]', {
+        isActive: this.dateFilter.isActive,
+        startDate: startDate,
+        endDate: endDate,
+        startDateString: startDate?.toISOString(),
+        endDateString: endDate?.toISOString(),
+        totalTickets: tickets.length
+    });
+
+    // Debug sample tickets
+    console.log('🎫 Sample tickets (first 5):');
+    tickets.slice(0, 5).forEach((ticket, index) => {
+        console.log(`  ${index + 1}. ${ticket.code}:`, {
+            created_at: ticket.created_at,
+            date: new Date(ticket.created_at),
+            dateString: new Date(ticket.created_at).toISOString(),
+            isToday: this.isSameDay(new Date(ticket.created_at), new Date())
+        });
+    });
+
+    const filteredTickets = tickets.filter(ticket => {
+        if (!ticket.created_at) {
+            console.log(`❌ Ticket ${ticket.code} has no created_at date`);
+            return false;
+        }
         
         const ticketDate = new Date(ticket.created_at);
         
         // Jika hanya start date yang ada, filter dari start date ke atas
         if (startDate && !endDate) {
-            return ticketDate >= startDate;
+            const isMatch = ticketDate >= startDate;
+            console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} >= ${startDate.toISOString()} = ${isMatch}`);
+            return isMatch;
         }
         
         // Jika hanya end date yang ada, filter sampai end date
         if (!startDate && endDate) {
-            return ticketDate <= new Date(endDate.getTime() + 24 * 60 * 60 * 1000); // Include entire end date
+            const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+            const isMatch = ticketDate <= endOfDay;
+            console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} <= ${endOfDay.toISOString()} = ${isMatch}`);
+            return isMatch;
         }
         
         // Jika kedua date ada, filter range
         if (startDate && endDate) {
             const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
-            return ticketDate >= startDate && ticketDate < endOfDay;
+            const isMatch = ticketDate >= startDate && ticketDate < endOfDay;
+            console.log(`📅 ${ticket.code}: ${startDate.toISOString()} <= ${ticketDate.toISOString()} < ${endOfDay.toISOString()} = ${isMatch}`);
+            return isMatch;
         }
         
         return true;
     });
+
+    console.log(`✅ Date filter result: ${filteredTickets.length} tickets after filtering`);
+    
+    // Show which tickets passed the filter
+    if (filteredTickets.length > 0) {
+        console.log('🎯 Tickets that passed date filter:');
+        filteredTickets.forEach(ticket => {
+            console.log(`  ✅ ${ticket.code}: ${new Date(ticket.created_at).toISOString()}`);
+        });
+    } else {
+        console.log('❌ No tickets passed the date filter');
+    }
+
+    return filteredTickets;
 }
 
-    // ✅ METHOD UNTUK DATE FILTERING
+// ✅ HELPER METHOD: Check if two dates are the same day
+isSameDay(date1, date2) {
+    return date1.getFullYear() === date2.getFullYear() &&
+           date1.getMonth() === date2.getMonth() &&
+           date1.getDate() === date2.getDate();
+}
+
+// ✅ PERBAIKAN: Enhanced handleTodayClick untuk pastikan timezone benar
+handleTodayClick() {
+    console.log('📅 Today button clicked');
+    
+    const today = new Date();
+    
+    // Set waktu ke awal hari (00:00:00) untuk start date
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+    
+    // Set waktu ke akhir hari (23:59:59) untuk end date  
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+    
+    const todayString = today.toISOString().split('T')[0];
+    
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    if (startDateInput && endDateInput) {
+        startDateInput.value = todayString;
+        endDateInput.value = todayString;
+        
+        this.dateFilter = {
+            startDate: startOfToday,  // Gunakan start of day
+            endDate: endOfToday,      // Gunakan end of day
+            isActive: true
+        };
+        
+        console.log('📅 Today filter applied:', {
+            startDate: startOfToday.toISOString(),
+            endDate: endOfToday.toISOString(),
+            display: todayString
+        });
+        
+        // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
+        this.applyAllFilters();
+        
+        this.showToastNotification('Showing tickets for today', 'info');
+    } else {
+        console.error('❌ Date input elements not found');
+    }
+}
+
 initializeDateFilter() {
     console.log('📅 Initializing date filter...');
     
@@ -139,25 +246,34 @@ initializeDateFilter() {
     const clearDateBtn = document.getElementById('clearDateBtn');
     
     if (startDateInput && endDateInput) {
+        // ✅ PERBAIKAN: Gunakan method yang sudah di-bind
         startDateInput.addEventListener('change', this.handleDateChange);
         endDateInput.addEventListener('change', this.handleDateChange);
     }
     
     if (todayBtn) {
+        // ✅ PERBAIKAN: Gunakan method yang sudah di-bind
         todayBtn.addEventListener('click', this.handleTodayClick);
     }
     
     if (clearDateBtn) {
+        // ✅ PERBAIKAN: Gunakan method yang sudah di-bind
         clearDateBtn.addEventListener('click', this.handleClearDateClick);
     }
     
     console.log('✅ Date filter initialized');
 }
 
-// ✅ METHOD UNTUK HANDLE DATE CHANGE
 handleDateChange() {
+    console.log('📅 Date input changed');
+    
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
+    
+    if (!startDateInput || !endDateInput) {
+        console.error('❌ Date input elements not found');
+        return;
+    }
     
     const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
     const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
@@ -177,164 +293,42 @@ handleDateChange() {
     
     console.log('📅 Date filter updated:', this.dateFilter);
     
-    // Apply filters
+    // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
     this.applyAllFilters();
 }
 
-// ✅ METHOD UNTUK HANDLE TODAY BUTTON
-handleTodayClick() {
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
-    
-    const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    
-    startDateInput.value = todayString;
-    endDateInput.value = todayString;
-    
-    this.dateFilter = {
-        startDate: today,
-        endDate: today,
-        isActive: true
-    };
-    
-    console.log('📅 Today filter applied:', this.dateFilter);
-    
-    // Apply filters
-    this.applyAllFilters();
-    
-    this.showToastNotification('Showing tickets for today', 'info');
-}
 
-// ✅ METHOD UNTUK HANDLE CLEAR DATE FILTER
 handleClearDateClick() {
-    const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    
-    startDateInput.value = '';
-    endDateInput.value = '';
-    
-    this.dateFilter = {
-        startDate: null,
-        endDate: null,
-        isActive: false
-    };
-    
-    console.log('📅 Date filter cleared');
-    
-    // Apply filters
-    this.applyAllFilters();
-    
-    this.showToastNotification('Date filter cleared', 'info');
-}
-
-// ✅ METHOD UNTUK HANDLE TODAY BUTTON
-handleTodayClick() {
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
+    console.log('🗑️ Clear date filter clicked');
     
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
     
-    startDateInput.value = todayString;
-    endDateInput.value = todayString;
-    
-    this.dateFilter = {
-        startDate: today,
-        endDate: today,
-        isActive: true
-    };
-    
-    console.log('📅 Today filter applied:', this.dateFilter);
-    
-    // Apply filters
-    this.applyAllFilters();
-    
-    this.showToastNotification('Showing tickets for today', 'info');
-}
-
-// ✅ METHOD UNTUK HANDLE CLEAR DATE FILTER
-handleClearDateClick() {
-    const startDateInput = document.getElementById('startDate');
-    const endDateInput = document.getElementById('endDate');
-    
-    startDateInput.value = '';
-    endDateInput.value = '';
-    
-    this.dateFilter = {
-        startDate: null,
-        endDate: null,
-        isActive: false
-    };
-    
-    console.log('📅 Date filter cleared');
-    
-    // Apply filters
-    this.applyAllFilters();
-    
-    this.showToastNotification('Date filter cleared', 'info');
-}
-
-// ✅ METHOD UNTUK APPLY DATE FILTER
-applyDateFilter(tickets) {
-    if (!this.dateFilter.isActive) {
-        return tickets;
+    if (startDateInput && endDateInput) {
+        startDateInput.value = '';
+        endDateInput.value = '';
+        
+        this.dateFilter = {
+            startDate: null,
+            endDate: null,
+            isActive: false
+        };
+        
+        console.log('📅 Date filter cleared');
+        
+        // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
+        this.applyAllFilters();
+        
+        this.showToastNotification('Date filter cleared', 'info');
+    } else {
+        console.error('❌ Date input elements not found');
     }
-    
-    const { startDate, endDate } = this.dateFilter;
-    
-    return tickets.filter(ticket => {
-        if (!ticket.created_at) return false;
-        
-        const ticketDate = new Date(ticket.created_at);
-        
-        // Jika hanya start date yang ada, filter dari start date ke atas
-        if (startDate && !endDate) {
-            return ticketDate >= startDate;
-        }
-        
-        // Jika hanya end date yang ada, filter sampai end date
-        if (!startDate && endDate) {
-            return ticketDate <= new Date(endDate.getTime() + 24 * 60 * 60 * 1000); // Include entire end date
-        }
-        
-        // Jika kedua date ada, filter range
-        if (startDate && endDate) {
-            const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
-            return ticketDate >= startDate && ticketDate < endOfDay;
-        }
-        
-        return true;
-    });
 }
 
-// ✅ METHOD UNTUK APPLY ALL FILTERS (COMBINE STATUS, PRIORITY, DATE)
-applyAllFilters() {
-    const statusFilter = document.getElementById('statusFilter');
-    const priorityFilter = document.getElementById('priorityFilter');
 
-    const statusValue = statusFilter ? statusFilter.value : 'all';
-    const priorityValue = priorityFilter ? priorityFilter.value : 'all';
 
-    // Apply status dan priority filter terlebih dahulu
-    let filtered = this.tickets.filter(ticket => {
-        const statusMatch = statusValue === 'all' || ticket.status === statusValue;
-        const priorityMatch = priorityValue === 'all' || ticket.priority === priorityValue;
-        return statusMatch && priorityMatch;
-    });
-
-    // Apply date filter
-    filtered = this.applyDateFilter(filtered);
-
-    this.filteredTickets = filtered;
-    this.renderTickets();
-    this.updateStats();
-    
-    console.log(`🔍 Filters applied: ${filtered.length} tickets after filtering`);
-}
-
-// ✅ UPDATE METHOD filterTickets MENJADI applyAllFilters
 filterTickets() {
+    console.log('🔍 Filter tickets called');
     this.applyAllFilters();
 }
 
