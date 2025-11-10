@@ -57,7 +57,6 @@
 .auth-logo-container img {
   height: 48px;
   width: auto;
-  filter: brightness(0);
   margin-bottom: 1rem;
 }
 

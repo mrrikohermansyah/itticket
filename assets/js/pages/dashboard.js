@@ -1184,11 +1184,7 @@ style.textContent = `
     border: 2px solid #f59e0b;
     background: #fffbeb;
   }
-  
-  .priority-low { color: #10b981; }
-  .priority-medium { color: #f59e0b; }
-  .priority-high { color: #ef4444; }
-  .priority-urgent { color: #dc2626; font-weight: bold; }
+
   
   .empty-state {
     text-align: center;

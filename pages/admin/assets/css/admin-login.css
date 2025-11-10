@@ -30,7 +30,7 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, var(--primary) 0%, #3b82f6 100%);
+    background: linear-gradient(#002fff 100%);
 }
 
 .login-header {
@@ -42,7 +42,6 @@
     height: 60px;
     width: auto;
     margin-bottom: 1.5rem;
-    filter: brightness(0);
 }
 
 .login-header h1 {

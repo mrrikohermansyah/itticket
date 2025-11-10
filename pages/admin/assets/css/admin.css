@@ -574,8 +574,8 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 1rem;
+  padding: 0.15rem 0.25rem;
+  border-radius: 0.25rem;
   font-size: 0.625rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -583,8 +583,8 @@ body {
 }
 
 .status-open {
-  background: #fff3cd;
-  color: #856404;
+  background: var(--danger);
+  color: var(--primary-light);
   border: 1px solid #ffeaa7;
 }
 
@@ -641,7 +641,6 @@ body {
 .btn-action:hover {
   background: var(--primary);
   color: var(--white);
-  border-color: var(--primary);
 }
 
 .btn-view:hover {
@@ -652,6 +651,11 @@ body {
 .btn-edit:hover {
   background: var(--warning);
   border-color: var(--warning);
+}
+
+.btn-delete:hover{
+  background-color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* ===== EMPTY STATE ===== */
