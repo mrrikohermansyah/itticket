@@ -611,3 +611,46 @@ body {
         flex-direction: column;
     }
 }
+
+/* Style untuk non-super admin message */
+.non-super-admin-message {
+    margin: 20px 0;
+    padding: 0;
+}
+
+.info-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.info-banner i {
+    font-size: 24px;
+    margin-top: 2px;
+}
+
+.message-content h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.message-content p {
+    margin: 4px 0;
+    opacity: 0.9;
+}
+
+.message-content strong {
+    color: #ffd700;
+}
+
+/* Style untuk hidden form */
+#addITFormSection[style*="display: none"],
+#addITForm[style*="display: none"] {
+    display: none !important;
+}

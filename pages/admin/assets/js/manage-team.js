@@ -24,6 +24,7 @@ class TeamManagement {
         await this.checkAuth();
         await this.testServiceMethods();
         this.initializeEventListeners();
+        this.toggleAddFormVisibility();
         await this.loadTeamData();
     }
     // ✅ TEST METHOD - Tambahkan di class
@@ -410,6 +411,8 @@ renderTeam() {
         if (!a.is_active && b.is_active) return 1;
         return 0;
     });
+
+    
 
     // ✅ CHECK JIKA CURRENT USER ADALAH SUPER ADMIN
     const isSuperAdmin = this.adminUser?.role === 'Super Admin';
@@ -1146,6 +1149,68 @@ handleCreateError(error, formData) {
 isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
+}
+
+// ✅ METHOD UNTUK CHECK SUPER ADMIN STATUS
+isSuperAdmin() {
+    return this.adminUser?.role === 'Super Admin';
+}
+
+// ✅ METHOD UNTUK TOGGLE VISIBILITY ADD FORM
+toggleAddFormVisibility() {
+    const addFormSection = document.getElementById('addITFormSection'); // Anda perlu tambahkan ID ini di HTML
+    const addForm = document.getElementById('addITForm');
+    
+    if (!this.isSuperAdmin()) {
+        // Jika bukan Super Admin, sembunyikan form
+        if (addFormSection) {
+            addFormSection.style.display = 'none';
+        }
+        if (addForm) {
+            addForm.style.display = 'none';
+        }
+        
+        // Tambahkan pesan informasi
+        this.showNonSuperAdminMessage();
+    } else {
+        // Jika Super Admin, tampilkan form
+        if (addFormSection) {
+            addFormSection.style.display = 'block';
+        }
+        if (addForm) {
+            addForm.style.display = 'block';
+        }
+    }
+}
+
+// ✅ METHOD UNTUK SHOW MESSAGE UNTUK NON-SUPER ADMIN
+showNonSuperAdminMessage() {
+    // Cari atau buat element untuk menampilkan pesan
+    let messageElement = document.getElementById('nonSuperAdminMessage');
+    
+    if (!messageElement) {
+        messageElement = document.createElement('div');
+        messageElement.id = 'nonSuperAdminMessage';
+        messageElement.className = 'non-super-admin-message';
+        
+        // Tempatkan pesan di tempat yang sesuai (misalnya sebelum form)
+        const addFormSection = document.getElementById('addITFormSection');
+        if (addFormSection) {
+            addFormSection.parentNode.insertBefore(messageElement, addFormSection);
+        }
+    }
+    
+    messageElement.innerHTML = `
+        <div class="info-banner">
+            <i class="fas fa-info-circle"></i>
+            <div class="message-content">
+                <h4>Admin Creation Restricted</h4>
+                <p>Only <strong>Super Admin</strong> can create new admin accounts.</p>
+                <p><strong>Your role:</strong> ${this.adminUser?.role || 'Unknown'}</p>
+                <p>Please contact a Super Admin if you need to add new team members.</p>
+            </div>
+        </div>
+    `;
 }
 
 // ✅ METHOD UNTUK UPDATE MEMBER

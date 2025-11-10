@@ -56,6 +56,13 @@ class AdminDashboard {
         this.db = db;
         this.auth = auth;
         this.currentUpdatingTicketId = null;
+
+        // ✅ TAMBAHKAN INI: Date filter properties
+    this.dateFilter = {
+        startDate: null,
+        endDate: null,
+        isActive: false
+    };
         
         // ✅ Binding untuk event handlers
         this.handleTableClick = this.handleTableClick.bind(this);
@@ -63,6 +70,273 @@ class AdminDashboard {
         
         this.init();
     }
+
+    // ✅ METHOD UNTUK APPLY ALL FILTERS (COMBINE STATUS, PRIORITY, DATE)
+applyAllFilters() {
+    const statusFilter = document.getElementById('statusFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+
+    const statusValue = statusFilter ? statusFilter.value : 'all';
+    const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+
+    // Apply status dan priority filter terlebih dahulu
+    let filtered = this.tickets.filter(ticket => {
+        const statusMatch = statusValue === 'all' || ticket.status === statusValue;
+        const priorityMatch = priorityValue === 'all' || ticket.priority === priorityValue;
+        return statusMatch && priorityMatch;
+    });
+
+    // Apply date filter
+    filtered = this.applyDateFilter(filtered);
+
+    this.filteredTickets = filtered;
+    this.renderTickets();
+    this.updateStats();
+    
+    console.log(`🔍 Filters applied: ${filtered.length} tickets after filtering`);
+}
+
+// ✅ METHOD UNTUK APPLY DATE FILTER
+applyDateFilter(tickets) {
+    if (!this.dateFilter.isActive) {
+        return tickets;
+    }
+    
+    const { startDate, endDate } = this.dateFilter;
+    
+    return tickets.filter(ticket => {
+        if (!ticket.created_at) return false;
+        
+        const ticketDate = new Date(ticket.created_at);
+        
+        // Jika hanya start date yang ada, filter dari start date ke atas
+        if (startDate && !endDate) {
+            return ticketDate >= startDate;
+        }
+        
+        // Jika hanya end date yang ada, filter sampai end date
+        if (!startDate && endDate) {
+            return ticketDate <= new Date(endDate.getTime() + 24 * 60 * 60 * 1000); // Include entire end date
+        }
+        
+        // Jika kedua date ada, filter range
+        if (startDate && endDate) {
+            const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+            return ticketDate >= startDate && ticketDate < endOfDay;
+        }
+        
+        return true;
+    });
+}
+
+    // ✅ METHOD UNTUK DATE FILTERING
+initializeDateFilter() {
+    console.log('📅 Initializing date filter...');
+    
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const todayBtn = document.getElementById('todayBtn');
+    const clearDateBtn = document.getElementById('clearDateBtn');
+    
+    if (startDateInput && endDateInput) {
+        startDateInput.addEventListener('change', this.handleDateChange);
+        endDateInput.addEventListener('change', this.handleDateChange);
+    }
+    
+    if (todayBtn) {
+        todayBtn.addEventListener('click', this.handleTodayClick);
+    }
+    
+    if (clearDateBtn) {
+        clearDateBtn.addEventListener('click', this.handleClearDateClick);
+    }
+    
+    console.log('✅ Date filter initialized');
+}
+
+// ✅ METHOD UNTUK HANDLE DATE CHANGE
+handleDateChange() {
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
+    const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+    
+    // Validasi: end date tidak boleh sebelum start date
+    if (startDate && endDate && endDate < startDate) {
+        this.showToastNotification('End date cannot be before start date', 'error');
+        endDateInput.value = '';
+        return;
+    }
+    
+    this.dateFilter = {
+        startDate: startDate,
+        endDate: endDate,
+        isActive: !!(startDate || endDate)
+    };
+    
+    console.log('📅 Date filter updated:', this.dateFilter);
+    
+    // Apply filters
+    this.applyAllFilters();
+}
+
+// ✅ METHOD UNTUK HANDLE TODAY BUTTON
+handleTodayClick() {
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    startDateInput.value = todayString;
+    endDateInput.value = todayString;
+    
+    this.dateFilter = {
+        startDate: today,
+        endDate: today,
+        isActive: true
+    };
+    
+    console.log('📅 Today filter applied:', this.dateFilter);
+    
+    // Apply filters
+    this.applyAllFilters();
+    
+    this.showToastNotification('Showing tickets for today', 'info');
+}
+
+// ✅ METHOD UNTUK HANDLE CLEAR DATE FILTER
+handleClearDateClick() {
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    startDateInput.value = '';
+    endDateInput.value = '';
+    
+    this.dateFilter = {
+        startDate: null,
+        endDate: null,
+        isActive: false
+    };
+    
+    console.log('📅 Date filter cleared');
+    
+    // Apply filters
+    this.applyAllFilters();
+    
+    this.showToastNotification('Date filter cleared', 'info');
+}
+
+// ✅ METHOD UNTUK HANDLE TODAY BUTTON
+handleTodayClick() {
+    const today = new Date();
+    const todayString = today.toISOString().split('T')[0];
+    
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    startDateInput.value = todayString;
+    endDateInput.value = todayString;
+    
+    this.dateFilter = {
+        startDate: today,
+        endDate: today,
+        isActive: true
+    };
+    
+    console.log('📅 Today filter applied:', this.dateFilter);
+    
+    // Apply filters
+    this.applyAllFilters();
+    
+    this.showToastNotification('Showing tickets for today', 'info');
+}
+
+// ✅ METHOD UNTUK HANDLE CLEAR DATE FILTER
+handleClearDateClick() {
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    
+    startDateInput.value = '';
+    endDateInput.value = '';
+    
+    this.dateFilter = {
+        startDate: null,
+        endDate: null,
+        isActive: false
+    };
+    
+    console.log('📅 Date filter cleared');
+    
+    // Apply filters
+    this.applyAllFilters();
+    
+    this.showToastNotification('Date filter cleared', 'info');
+}
+
+// ✅ METHOD UNTUK APPLY DATE FILTER
+applyDateFilter(tickets) {
+    if (!this.dateFilter.isActive) {
+        return tickets;
+    }
+    
+    const { startDate, endDate } = this.dateFilter;
+    
+    return tickets.filter(ticket => {
+        if (!ticket.created_at) return false;
+        
+        const ticketDate = new Date(ticket.created_at);
+        
+        // Jika hanya start date yang ada, filter dari start date ke atas
+        if (startDate && !endDate) {
+            return ticketDate >= startDate;
+        }
+        
+        // Jika hanya end date yang ada, filter sampai end date
+        if (!startDate && endDate) {
+            return ticketDate <= new Date(endDate.getTime() + 24 * 60 * 60 * 1000); // Include entire end date
+        }
+        
+        // Jika kedua date ada, filter range
+        if (startDate && endDate) {
+            const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
+            return ticketDate >= startDate && ticketDate < endOfDay;
+        }
+        
+        return true;
+    });
+}
+
+// ✅ METHOD UNTUK APPLY ALL FILTERS (COMBINE STATUS, PRIORITY, DATE)
+applyAllFilters() {
+    const statusFilter = document.getElementById('statusFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+
+    const statusValue = statusFilter ? statusFilter.value : 'all';
+    const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+
+    // Apply status dan priority filter terlebih dahulu
+    let filtered = this.tickets.filter(ticket => {
+        const statusMatch = statusValue === 'all' || ticket.status === statusValue;
+        const priorityMatch = priorityValue === 'all' || ticket.priority === priorityValue;
+        return statusMatch && priorityMatch;
+    });
+
+    // Apply date filter
+    filtered = this.applyDateFilter(filtered);
+
+    this.filteredTickets = filtered;
+    this.renderTickets();
+    this.updateStats();
+    
+    console.log(`🔍 Filters applied: ${filtered.length} tickets after filtering`);
+}
+
+// ✅ UPDATE METHOD filterTickets MENJADI applyAllFilters
+filterTickets() {
+    this.applyAllFilters();
+}
 
     // ==================== COMPREHENSIVE MIGRATION METHOD ====================
     async migrateTicketAssignments() {
@@ -260,6 +534,11 @@ setupUserDataListener() {
 
                     if (change.type === "modified") {
                         console.log('🎯 [DEBUG] User MODIFIED - triggering update handler');
+                        // ✅ SYNC LOCATION SEBELUM PROCESS
+                        const syncedUserData = {
+                            ...userData,
+                            location: this.syncUserLocationWithDepartment(userData)
+                        };
                         this.handleUserProfileUpdate(userId, userData);
                         hasUserUpdates = true;
                     }
@@ -285,33 +564,81 @@ setupUserDataListener() {
     }
 }
 
-// ✅ FIX: Enhanced user profile update handler dengan debug
+// ✅ OPTIONAL: Auto-update location di Firestore ketika department berubah
+async autoUpdateUserLocation(userId, userData) {
+    try {
+        const newLocation = this.syncUserLocationWithDepartment(userData);
+        
+        if (newLocation && newLocation !== userData.location) {
+            console.log('📝 Updating user location in Firestore:', {
+                userId,
+                from: userData.location,
+                to: newLocation
+            });
+            
+            const userRef = doc(this.db, "users", userId);
+            await updateDoc(userRef, {
+                location: newLocation,
+                updated_at: new Date().toISOString()
+            });
+            
+            console.log('✅ User location updated in Firestore');
+        }
+    } catch (error) {
+        console.error('❌ Error updating user location:', error);
+    }
+}
+
+// ✅ FIX: Enhanced user profile update handler
 handleUserProfileUpdate(userId, userData) {
     try {
-        console.log('🎯 [REAL-TIME] User profile update detected:', {
-            userId,
-            userData: {
-                name: userData.full_name,
-                email: userData.email,
-                department: userData.department,
-                location: userData.location,
-                updated_at: userData.updated_at
-            }
-        });
+        console.log('🎯 [ENHANCED] User profile update - FULL DATA:', userData);
 
-        // ✅ SELALU TAMPILKAN NOTIFICATION - bahkan tanpa users table
+        // ✅ SYNC LOCATION DI DATABASE JIKA PERLU
+        this.autoUpdateUserLocation(userId, userData);
+
+        // ✅ TAMPILKAN NOTIFICATION DENGAN LOCATION YANG SUDAH DISYNC
         this.showRealTimeUserUpdateNotification(userData);
 
-        // ✅ UPDATE TICKETS YANG TERKAIT USER INI
+        // ✅ UPDATE TICKETS DENGAN DATA TERBARU
         this.updateUserTicketsInRealTime(userId, userData);
         
-        // ✅ CLEAR CACHE untuk memastikan data terbaru
+        // ✅ CLEAR CACHE
         if (window.userCache && window.userCache[userId]) {
             delete window.userCache[userId];
         }
 
     } catch (error) {
         console.error('❌ Error handling user profile update:', error);
+    }
+}
+
+// ✅ FIX: Enhanced auto-update location di Firestore
+async autoUpdateUserLocation(userId, userData) {
+    try {
+        const syncedLocation = this.syncUserLocationWithDepartment(userData);
+        
+        // Cek jika location perlu diupdate di database
+        if (syncedLocation && syncedLocation !== userData.location) {
+            console.log('📝 [AUTO-UPDATE] Updating user location in Firestore:', {
+                userId,
+                from: userData.location,
+                to: syncedLocation
+            });
+            
+            const userRef = doc(this.db, "users", userId);
+            await updateDoc(userRef, {
+                location: syncedLocation,
+                updated_at: new Date().toISOString()
+            });
+            
+            console.log('✅ User location updated in Firestore');
+            
+            // Update userData object untuk konsistensi
+            userData.location = syncedLocation;
+        }
+    } catch (error) {
+        console.error('❌ Error updating user location:', error);
     }
 }
 
@@ -338,8 +665,69 @@ async debugTicketData(ticketId) {
     }
 }
 
-// ✅ NEW: Show real-time notification untuk user updates
+// ✅ FIX: Method untuk sync location dengan department
+syncUserLocationWithDepartment(userData) {
+    // Mapping department ke location
+    const departmentLocationMap = {
+        'Warehouse': 'Warehouse',
+        'IT': 'IT Server',
+        'HR': 'HRD',
+        'HRD': 'HRD',
+        'Admin': 'White Office',
+        'Finance': 'White Office',
+        'HSE': 'HSE Yard',
+        'Clinic': 'Clinic',
+        'Security': 'Security',
+        'Store1': 'Store 1',
+        'Store2': 'Store 2',
+        'Store3': 'Store 3',
+        'Store4': 'Store 4',
+        'Store5': 'Store 5',
+        'Store6': 'Store 6',
+        'Store7': 'Store 7',
+        'Store8': 'Store 8',
+        'Store9': 'Store 9',
+        'Civil': 'Yard',
+        'Completion': 'Workshop9',
+        'DC': 'Workshop10', // Dimentional Control
+        'Document Control': 'White Office',
+        'Engineer': 'Blue Office',
+        'Engineering': 'Blue Office',
+        'Maintenance': 'Workshop11',
+        'Management': 'White Office 2nd Fl',
+        'Planner': 'White Office',
+        'Procurement': 'White Office',
+        'QC': 'Workshop12', // Quality Control
+        'Vendor': 'White Office',
+        'Lainlain': 'Other Location'
+        // Tambahkan mapping lainnya sesuai kebutuhan
+    };
+    
+    const suggestedLocation = departmentLocationMap[userData.department];
+    
+    if (suggestedLocation && userData.location !== suggestedLocation) {
+        console.log('🔄 Auto-syncing location:', {
+            from: userData.location,
+            to: suggestedLocation,
+            department: userData.department
+        });
+        return suggestedLocation;
+    }
+    
+    return userData.location; // Return original location jika tidak perlu sync
+}
+
 showRealTimeUserUpdateNotification(userData) {
+    // ✅ DAPATKAN LOCATION YANG SUDAH DISYNC
+    const syncedLocation = this.syncUserLocationWithDepartment(userData);
+
+    console.log('🔔 [NOTIFICATION SYNCED]', {
+        name: userData.full_name,
+        department: userData.department,
+        originalLocation: userData.location,
+        displayLocation: displayLocation
+    });
+
     const notification = document.createElement('div');
     notification.className = 'realtime-user-notification';
     notification.innerHTML = `
@@ -348,13 +736,13 @@ showRealTimeUserUpdateNotification(userData) {
             <div>
                 <strong>User Profile Updated</strong>
                 <p>${userData.full_name} - ${userData.department}</p>
-                <small>Department: ${userData.department} | Location: ${userData.location}</small>
+                <small>Department: ${userData.department} | Location: ${displayLocation}</small>
             </div>
             <button class="notification-close">&times;</button>
         </div>
     `;
     
-    // Styling untuk notification
+    // Styling
     notification.style.cssText = `
         position: fixed;
         top: 80px;
@@ -371,38 +759,37 @@ showRealTimeUserUpdateNotification(userData) {
     
     document.body.appendChild(notification);
     
-    // Auto remove setelah 8 detik (lebih lama untuk debugging)
     setTimeout(() => {
         if (notification.parentNode) {
             notification.remove();
         }
     }, 8000);
     
-    // Close button handler
     notification.querySelector('.notification-close').addEventListener('click', () => {
         notification.remove();
     });
 }
 
-// ✅ NEW: Update tickets yang terkait user ini
 updateUserTicketsInRealTime(userId, userData) {
     try {
-         console.log('🔄 [REAL-TIME] Updating tickets for user:', {
+        const syncedLocation = this.syncUserLocationWithDepartment(userData);
+        
+        console.log('🔄 [REAL-TIME] Updating tickets for user:', {
             userId,
             userName: userData.full_name,
             userDepartment: userData.department,
-            userEmail: userData.email
+            userEmail: userData.email,
+            userLocation: syncedLocation // ← GUNAKAN SYNCED LOCATION
         });
-        // Cari tickets yang dibuat oleh user ini
+        
         const userTickets = this.tickets.filter(ticket => 
             ticket.user_id === userId || 
             ticket.user_email === userData.email
-    );
+        );
     
-    if (userTickets.length > 0) {
+        if (userTickets.length > 0) {
             console.log(`📝 Found ${userTickets.length} tickets for user ${userData.full_name}`);
             
-            // Update local tickets data dengan info user terbaru
             userTickets.forEach(ticket => {
                 const ticketIndex = this.tickets.findIndex(t => t.id === ticket.id);
                 if (ticketIndex !== -1) {
@@ -410,14 +797,18 @@ updateUserTicketsInRealTime(userId, userData) {
                     this.tickets[ticketIndex].user_department = userData.department;
                     this.tickets[ticketIndex].user_email = userData.email;
                     this.tickets[ticketIndex].user_phone = userData.phone;
+                    
+                    // ✅ FIX: UPDATE LOCATION DENGAN YANG SUDAH DISYNC
+                    if (syncedLocation) {
+                        this.tickets[ticketIndex].location = syncedLocation;
+                    }
                 }
             });
             
-            // Re-render tickets untuk menampilkan perubahan
             this.renderTickets();
             this.updateStats();
             
-            console.log('✅ Tickets updated with latest user data');
+            console.log('✅ Tickets updated with synced location');
         }
         
     } catch (error) {
@@ -801,72 +1192,75 @@ isOnUsersPage() {
     }
 
     initializeEventListeners() {
-        console.log('🔧 Initializing event listeners...');
-        
-        // Logout
-        const logoutBtn = document.getElementById('adminLogoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', this.handleLogout);
-        }
-
-        // Manage Team Button
-        const manageTeamBtn = document.getElementById('manageTeamBtn');
-        if (manageTeamBtn) {
-            manageTeamBtn.addEventListener('click', (e) => {
-                this.handleManageTeam(e);
-            });
-        }
-
-        // Filters
-        const statusFilter = document.getElementById('statusFilter');
-        const priorityFilter = document.getElementById('priorityFilter');
-        
-        if (statusFilter) {
-            statusFilter.addEventListener('change', () => {
-                this.filterTickets();
-            });
-        }
-        
-        if (priorityFilter) {
-            priorityFilter.addEventListener('change', () => {
-                this.filterTickets();
-            });
-        }
-
-        // Modal close
-        const closeModalBtn = document.getElementById('closeTicketModal');
-        if (closeModalBtn) {
-            closeModalBtn.addEventListener('click', () => {
-                this.closeTicketModal();
-            });
-        }
-
-        // Close modal when clicking outside
-        const modal = document.getElementById('ticketModal');
-        if (modal) {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    this.closeTicketModal();
-                }
-            });
-        }
-
-        // ✅ EVENT DELEGATION UNTUK TICKET ACTIONS
-        const tableBody = document.getElementById('ticketsTableBody');
-        if (tableBody) {
-            tableBody.addEventListener('click', this.handleTableClick);
-        }
-
-        // Export button
-        const exportBtn = document.getElementById('exportTickets');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', () => {
-                this.handleExport();
-            });
-        }
-
-        console.log('✅ All event listeners initialized');
+    console.log('🔧 Initializing event listeners...');
+    
+    // Logout
+    const logoutBtn = document.getElementById('adminLogoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', this.handleLogout);
     }
+
+    // Manage Team Button
+    const manageTeamBtn = document.getElementById('manageTeamBtn');
+    if (manageTeamBtn) {
+        manageTeamBtn.addEventListener('click', (e) => {
+            this.handleManageTeam(e);
+        });
+    }
+
+    // Filters
+    const statusFilter = document.getElementById('statusFilter');
+    const priorityFilter = document.getElementById('priorityFilter');
+    
+    if (statusFilter) {
+        statusFilter.addEventListener('change', () => {
+            this.filterTickets();
+        });
+    }
+    
+    if (priorityFilter) {
+        priorityFilter.addEventListener('change', () => {
+            this.filterTickets();
+        });
+    }
+
+    // ✅ TAMBAHKAN INI: Date Filter Listeners
+    this.initializeDateFilter();
+
+    // Modal close
+    const closeModalBtn = document.getElementById('closeTicketModal');
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', () => {
+            this.closeTicketModal();
+        });
+    }
+
+    // Close modal when clicking outside
+    const modal = document.getElementById('ticketModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                this.closeTicketModal();
+            }
+        });
+    }
+
+    // ✅ EVENT DELEGATION UNTUK TICKET ACTIONS
+    const tableBody = document.getElementById('ticketsTableBody');
+    if (tableBody) {
+        tableBody.addEventListener('click', this.handleTableClick);
+    }
+
+    // Export button
+    const exportBtn = document.getElementById('exportTickets');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            this.handleExport();
+        });
+    }
+
+    console.log('✅ All event listeners initialized');
+}
 
     // ✅ INITIALIZE UPDATE FORM
     initializeUpdateForm() {
@@ -1342,7 +1736,7 @@ async renderTicketsToCards() {
 
         // Format tanggal
         const createdDate = ticket.created_at ? 
-            new Date(ticket.created_at).toLocaleDateString() : 'N/A';
+            new Date(ticket.created_at).toLocaleString() : 'N/A';
 
         return `
             <div class="ticket-card" data-ticket-id="${ticket.id}">
@@ -1535,7 +1929,7 @@ async renderTickets() {
                         ${ticket.status || 'Open'}
                     </span>
                 </td>
-                <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'N/A'}</td>
+                <td>${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}</td>
                 <td>
                     <div class="action-buttons" data-ticket-id="${ticket.id}">
                         ${actionButtons}
@@ -1612,23 +2006,133 @@ async renderTickets() {
         });
     }
 
-    updateStats() {
-        const totalTickets = this.filteredTickets.length;
-        const openTickets = this.filteredTickets.filter(ticket => ticket.status === 'Open').length;
-        const inProgressTickets = this.filteredTickets.filter(ticket => ticket.status === 'In Progress').length;
-        const resolvedTickets = this.filteredTickets.filter(ticket => ticket.status === 'Resolved').length;
-        const highPriorityTickets = this.filteredTickets.filter(ticket => ticket.priority === 'High').length;
-        const myTickets = this.filteredTickets.filter(ticket => 
-            ticket.action_by === this.adminUser?.uid || 
-            ticket.assigned_to === this.adminUser?.uid
-        ).length;
+updateStats() {
+    const totalTickets = this.filteredTickets.length;
+    const openTickets = this.filteredTickets.filter(ticket => ticket.status === 'Open').length;
+    const inProgressTickets = this.filteredTickets.filter(ticket => ticket.status === 'In Progress').length;
+    const resolvedTickets = this.filteredTickets.filter(ticket => ticket.status === 'Resolved').length;
+    const highPriorityTickets = this.filteredTickets.filter(ticket => ticket.priority === 'High').length;
+    const myTickets = this.filteredTickets.filter(ticket => 
+        ticket.action_by === this.adminUser?.uid || 
+        ticket.assigned_to === this.adminUser?.uid
+    ).length;
 
-        this.updateElementText('totalOpenTickets', openTickets);
-        this.updateElementText('totalInProgress', inProgressTickets);
-        this.updateElementText('totalResolved', resolvedTickets);
-        this.updateElementText('totalHighPriority', highPriorityTickets);
-        this.updateElementText('myTickets', myTickets);
+    this.updateElementText('totalOpenTickets', openTickets);
+    this.updateElementText('totalInProgress', inProgressTickets);
+    this.updateElementText('totalResolved', resolvedTickets);
+    this.updateElementText('totalHighPriority', highPriorityTickets);
+    this.updateElementText('myTickets', myTickets);
+    
+    // ✅ TAMBAHKAN: Show active filter info
+    this.showActiveFilterInfo();
+}
+
+// ✅ METHOD UNTUK SHOW ACTIVE FILTER INFO
+showActiveFilterInfo() {
+    const filterInfo = [];
+    
+    // Status filter
+    const statusFilter = document.getElementById('statusFilter');
+    if (statusFilter && statusFilter.value !== 'all') {
+        filterInfo.push(`Status: ${statusFilter.value}`);
     }
+    
+    // Priority filter
+    const priorityFilter = document.getElementById('priorityFilter');
+    if (priorityFilter && priorityFilter.value !== 'all') {
+        filterInfo.push(`Priority: ${priorityFilter.value}`);
+    }
+    
+    // Date filter
+    if (this.dateFilter.isActive) {
+        const startDate = this.dateFilter.startDate;
+        const endDate = this.dateFilter.endDate;
+        
+        if (startDate && endDate) {
+            if (startDate.getTime() === endDate.getTime()) {
+                // Same day (Today filter)
+                filterInfo.push(`Date: ${startDate.toLocaleDateString()}`);
+            } else {
+                filterInfo.push(`Date: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`);
+            }
+        } else if (startDate) {
+            filterInfo.push(`From: ${startDate.toLocaleDateString()}`);
+        } else if (endDate) {
+            filterInfo.push(`Until: ${endDate.toLocaleDateString()}`);
+        }
+    }
+    
+    // Update filter info display
+    this.updateFilterInfoDisplay(filterInfo);
+}
+
+// ✅ METHOD UNTUK UPDATE FILTER INFO DISPLAY
+updateFilterInfoDisplay(filterInfo) {
+    // Cari atau buat element untuk menampilkan info filter
+    let filterInfoEl = document.getElementById('activeFilterInfo');
+    
+    if (!filterInfoEl) {
+        filterInfoEl = document.createElement('div');
+        filterInfoEl.id = 'activeFilterInfo';
+        filterInfoEl.className = 'active-filter-info';
+        
+        // Tambahkan sebelum tickets table
+        const ticketsSection = document.querySelector('.tickets-section');
+        if (ticketsSection) {
+            const tableContainer = ticketsSection.querySelector('.tickets-table-container');
+            if (tableContainer) {
+                tableContainer.insertBefore(filterInfoEl, tableContainer.firstChild);
+            }
+        }
+    }
+    
+    if (filterInfo.length > 0) {
+        filterInfoEl.innerHTML = `
+            <div class="filter-info-content">
+                <i class="fas fa-filter"></i>
+                <span>Active filters: ${filterInfo.join(', ')}</span>
+                <small>Showing ${this.filteredTickets.length} of ${this.tickets.length} tickets</small>
+            </div>
+        `;
+        filterInfoEl.style.display = 'block';
+    } else {
+        filterInfoEl.style.display = 'none';
+    }
+}
+
+// ✅ METHOD UNTUK UPDATE FILTER INFO DISPLAY
+updateFilterInfoDisplay(filterInfo) {
+    // Cari atau buat element untuk menampilkan info filter
+    let filterInfoEl = document.getElementById('activeFilterInfo');
+    
+    if (!filterInfoEl) {
+        filterInfoEl = document.createElement('div');
+        filterInfoEl.id = 'activeFilterInfo';
+        filterInfoEl.className = 'active-filter-info';
+        
+        // Tambahkan sebelum tickets table
+        const ticketsSection = document.querySelector('.tickets-section');
+        if (ticketsSection) {
+            const tableContainer = ticketsSection.querySelector('.tickets-table-container');
+            if (tableContainer) {
+                tableContainer.insertBefore(filterInfoEl, tableContainer.firstChild);
+            }
+        }
+    }
+    
+    if (filterInfo.length > 0) {
+        filterInfoEl.innerHTML = `
+            <div class="filter-info-content">
+                <i class="fas fa-filter"></i>
+                <span>Active filters: ${filterInfo.join(', ')}</span>
+                <small>Showing ${this.filteredTickets.length} of ${this.tickets.length} tickets</small>
+            </div>
+        `;
+        filterInfoEl.style.display = 'block';
+    } else {
+        filterInfoEl.style.display = 'none';
+    }
+}
 
     updateElementText(elementId, value) {
         const element = document.getElementById(elementId);
@@ -1677,13 +2181,12 @@ async renderTickets() {
             }
 
             const updateData = {
-                status: newStatus,
-      last_updated: serverTimestamp(),
-      action_by: this.currentUser.id, // Tetap simpan ID untuk reference
-      action_by_name: this.currentUser.full_name, // Tambahkan nama
-      action_by_email: this.currentUser.email, // Tambahkan email
-      note: note
-            };
+            status: newStatus,
+            // ✅ HANYA UPDATE last_updated JIKA BUKAN STATUS FINAL
+            ...(isCurrentlyFinalStatus && !isChangingToFinalStatus ? {} : {
+                last_updated: serverTimestamp()
+            })
+        };
 
             if (newStatus === 'In Progress') {
                 updateData.action_by = this.adminUser.uid;
@@ -2180,176 +2683,207 @@ async renderTickets() {
     getTicketModalHTML(ticket, assignedAdmins, permissions) {
         return `
             <div class="ticket-details">
-                <div class="detail-section">
-                    <h3><i class="fas fa-ticket-alt"></i> Ticket Information</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>Ticket Code:</label>
-                            <span>${this.escapeHtml(ticket.code)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Subject:</label>
-                            <span>${this.escapeHtml(ticket.subject)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Status:</label>
-                            <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
-                                ${this.escapeHtml(ticket.status)}
-                            </span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Priority:</label>
-                            <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
-                                ${this.escapeHtml(ticket.priority)}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+  <!-- Ticket Summary Bar -->
+  <div class="ticket-summary-bar">
+    <span class="ticket-code">${this.escapeHtml(ticket.code)}</span>
+    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}" style="margin-left: auto;">
+      ${this.escapeHtml(ticket.status)}
+    </span>
+  </div>
 
-                <div class="detail-section">
-                    <h3><i class="fas fa-user"></i> User Information</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>Name:</label>
-                            <span>${this.escapeHtml(ticket.user_name)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Email:</label>
-                            <span>${this.escapeHtml(ticket.user_email)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Department:</label>
-                            <span>${this.escapeHtml(ticket.user_department)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Phone:</label>
-                            <span>${this.escapeHtml(ticket.user_phone || 'N/A')}</span>
-                        </div>
-                    </div>
-                </div>
+  <!-- Ticket Info -->
+  <div class="ticket-section">
+    <h3><i class="fas fa-info-circle"></i> Ticket Information</h3>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Subject:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.subject)}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Priority:</strong></div>
+      <div class="ticket-col">
+        <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+          ${this.escapeHtml(ticket.priority)}
+        </span>
+      </div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Created:</strong></div>
+      <div class="ticket-col value">
+        ${ticket.created_at ? new Date(ticket.created_at).toLocaleString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }) : 'N/A'}
+      </div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Last Updated:</strong></div>
+      <div class="ticket-col value">
+        ${ticket.last_updated ? new Date(ticket.last_updated).toLocaleString('en-GB', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        }) : 'N/A'}
+      </div>
+    </div>
+  </div>
 
-                <div class="detail-section">
-                    <h3><i class="fas fa-cogs"></i> Technical Details</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>Location:</label>
-                            <span>${this.escapeHtml(ticket.location)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Inventory:</label>
-                            <span>${this.escapeHtml(ticket.inventory)}</span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Device:</label>
-                            <span>${this.escapeHtml(ticket.device)}</span>
-                        </div>
-                    </div>
-                </div>
+  <!-- User Info -->
+  <div class="ticket-section">
+    <h3><i class="fas fa-user"></i> User Information</h3>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Name:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.user_name)}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Department:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.user_department)}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Email:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.user_email)}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Phone:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.user_phone || '–')}</div>
+    </div>
+  </div>
 
-                <div class="detail-section">
-                    <h3><i class="fas fa-comment-alt"></i> Problem Description</h3>
-                    <div class="message-box">
-                        ${this.escapeHtml(ticket.message)}
-                    </div>
-                </div>
+  <!-- Technical Details -->
+  <div class="ticket-section">
+    <h3><i class="fas fa-laptop"></i> Technical Details</h3>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Location:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.location || '–')}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Device:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.device || '–')}</div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Inventory #:</strong></div>
+      <div class="ticket-col value">${this.escapeHtml(ticket.inventory || '–')}</div>
+    </div>
+  </div>
 
-                ${ticket.note ? `
-                <div class="detail-section">
-                    <h3><i class="fas fa-sticky-note"></i> Admin Notes</h3>
-                    <div class="note-box">
-                        ${this.escapeHtml(ticket.note)}
-                    </div>
-                </div>
-                ` : ''}
+  <!-- Problem Description -->
+  <div class="ticket-section">
+    <h3><i class="fas fa-comment-dots"></i> Problem Description</h3>
+    <div class="ticket-description-box">
+      ${ticket.message ? this.escapeHtml(ticket.message).replace(/\n/g, '<br>') : '<em>No description provided.</em>'}
+    </div>
+  </div>
 
-                <div class="detail-section">
-                    <h3><i class="fas fa-users"></i> Assignment Information</h3>
-                    <div class="detail-grid">
-                        <div class="detail-item">
-                            <label>Action By:</label>
-                            <span>
-                                ${assignedAdmins.actionBy ? 
-                                    `${this.escapeHtml(assignedAdmins.actionBy.name)} (${this.escapeHtml(assignedAdmins.actionBy.email)})` : 
-                                    'Not assigned'}
-                            </span>
-                        </div>
-                        <div class="detail-item">
-                            <label>Assigned To:</label>
-                            <span>
-                                ${assignedAdmins.assignedTo ? 
-                                    `${this.escapeHtml(assignedAdmins.assignedTo.name)} (${this.escapeHtml(assignedAdmins.assignedTo.email)})` : 
-                                    'Not assigned'}
-                            </span>
-                        </div>
-                        ${this.adminUser.role ? `
-                        <div class="detail-item">
-                            <label>Your Role:</label>
-                            <span class="role-badge">${this.escapeHtml(this.adminUser.role)}</span>
-                        </div>
-                        ` : ''}
-                    </div>
-                </div>
+  <!-- Admin Notes (if any) -->
+  ${ticket.note ? `
+  <div class="ticket-section">
+    <h3><i class="fas fa-sticky-note"></i> Admin Notes</h3>
+    <div class="ticket-description-box">
+      ${this.escapeHtml(ticket.note).replace(/\n/g, '<br>')}
+    </div>
+  </div>
+  ` : ''}
 
-                ${ticket.updates && ticket.updates.length > 0 ? `
-                <div class="detail-section">
-                    <h3><i class="fas fa-history"></i> Update History</h3>
-                    <div class="updates-timeline">
-                        ${ticket.updates.slice().reverse().map(update => `
-                            <div class="update-item">
-                                <div class="update-header">
-                                    <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
-                                    <span class="update-time">
-                                        ${update.timestamp ? new Date(update.timestamp).toLocaleString() : 'Unknown time'}
-                                    </span>
-                                </div>
-                                <div class="update-notes">${this.escapeHtml(update.notes || 'No notes')}</div>
-                                <div class="update-by">
-                                    By: ${this.escapeHtml(update.updatedBy || 'System')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-                ` : ''}
+  <!-- Assignment Info -->
+  <div class="ticket-section">
+    <h3><i class="fas fa-user-tie"></i> Assignment</h3>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Action By:</strong></div>
+      <div class="ticket-col value">
+        ${assignedAdmins.actionBy ? 
+          `${this.escapeHtml(assignedAdmins.actionBy.name)} <small>(${this.escapeHtml(assignedAdmins.actionBy.email)})</small>` : 
+          '<em>Unassigned</em>'}
+      </div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Assigned To:</strong></div>
+      <div class="ticket-col value">
+        ${assignedAdmins.assignedTo ? 
+          `${this.escapeHtml(assignedAdmins.assignedTo.name)} <small>(${this.escapeHtml(assignedAdmins.assignedTo.email)})</small>` : 
+          '<em>Unassigned</em>'}
+      </div>
+    </div>
+    <div class="ticket-row">
+      <div class="ticket-col"><strong>Your Role:</strong></div>
+      <div class="ticket-col value">
+        <span class="role-badge">${this.escapeHtml(this.adminUser.role)}</span>
+      </div>
+    </div>
+  </div>
 
-                <div class="modal-actions">
-                    ${permissions.canUpdate ? `
-                        <button class="btn-primary" onclick="adminDashboard.updateTicketModal('${ticket.id}')">
-                            <i class="fas fa-edit"></i> Update Ticket
-                        </button>
-                    ` : ''}
-                    
-                    <div class="modal-action-buttons">
-                        ${ticket.status === 'Open' && permissions.canStart ? `
-                            <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
-                                <i class="fas fa-play"></i> Start Ticket
-                            </button>
-                        ` : ''}
-                        
-                        ${ticket.status === 'In Progress' && permissions.canResolve ? `
-                            <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
-                                <i class="fas fa-check"></i> Resolve Ticket
-                            </button>
-                        ` : ''}
-                        
-                        ${ticket.status === 'Resolved' && permissions.canReopen ? `
-                            <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
-                                <i class="fas fa-redo"></i> Reopen Ticket
-                            </button>
-                        ` : ''}
-                        
-                        ${permissions.canDelete ? `
-                            <button class="btn-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')">
-                                <i class="fas fa-trash"></i> Delete Ticket
-                            </button>
-                        ` : ''}
-                    </div>
+  <!-- Update History -->
+  ${ticket.updates && ticket.updates.length > 0 ? `
+  <div class="ticket-section">
+    <h3><i class="fas fa-history"></i> Update History</h3>
+    <div class="updates-timeline">
+      ${ticket.updates.slice().reverse().map(update => `
+        <div class="update-item">
+          <div class="update-header">
+            <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
+            <span class="update-time">
+              ${update.timestamp ? new Date(update.timestamp).toLocaleString('en-GB', {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+              }) : 'Unknown'}
+            </span>
+          </div>
+          <div class="update-notes">${this.escapeHtml(update.notes || '–')}</div>
+          <div class="update-by">by ${this.escapeHtml(update.updatedBy || 'System')}</div>
+        </div>
+      `).join('')}
+    </div>
+  </div>
+  ` : ''}
 
-                    <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
-                        <i class="fas fa-times"></i> Close
-                    </button>
-                </div>
-            </div>
+  <!-- Action Buttons -->
+<div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee;">
+  <!-- Kiri: Update Ticket (jika ada izin) -->
+  ${permissions.canUpdate ? `
+    <button class="btn-primary" onclick="adminDashboard.updateTicketModal('${ticket.id}')">
+      <i class="fas fa-edit"></i> Update Ticket
+    </button>
+  ` : `<div></div>`}
+
+  <!-- Tengah: Tombol status + delete -->
+  <div class="modal-action-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+    ${ticket.status === 'Open' && permissions.canStart ? `
+      <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
+        <i class="fas fa-play"></i> Start
+      </button>
+    ` : ''}
+    ${ticket.status === 'In Progress' && permissions.canResolve ? `
+      <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
+        <i class="fas fa-check"></i> Resolve
+      </button>
+    ` : ''}
+    ${ticket.status === 'Resolved' && permissions.canReopen ? `
+      <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
+        <i class="fas fa-redo"></i> Reopen
+      </button>
+    ` : ''}
+    ${permissions.canDelete ? `
+      <button class="btn-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')">
+        <i class="fas fa-trash"></i> Delete
+      </button>
+    ` : ''}
+  </div>
+
+  <!-- Kanan: Close (selalu ada) -->
+  <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
+    <i class="fas fa-times"></i> Close
+  </button>
+</div>
+</div>
         `;
     }
 
@@ -2479,6 +3013,16 @@ async showUpdateFormModalSimple(ticket) {
         <option value="Multi Purposes Building" ${ticket.location === 'Multi Purposes Building' ? 'selected' : ''}>Multi Purposes Building</option>
         <option value="Red Office" ${ticket.location === 'Red Office' ? 'selected' : ''}>Red Office</option>
         <option value="Security" ${ticket.location === 'Security' ? 'selected' : ''}>Security</option>
+        <option value="Store 1" ${ticket.location === 'Store1' ? 'selected' : ''}>Store 1</option>
+        <option value="Store 2" ${ticket.location === 'Store2' ? 'selected' : ''}>Store 2</option>
+        <option value="Store 3" ${ticket.location === 'Store3' ? 'selected' : ''}>Store 3</option>
+        <option value="Store 4" ${ticket.location === 'Store4' ? 'selected' : ''}>Store 4</option>
+        <option value="Store 5" ${ticket.location === 'Store5' ? 'selected' : ''}>Store 5</option>
+        <option value="Store 6" ${ticket.location === 'Store6' ? 'selected' : ''}>Store 6</option>
+        <option value="Store 7" ${ticket.location === 'Store7' ? 'selected' : ''}>Store 7</option>
+        <option value="Store 8" ${ticket.location === 'Store8' ? 'selected' : ''}>Store 8</option>
+        <option value="Store 9" ${ticket.location === 'Store9' ? 'selected' : ''}>Store 9</option>
+        <option value="Warehouse" ${ticket.location === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
         <option value="White Office" ${ticket.location === 'White Office' ? 'selected' : ''}>White Office</option>
         <option value="White Office 2nd Fl" ${ticket.location === 'White Office 2nd Fl' ? 'selected' : ''}>White Office 2nd Floor</option>
         <option value="White Office 3rd Fl" ${ticket.location === 'White Office 3rd Fl' ? 'selected' : ''}>White Office 3rd Floor</option>
@@ -2713,16 +3257,44 @@ getUpdateModalHTML(ticket) {
                                 </div>
 
                                 <div class="form-group">
-                                    <label for="updateLocation">Location</label>
-                                    <select id="updateLocation" class="form-control">
-                                        <option value="">Select Location</option>
-                                        <option value="White Office 3rd Fl">White Office 3rd Floor</option>
-                                        <option value="Blue Office">Blue Office</option>
-                                        <option value="Workshop">Workshop</option>
-                                        <option value="Warehouse">Warehouse</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
+            <label for="location">Location *</label>
+            <select id="location" name="location" required>
+              <option value="">Select Location</option>
+              <option value="Blue Office">Blue Office</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Control Room">Control Room</option>
+              <option value="Dark Room">Dark Room</option>
+              <option value="Green Office">Green Office</option>
+              <option value="HRD">HR Department</option>
+              <option value="HSE Yard">HSE Yard</option>
+              <option value="IT Server">IT Server</option>
+              <option value="IT Store">IT Store</option>
+              <option value="Multi Purposes Building">Multi Purposes Building</option>
+              <option value="Red Office">Red Office</option>
+              <option value="Security">Security</option>
+              <option value="Store1">Store 1</option>
+              <option value="Store2">Store 2</option>
+              <option value="Store3">Store 3</option>
+              <option value="Store4">Store 4</option>
+              <option value="Store5">Store 5</option>
+              <option value="Store6">Store 6</option>
+              <option value="Store7">Store 7</option>
+              <option value="Store8">Store 8</option>
+              <option value="Store9">Store 9</option>
+              <option value="Warehouse">Warehouse</option>
+              <option value="White Office">White Office</option>
+              <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+              <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+              <option value="Welding School">Welding School</option>
+              <option value="Workshop9">Workshop 9</option>
+              <option value="Workshop10">Workshop 10</option>
+              <option value="Workshop11">Workshop 11</option>
+              <option value="Workshop12">Workshop 12</option>
+              <option value="Yard">Yard</option>
+              <option value="Lainlain">Other Location</option>
+            </select>
+          </div>
+        </div>
 
                                 <div class="form-group">
                                     <label for="updateDevice">Device Type</label>
@@ -2796,16 +3368,44 @@ getUpdateModalHTML(ticket) {
                                 </div>
                                 
                                 <div class="form-group">
-                                    <label for="updateUserLocation">User Location</label>
-                                    <select id="updateUserLocation" class="form-control">
-                                        <option value="">Select Location</option>
-                                        <option value="White Office 3rd Fl">White Office 3rd Floor</option>
-                                        <option value="Blue Office">Blue Office</option>
-                                        <option value="Workshop">Workshop</option>
-                                        <option value="Warehouse">Warehouse</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
+            <label for="location">Location *</label>
+            <select id="location" name="location" required>
+              <option value="">Select Location</option>
+              <option value="Blue Office">Blue Office</option>
+              <option value="Clinic">Clinic</option>
+              <option value="Control Room">Control Room</option>
+              <option value="Dark Room">Dark Room</option>
+              <option value="Green Office">Green Office</option>
+              <option value="HRD">HR Department</option>
+              <option value="HSE Yard">HSE Yard</option>
+              <option value="IT Server">IT Server</option>
+              <option value="IT Store">IT Store</option>
+              <option value="Multi Purposes Building">Multi Purposes Building</option>
+              <option value="Red Office">Red Office</option>
+              <option value="Security">Security</option>
+              <option value="Store1">Store 1</option>
+              <option value="Store2">Store 2</option>
+              <option value="Store3">Store 3</option>
+              <option value="Store4">Store 4</option>
+              <option value="Store5">Store 5</option>
+              <option value="Store6">Store 6</option>
+              <option value="Store7">Store 7</option>
+              <option value="Store8">Store 8</option>
+              <option value="Store9">Store 9</option>
+              <option value="Warehouse">Warehouse</option>
+              <option value="White Office">White Office</option>
+              <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+              <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+              <option value="Welding School">Welding School</option>
+              <option value="Workshop9">Workshop 9</option>
+              <option value="Workshop10">Workshop 10</option>
+              <option value="Workshop11">Workshop 11</option>
+              <option value="Workshop12">Workshop 12</option>
+              <option value="Yard">Yard</option>
+              <option value="Lainlain">Other Location</option>
+            </select>
+          </div>
+        </div>
                             </div>
 
                             <div class="form-group full-width">
@@ -3044,7 +3644,7 @@ initializeTabSwitching() {
     }
 }
 
-// ✅ SIMPLE: Handle ticket update
+// ✅ SIMPLE: Handle ticket update dengan protection untuk resolved tickets
 async handleTicketUpdateSimple(ticketId) {
     try {
         const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
@@ -3053,15 +3653,32 @@ async handleTicketUpdateSimple(ticketId) {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
         submitBtn.disabled = true;
         
+        // Get current ticket data
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        const ticketDoc = await getDoc(ticketRef);
+        const currentData = ticketDoc.data();
+        
+        // ✅ CEK APAKAH TICKET SUDAH RESOLVED/CLOSED
+        const finalStatuses = ['Resolved', 'Closed', 'Completed', 'Finished'];
+        const isCurrentlyFinalStatus = finalStatuses.includes(currentData.status);
+        const newStatus = document.getElementById('updateStatus').value;
+        const isChangingToFinalStatus = finalStatuses.includes(newStatus);
+        
         // Collect data
         const updateData = {
             // Ticket data
             subject: document.getElementById('updateSubject').value,
             priority: document.getElementById('updatePriority').value,
-            status: document.getElementById('updateStatus').value,
+            status: newStatus,
             location: document.getElementById('updateLocation').value,
             note: document.getElementById('updateAdminNotes').value,
-            last_updated: serverTimestamp(),
+            
+            // ✅ HANYA UPDATE last_updated JIKA:
+            // 1. BUKAN status final, ATAU
+            // 2. SEDANG berubah MENJADI status final
+            ...(isCurrentlyFinalStatus && !isChangingToFinalStatus ? {} : {
+                last_updated: serverTimestamp()
+            }),
             
             // User data (update ticket juga)
             user_name: document.getElementById('updateUserName').value,
@@ -3071,11 +3688,12 @@ async handleTicketUpdateSimple(ticketId) {
         };
 
         console.log('📝 Update data:', updateData);
+        console.log('🛡️ Duration protection:', {
+            wasFinal: isCurrentlyFinalStatus,
+            changingToFinal: isChangingToFinalStatus,
+            updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
+        });
 
-        // Get ticket untuk dapat user_id
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        const ticketDoc = await getDoc(ticketRef);
-        const currentData = ticketDoc.data();
         const userId = currentData.user_id;
 
         if (!userId) {
@@ -3100,10 +3718,15 @@ async handleTicketUpdateSimple(ticketId) {
         // Close modal
         this.closeUpdateModal();
         
-        // Show success
+        // Show success dengan info duration protection
+        let successMessage = 'Ticket and user data updated successfully';
+        if (isCurrentlyFinalStatus && !isChangingToFinalStatus) {
+            successMessage += ' (Duration preserved - ticket was already resolved)';
+        }
+        
         await Swal.fire({
             title: 'Success!',
-            text: 'Ticket and user data updated successfully',
+            text: successMessage,
             icon: 'success',
             timer: 2000
         });
@@ -3129,7 +3752,7 @@ async handleTicketUpdateSimple(ticketId) {
     }
 }
 
-    // ✅ FIX: Enhanced ticket update dengan user data sync
+ // ✅ FIX: Enhanced ticket update dengan duration protection
 async handleTicketUpdate(ticketId) {
     try {
         const submitBtn = document.querySelector('#updateTicketForm button[type="submit"]');
@@ -3139,16 +3762,33 @@ async handleTicketUpdate(ticketId) {
         submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating Ticket & User Data...';
         submitBtn.disabled = true;
         
+        // Get current ticket data untuk cek status
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        const ticketDoc = await getDoc(ticketRef);
+        const currentTicketData = ticketDoc.data();
+        
+        // ✅ CEK STATUS UNTUK DURATION PROTECTION
+        const finalStatuses = ['Resolved', 'Closed', 'Completed', 'Finished'];
+        const isCurrentlyFinalStatus = finalStatuses.includes(currentTicketData.status);
+        const newStatus = document.getElementById('updateStatus').value;
+        const isChangingToFinalStatus = finalStatuses.includes(newStatus);
+        
         // Collect ticket update data
         const ticketUpdateData = {
             subject: document.getElementById('updateSubject').value,
             priority: document.getElementById('updatePriority').value,
-            status: document.getElementById('updateStatus').value,
+            status: newStatus,
             location: document.getElementById('updateLocation').value,
             device: document.getElementById('updateDevice').value,
             inventory: document.getElementById('updateInventory').value,
             note: document.getElementById('updateAdminNotes').value,
-            last_updated: serverTimestamp()
+            
+            // ✅ DURATION PROTECTION: Hanya update last_updated jika:
+            // - Bukan status final, ATAU  
+            // - Sedang berubah MENJADI status final
+            ...(isCurrentlyFinalStatus && !isChangingToFinalStatus ? {} : {
+                last_updated: serverTimestamp()
+            })
         };
 
         // Collect user update data
@@ -3186,13 +3826,14 @@ async handleTicketUpdate(ticketId) {
 
         console.log('📝 Update data collected:', {
             ticket: ticketUpdateData,
-            user: userUpdateData
+            user: userUpdateData,
+            durationProtection: {
+                wasFinal: isCurrentlyFinalStatus,
+                changingToFinal: isChangingToFinalStatus,
+                updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
+            }
         });
 
-        // Get ticket data untuk mendapatkan user_id
-        const ticketRef = doc(this.db, "tickets", ticketId);
-        const ticketDoc = await getDoc(ticketRef);
-        const currentTicketData = ticketDoc.data();
         const userId = currentTicketData.user_id;
 
         if (!userId) {
@@ -3229,7 +3870,9 @@ async handleTicketUpdate(ticketId) {
                     department: userUpdateData.department,
                     email: userUpdateData.email
                 }
-            }
+            },
+            // ✅ TAMBAHKAN INFO DURATION PROTECTION
+            durationPreserved: isCurrentlyFinalStatus && !isChangingToFinalStatus
         };
 
         // Get current updates
@@ -3267,29 +3910,33 @@ async handleTicketUpdate(ticketId) {
         await updateDoc(ticketRef, finalTicketUpdate);
         
         // Close modal
-        this.closeUpdateModal();
         
-        // Show success message
-        await Swal.fire({
-            title: 'Success!',
-            html: `
-                <div class="update-success">
-                    <p><strong>✅ Ticket and User Data Updated Successfully!</strong></p>
-                    <div class="update-details">
-                        <p><strong>Ticket Changes:</strong></p>
-                        <ul>
-                            <li>Status: ${ticketUpdateData.status}</li>
-                            <li>Priority: ${ticketUpdateData.priority}</li>
-                        </ul>
-                        <p><strong>User Changes:</strong></p>
-                        <ul>
-                            <li>Name: ${userUpdateData.full_name}</li>
-                            <li>Department: ${userUpdateData.department}</li>
-                            <li>Email: ${userUpdateData.email}</li>
-                        </ul>
-                    </div>
+        // Show success message dengan info duration
+        let successTitle = 'Success!';
+        let successDetails = `
+            <div class="update-success">
+                <p><strong>✅ Ticket and User Data Updated Successfully!</strong></p>
+                <div class="update-details">
+                    <p><strong>Ticket Changes:</strong></p>
+                    <ul>
+                        <li>Status: ${ticketUpdateData.status}</li>
+                        <li>Priority: ${ticketUpdateData.priority}</li>
+                        ${isCurrentlyFinalStatus && !isChangingToFinalStatus ? 
+                          '<li><em>⚠️ Duration preserved (ticket was already resolved)</em></li>' : ''}
+                    </ul>
+                    <p><strong>User Changes:</strong></p>
+                    <ul>
+                        <li>Name: ${userUpdateData.full_name}</li>
+                        <li>Department: ${userUpdateData.department}</li>
+                        <li>Email: ${userUpdateData.email}</li>
+                    </ul>
                 </div>
-            `,
+            </div>
+        `;
+
+        await Swal.fire({
+            title: successTitle,
+            html: successDetails,
             icon: 'success',
             confirmButtonColor: '#10b981',
             confirmButtonText: 'OK'
@@ -3315,6 +3962,23 @@ async handleTicketUpdate(ticketId) {
             confirmButtonColor: '#ef070a'
         });
     }
+}
+
+// ✅ HELPER METHOD: Check if status is final
+isFinalStatus(status) {
+    const finalStatuses = ['Resolved', 'Closed', 'Completed', 'Finished'];
+    return finalStatuses.includes(status);
+}
+
+// ✅ HELPER METHOD: Check if should update last_updated
+shouldUpdateLastUpdated(currentStatus, newStatus) {
+    const isCurrentlyFinal = this.isFinalStatus(currentStatus);
+    const isChangingToFinal = this.isFinalStatus(newStatus);
+    
+    // Update last_updated hanya jika:
+    // - Bukan status final, ATAU
+    // - Sedang berubah MENJADI status final
+    return !isCurrentlyFinal || isChangingToFinal;
 }
 
 // ✅ NEW: Helper method untuk update semua tickets user
@@ -3398,54 +4062,95 @@ async updateUserTicketsInFirestore(userId, userUpdates) {
         }
     }
 
-    async handleExport() {
-        try {
-            const exportBtn = document.getElementById('exportTickets');
-            const originalText = exportBtn.innerHTML;
-            
-            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
-            exportBtn.disabled = true;
+    // ✅ UPDATE EXPORT METHOD UNTUK INCLUDE DATE FILTER INFO
+async handleExport() {
+    try {
+        const exportBtn = document.getElementById('exportTickets');
+        const originalText = exportBtn.innerHTML;
+        
+        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
+        exportBtn.disabled = true;
 
-            const exportData = this.getDisplayedTicketsForExport();
-            
-            if (exportData.length === 0) {
-                await Swal.fire({
-                    title: 'No Data',
-                    text: 'No tickets available for export.',
-                    icon: 'warning',
-                    confirmButtonColor: '#ef070a'
-                });
-                return;
-            }
-
-            if (window.updateAllTickets && typeof window.updateAllTickets === 'function') {
-                window.updateAllTickets(exportData);
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500));
-            
-            if (typeof window.handleExportToExcel === 'function') {
-                await window.handleExportToExcel();
-            } else {
-                await this.fallbackExport(exportData);
-            }
-            
-        } catch (error) {
-            console.error('❌ Export error:', error);
+        const exportData = this.getDisplayedTicketsForExport();
+        
+        if (exportData.length === 0) {
             await Swal.fire({
-                title: 'Export Failed',
-                text: 'Could not export data. Please try again.',
-                icon: 'error',
+                title: 'No Data',
+                text: 'No tickets available for export.',
+                icon: 'warning',
                 confirmButtonColor: '#ef070a'
             });
-        } finally {
-            const exportBtn = document.getElementById('exportTickets');
-            if (exportBtn) {
-                exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
-                exportBtn.disabled = false;
+            return;
+        }
+
+        // ✅ TAMBAHKAN: Include filter info dalam export
+        if (window.updateAllTickets && typeof window.updateAllTickets === 'function') {
+            window.updateAllTickets(exportData);
+            
+            // Pass filter info ke export function
+            if (typeof window.setExportFilterInfo === 'function') {
+                const filterInfo = this.getCurrentFilterInfo();
+                window.setExportFilterInfo(filterInfo);
             }
         }
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        if (typeof window.handleExportToExcel === 'function') {
+            await window.handleExportToExcel();
+        } else {
+            await this.fallbackExport(exportData);
+        }
+        
+    } catch (error) {
+        console.error('❌ Export error:', error);
+        await Swal.fire({
+            title: 'Export Failed',
+            text: 'Could not export data. Please try again.',
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
+    } finally {
+        const exportBtn = document.getElementById('exportTickets');
+        if (exportBtn) {
+            exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
+            exportBtn.disabled = false;
+        }
     }
+}
+
+// ✅ METHOD UNTUK GET CURRENT FILTER INFO
+getCurrentFilterInfo() {
+    const info = {
+        status: document.getElementById('statusFilter')?.value || 'all',
+        priority: document.getElementById('priorityFilter')?.value || 'all',
+        dateRange: null
+    };
+    
+    if (this.dateFilter.isActive) {
+        const startDate = this.dateFilter.startDate;
+        const endDate = this.dateFilter.endDate;
+        
+        if (startDate && endDate) {
+            info.dateRange = {
+                start: startDate.toISOString().split('T')[0],
+                end: endDate.toISOString().split('T')[0]
+            };
+        } else if (startDate) {
+            info.dateRange = {
+                start: startDate.toISOString().split('T')[0],
+                end: null
+            };
+        } else if (endDate) {
+            info.dateRange = {
+                start: null,
+                end: endDate.toISOString().split('T')[0]
+            };
+        }
+    }
+    
+    return info;
+}
 
     async fallbackExport(exportData) {
         const headers = ['Code', 'Subject', 'User', 'Department', 'Location', 'Priority', 'Status', 'Created Date'];
