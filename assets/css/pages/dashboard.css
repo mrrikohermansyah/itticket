@@ -51,7 +51,6 @@
 .dashboard-logo {
     height: 40px;
     width: auto;
-    filter: brightness(0);
 }
 
 .header-text h1 {
@@ -849,7 +848,7 @@
 .resolve-modal .swal2-select:focus {
     outline: none;
     border-color: #3b82f6;
-    ring: 2px solid #3b82f6;
+    box-shadow: 0 0 0 3px rgba(239, 7, 10, 0.1);
 }
 
 /* Styling untuk status di user dashboard */
