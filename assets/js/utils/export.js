@@ -1,9 +1,16 @@
 // ======================================================
-// ✅ FIXED js/export.js - Excel Export APPEND WITH ROW INSERTION
+// ✅ FIXED js/export.js - COMPLETE & READY TO USE
 // ======================================================
 
 (function() {
     'use strict';
+
+    console.log("✅ Loading Complete Export Script...");
+
+    // ==================== ✅ INITIALIZATION ====================
+    window.isExporting = false;
+    window.allTickets = window.allTickets || [];
+    window.exportDebounce = false;
 
     // ==================== ✅ EXCELJS LOADER ====================
     window.loadExcelJS = function() {
@@ -15,13 +22,295 @@
 
             const script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
-            script.onload = resolve;
-            script.onerror = reject;
+            script.onload = () => {
+                console.log("✅ ExcelJS loaded successfully");
+                resolve();
+            };
+            script.onerror = (error) => {
+                console.error("❌ Failed to load ExcelJS:", error);
+                reject(error);
+            };
             document.head.appendChild(script);
         });
     };
 
-    // ==================== ✅ IMPROVED APPEND FUNCTION WITH ROW INSERTION ====================
+    // ==================== ✅ FIXED MAIN EXPORT FUNCTION ====================
+    window.exportToExcelAppendSorted = async function(displayedTickets, filterInfo = "My Assigned Tickets") {
+        console.log("🚀 EXPORT STARTED - Tickets:", displayedTickets?.length);
+        
+        try {
+            if (!displayedTickets || displayedTickets.length === 0) {
+                throw new Error("No tickets data available");
+            }
+
+            // ✅ FIXED SWAL CONFIGURATION
+            const result = await Swal.fire({
+                title: "Export Your Tickets",
+                html: `
+                    <div style="text-align: center;">
+                    <p><strong>Export ${displayedTickets.length} tickets</strong></p>
+                    <p style="font-size: 0.9rem; color: #666;">${filterInfo}</p>
+                    </div>
+                `,
+                icon: "question",
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: "📄 Create New",
+                denyButtonText: "📥 Append Existing",
+                cancelButtonText: "Cancel",
+                confirmButtonColor: "#217346",
+                denyButtonColor: "#28a745",
+                cancelButtonColor: "#6b7280",
+                allowOutsideClick: true,
+                allowEscapeKey: true,
+                focusConfirm: false
+            });
+
+            console.log("🎯 User action:", result);
+
+            // ✅ FIXED ACTION DETECTION
+            if (result.isConfirmed) {
+                console.log("📄 Creating new file...");
+                await window.createNewFileWithTemplate(displayedTickets, filterInfo);
+            } else if (result.isDenied) {
+                console.log("📥 Appending to existing file...");
+                await window.appendToExistingExcel(displayedTickets, filterInfo);
+            } else {
+                console.log("❌ Export cancelled by user choice");
+                return;
+            }
+
+        } catch (error) {
+            console.error("❌ Export error:", error);
+            await Swal.fire({
+                title: "Export Failed",
+                text: error.message || "Terjadi kesalahan saat mengekspor data.",
+                icon: "error",
+                confirmButtonColor: "#dc3545",
+            });
+        }
+    };
+
+    // ==================== ✅ FIXED EVENT HANDLER ====================
+    window.handleExportToExcel = async function() {
+        if (window.isExporting) {
+            console.log("⏳ Export in progress, please wait...");
+            return;
+        }
+        
+        try {
+            window.isExporting = true;
+            console.log("🎯 Export button handler started");
+            
+            const tickets = window.getMyAssignedTickets();
+            const filterInfo = window.getCurrentFilterInfo();
+            
+            if (!tickets || tickets.length === 0) {
+                await Swal.fire({
+                    title: "No Tickets",
+                    text: "No tickets available for export.",
+                    icon: "warning",
+                });
+                return;
+            }
+
+            await window.exportToExcelAppendSorted(tickets, filterInfo);
+            
+        } catch (error) {
+            console.error("❌ Handler error:", error);
+        } finally {
+            window.isExporting = false;
+        }
+    };
+
+    // ==================== ✅ HEADER STYLING FUNCTION - FIXED ====================
+window.setHeaderStyling = function(sheet) {
+    try {
+        // Header biasanya ada di row 7 (sesuaikan dengan template Anda)
+        const headerRow = sheet.getRow(7);
+        
+        if (!headerRow) {
+            console.warn("⚠️ Header row not found at row 7");
+            return;
+        }
+
+        console.log("🎯 Setting header styling for row 7");
+
+        // Set alignment untuk setiap kolom header
+        for (let col = 1; col <= 9; col++) {
+            const cell = headerRow.getCell(col);
+            
+            // ✅ SET HEADER ALIGNMENT BERDASARKAN KOLOM
+            if (col === 2) { // Kolom B - Date
+                cell.alignment = { 
+                    horizontal: "right", 
+                    vertical: "middle" 
+                };
+            } else if (col === 4 || col === 9) { // Kolom D & I - Code, QA
+                cell.alignment = { 
+                    horizontal: "center", 
+                    vertical: "middle" 
+                };
+            } else if (col === 8) { // ✅ KOLOM H - Duration - HEADER RATA KIRI
+                cell.alignment = { 
+                    horizontal: "left", 
+                    vertical: "middle" 
+                };
+            } else if (col === 5) { // ✅ KOLOM E - Location - HEADER
+                cell.alignment = { 
+                    horizontal: "center",  
+                    vertical: "middle",
+                    wrapText: true
+                };
+            } else {
+                // Default alignment untuk kolom lainnya
+                cell.alignment = { 
+                    vertical: "middle" 
+                };
+            }
+            
+            // ✅ PERBAIKAN: HAPUS cell.commit() - tidak diperlukan di ExcelJS
+        }
+
+        // ✅ PERBAIKAN: HAPUS headerRow.commit() - tidak diperlukan di ExcelJS
+        console.log("✅ Header styling applied successfully");
+
+    } catch (error) {
+        console.error("❌ Error setting header styling:", error);
+    }
+};
+
+    // ==================== ✅ CREATE NEW FILE WITH TEMPLATE ====================
+    window.createNewFileWithTemplate = async function(displayedTickets, filterInfo = "My Assigned Tickets") {
+        try {
+            if (!displayedTickets || displayedTickets.length === 0) {
+                throw new Error("No tickets data available");
+            }
+
+            console.log("📄 Creating NEW FILE WITH TEMPLATE:", displayedTickets.length, "tickets");
+            await window.loadExcelJS();
+
+            await Swal.fire({
+                title: "Select Template File",
+                text: "Pilih file Excel sebagai template untuk membuat file baru",
+                icon: "info",
+                confirmButtonColor: "#217346",
+            });
+
+            const templateFile = await window.loadFileInput();
+            const templateFileName = templateFile.name;
+            
+            // Read the template file
+            const arrayBuffer = await window.readExistingWorkbook(templateFile);
+            
+            const workbook = new ExcelJS.Workbook();
+            await workbook.xlsx.load(arrayBuffer);
+            
+            // Find the target sheet (latest monthly sheet)
+            const allSheets = workbook.worksheets;
+            const sheetNames = allSheets.map(ws => ws.name);
+            const monthlySheets = sheetNames.filter(name => /^\d{4}-\d{2}$/.test(name));
+            
+            if (monthlySheets.length === 0) {
+                throw new Error("No monthly sheets (YYYY-MM format) found in the template file");
+            }
+
+            monthlySheets.sort().reverse();
+            const targetSheetName = monthlySheets[0];
+            const sheet = workbook.getWorksheet(targetSheetName);
+            
+            console.log(`📊 Using template sheet: "${targetSheetName}"`);
+
+            // ✅ APPLY HEADER STYLING SEBELUM MEMASUKKAN DATA
+            window.setHeaderStyling(sheet);
+
+            // Step 1: Find the last data row in template
+            const lastDataRow = window.findLastDataRowSimple(sheet);
+            console.log(`📍 Last data row in template: ${lastDataRow}`);
+            
+            // Step 2: Find signature area in template
+            const signatureRow = window.findSignatureRowSimple(sheet, lastDataRow);
+            console.log(`📝 Signature area in template: ${signatureRow}`);
+            
+            // Step 3: Clear existing data (keep only headers and structure)
+            const startDataRow = 8; // Assuming data starts at row 8
+            if (lastDataRow >= startDataRow) {
+                console.log(`🧹 Clearing existing data from row ${startDataRow} to ${lastDataRow}`);
+                
+                // Clear data but keep formatting
+                for (let row = startDataRow; row <= lastDataRow; row++) {
+                    try {
+                        const currentRow = sheet.getRow(row);
+                        if (currentRow) {
+                            // Clear cell values but keep formatting
+                            for (let col = 1; col <= 9; col++) {
+                                const cell = currentRow.getCell(col);
+                                cell.value = null;
+                            }
+                        }
+                    } catch (e) {
+                        console.log(`Row ${row} doesn't exist or cannot be cleared`);
+                    }
+                }
+            }
+
+            // Step 4: Insert tickets data starting from data start row
+            const startInsertRow = startDataRow;
+            const addedCount = window.insertTicketsDataWithFormatting(sheet, displayedTickets, startInsertRow, startDataRow - 1);
+
+            // Step 5: Generate new filename
+            const timestamp = new Date().toISOString().split('T')[0];
+            const baseName = templateFileName.replace(/\.(xlsx|xls)$/, '');
+            const newFileName = `${baseName}_new_${timestamp}.xlsx`;
+
+            // Step 6: Save the new file
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], {
+                type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            });
+
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = newFileName;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            // Success message
+            await Swal.fire({
+                title: "✅ New File Created!",
+                html: `
+                    <div style="text-align: center;">
+                    <p><strong>${addedCount} tickets exported successfully!</strong></p>
+                    <p style="font-size: 0.9rem; color: #666;">File: ${newFileName}</p>
+                    <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Template: "${templateFileName}"</p>
+                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Sheet: "${targetSheetName}"</p>
+                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Header styling applied to column E</p>
+                    </div>
+                    </div>
+                `,
+                icon: "success",
+                confirmButtonColor: "#217346",
+                timer: 2000,
+                timerProgressBar: true,
+            });
+
+        } catch (error) {
+            console.error("❌ Create new file error:", error);
+            await Swal.fire({
+                title: "Create New File Failed",
+                text: error.message || "Terjadi kesalahan saat membuat file baru",
+                icon: "error",
+                confirmButtonColor: "#dc3545",
+            });
+        }
+    };
+
+    // ==================== ✅ APPEND TO EXISTING FILE ====================
     window.appendToExistingExcel = async function(displayedTickets, filterInfo = "My Assigned Tickets") {
         try {
             if (!displayedTickets || displayedTickets.length === 0) {
@@ -61,6 +350,9 @@
             const sheet = workbook.getWorksheet(targetSheetName);
             
             console.log(`📊 Using sheet: "${targetSheetName}"`);
+
+            // ✅ APPLY HEADER STYLING
+            window.setHeaderStyling(sheet);
 
             // Step 1: Find the last data row
             const lastDataRow = window.findLastDataRowSimple(sheet);
@@ -106,31 +398,27 @@
             a.href = url;
             
             // Generate filename
-            const baseName = existingFileName.replace(/\.(xlsx|xls)$/, '');
-            const timestamp = new Date().toISOString().split('T')[0];
-            a.download = `${baseName}_updated_${timestamp}.xlsx`;
+            a.download = existingFileName;
             
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-            // Success message
+            // Info message bahwa file akan disimpan di folder Downloads
             await Swal.fire({
-                title: "✅ Update Successful!",
+                title: "✅ File Ready for Download",
                 html: `
                     <div style="text-align: center;">
-                    <p><strong>${addedCount} tickets added successfully!</strong></p>
-                    <p style="font-size: 0.9rem; color: #666;">File: ${a.download}</p>
+                    <p><strong>File akan disimpan di folder Downloads Anda</strong></p>
+                    <p style="font-size: 0.9rem; color: #666;">Nama file: <strong>${existingFileName}</strong></p>
                     <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
-                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Sheet: "${targetSheetName}"</p>
-                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• ${rowsToInsert} new rows inserted</p>
-                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Data starts from row ${startInsertRow}</p>
-                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Signature area preserved and shifted down</p>
+                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Browser akan menyimpan file di folder Downloads</p>
+                        <p style="font-size: 0.8rem; margin: 0.2rem 0;">• Anda bisa pindahkan file ke folder lain setelah download</p>
                     </div>
                     </div>
                 `,
-                icon: "success",
+                icon: "info",
                 confirmButtonColor: "#28a745",
                 timer: 2000,
                 timerProgressBar: true,
@@ -208,209 +496,154 @@
         return 0; // No signature found
     };
 
-   // ==================== ✅ IMPROVED HELPER FUNCTIONS ====================
+    // Improved function to insert tickets data with proper formatting
+    window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, lastDataRow) {
+        const sortedTickets = window.sortTicketsByDate(tickets);
+        let currentRow = startRow;
+        
+        console.log(`📝 Inserting ${sortedTickets.length} tickets starting at row ${startRow}, lastDataRow: ${lastDataRow}`);
 
-// ==================== ✅ IMPROVED HELPER FUNCTIONS ====================
+        // ✅ DAPATKAN REFERENCE STYLING SEBELUM LOOP
+        let referenceHeight = 18.75; // default fallback
+        let referenceBorders = {}; // untuk menyimpan border style per kolom
+        
+        try {
+            if (lastDataRow && lastDataRow > 0) {
+                const referenceRow = sheet.getRow(lastDataRow);
+                if (referenceRow) {
+                    // Ambil height
+                    if (referenceRow.height) {
+                        referenceHeight = referenceRow.height;
+                        console.log(`📏 Reference row height from row ${lastDataRow}: ${referenceHeight}`);
+                    }
+                    
+                    // Ambil border styling untuk setiap kolom
+                    for (let col = 1; col <= 9; col++) {
+                        try {
+                            const referenceCell = referenceRow.getCell(col);
+                            if (referenceCell.border) {
+                                referenceBorders[col] = { ...referenceCell.border };
+                                console.log(`🎨 Reference border for col ${col}:`, referenceBorders[col]);
+                            }
+                        } catch (e) {
+                            // Skip jika kolom tidak ada
+                        }
+                    }
+                } else {
+                    console.log(`📏 No reference row found, using default styling`);
+                }
+            } else {
+                console.log(`📏 Invalid lastDataRow, using default styling`);
+            }
+        } catch (error) {
+            console.warn(`📏 Error getting reference styling, using default`, error);
+        }
 
-// Improved function to insert tickets data with proper formatting
-window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, lastDataRow) {
-    const sortedTickets = window.sortTicketsByDate(tickets);
-    let currentRow = startRow;
-    
-    console.log(`📝 Inserting ${sortedTickets.length} tickets starting at row ${startRow}, lastDataRow: ${lastDataRow}`);
+        sortedTickets.forEach((ticket, index) => {
+            const durationText = window.calculateDurationForExport(ticket);
+            const ticketStatus = ticket.status_ticket || ticket.status || "Open";
+            const kendaliMutu = (ticketStatus === "Resolved" || ticketStatus === "Closed") ? "Finish" : "Continue";
+            const deviceCode = window.getDeviceCode(ticket.device);
 
-    // ✅ DAPATKAN REFERENCE STYLING SEBELUM LOOP
-    let referenceHeight = 18.75; // default fallback
-    let referenceBorders = {}; // untuk menyimpan border style per kolom
-    
-    try {
-        if (lastDataRow && lastDataRow > 0) {
-            const referenceRow = sheet.getRow(lastDataRow);
-            if (referenceRow) {
-                // Ambil height
-                if (referenceRow.height) {
-                    referenceHeight = referenceRow.height;
-                    console.log(`📏 Reference row height from row ${lastDataRow}: ${referenceHeight}`);
+            const rowData = [
+                null, // Kolom A kosong
+                window.formatDateForExcel(ticket.createdAt || ticket.last_updated),
+                ticket.inventory || "-",
+                deviceCode,
+                ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
+                ticket.note || "-",
+                ticket.name || ticket.user_name || "-",
+                durationText,
+                kendaliMutu,
+            ];
+
+            // Get the row (should already exist due to insertion)
+            let row = sheet.getRow(currentRow);
+            
+            if (!row) {
+                console.warn(`⚠️ Row ${currentRow} doesn't exist, creating new row`);
+                sheet.addRow([]);
+                row = sheet.getRow(currentRow);
+            }
+
+            // Apply data to cells with proper formatting
+            rowData.forEach((value, colIndex) => {
+                const cell = row.getCell(colIndex + 1);
+                cell.value = value;
+                
+                // Apply consistent formatting
+                cell.font = { 
+                    name: "Arial", 
+                    size: 10 
+                };
+                
+                // Set alignment based on column
+                if (colIndex + 1 === 2) { // Date column
+                    cell.alignment = { 
+                        horizontal: "right", 
+                        vertical: "top" 
+                    };
+                } else if (colIndex + 1 === 4 || colIndex + 1 === 9) { // Code, Duration, QA
+                    cell.alignment = { 
+                        horizontal: "center", 
+                        vertical: "top" 
+                    };
+                }
+                else if (colIndex + 1 === 8) { // Code, Duration, QA
+                    cell.alignment = { 
+                        horizontal: "left", 
+                        vertical: "center" 
+                    };
+                }
+                else if (colIndex + 1 === 5) { // ✅ KOLOM 5 - Location - RATA KIRI
+                    cell.alignment = { 
+                        horizontal: "left", 
+                        vertical: "top",
+                        wrapText: true
+                    };
+                } else {
+                    cell.alignment = { 
+                        vertical: "top" 
+                    };
                 }
                 
-                // Ambil border styling untuk setiap kolom
-                for (let col = 1; col <= 9; col++) {
-                    try {
-                        const referenceCell = referenceRow.getCell(col);
-                        if (referenceCell.border) {
-                            referenceBorders[col] = { ...referenceCell.border };
-                            console.log(`🎨 Reference border for col ${col}:`, referenceBorders[col]);
-                        }
-                    } catch (e) {
-                        // Skip jika kolom tidak ada
+                // ✅ APPLY BORDER STYLING DARI REFERENCE
+                if (referenceBorders[colIndex + 1]) {
+                    // Gunakan border dari reference
+                    cell.border = { ...referenceBorders[colIndex + 1] };
+                } else {
+                    // Fallback border styling
+                    cell.border = {
+                        top: { style: "hair" },
+                        left: { style: "hair" },
+                        bottom: { style: "hair" },
+                        right: { style: "hair" }
+                    };
+                    
+                    // Left and right thick borders for first and last columns
+                    if (colIndex + 1 === 1) {
+                        cell.border.left = { style: "thick" };
+                    }
+                    if (colIndex + 1 === 9) {
+                        cell.border.right = { style: "thick" };
                     }
                 }
-            } else {
-                console.log(`📏 No reference row found, using default styling`);
-            }
-        } else {
-            console.log(`📏 Invalid lastDataRow, using default styling`);
-        }
-    } catch (error) {
-        console.warn(`📏 Error getting reference styling, using default`, error);
-    }
+            });
 
-    sortedTickets.forEach((ticket, index) => {
-        const durationText = window.calculateDurationForExport(ticket);
-        const ticketStatus = ticket.status_ticket || ticket.status || "Open";
-        const kendaliMutu = (ticketStatus === "Resolved" || ticketStatus === "Closed") ? "Finish" : "Continue";
-        const deviceCode = window.getDeviceCode(ticket.device);
-
-        const rowData = [
-            null, // Kolom A kosong
-            window.formatDateForExcel(ticket.createdAt || ticket.last_updated),
-            ticket.inventory || "-",
-            deviceCode,
-            ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
-            ticket.note || "-",
-            ticket.name || ticket.user_name || "-",
-            durationText,
-            kendaliMutu,
-        ];
-
-        // Get the row (should already exist due to insertion)
-        let row = sheet.getRow(currentRow);
-        
-        if (!row) {
-            console.warn(`⚠️ Row ${currentRow} doesn't exist, creating new row`);
-            sheet.addRow([]);
-            row = sheet.getRow(currentRow);
-        }
-
-        // Apply data to cells with proper formatting
-        rowData.forEach((value, colIndex) => {
-            const cell = row.getCell(colIndex + 1);
-            cell.value = value;
+            // ✅ GUNAKAN REFERENCE HEIGHT
+            row.height = referenceHeight;
             
-            // Apply consistent formatting
-            cell.font = { 
-                name: "Arial", 
-                size: 10 
-            };
             
-            // Set alignment based on column
-            if (colIndex + 1 === 2) { // Date column
-                cell.alignment = { 
-                    horizontal: "right", 
-                    vertical: "top" 
-                };
-            } else if (colIndex + 1 === 4 || colIndex + 1 === 9) { // Code, Duration, QA
-                cell.alignment = { 
-                    horizontal: "center", 
-                    vertical: "top" 
-                };
-            }else if(colIndex + 1 === 8){ // Inventory column
-                cell.alignment = { 
-                    horizontal: "left", 
-                    vertical: "center" 
-                };
-            } else {
-                cell.alignment = { 
-                    vertical: "top" 
-                };
-            }
             
-            // ✅ APPLY BORDER STYLING DARI REFERENCE
-            if (referenceBorders[colIndex + 1]) {
-                // Gunakan border dari reference
-                cell.border = { ...referenceBorders[colIndex + 1] };
-            } else {
-                // Fallback border styling
-                cell.border = {
-                    top: { style: "hair" },
-                    left: { style: "hair" },
-                    bottom: { style: "hair" },
-                    right: { style: "hair" }
-                };
-                
-                // Left and right thick borders for first and last columns
-                if (colIndex + 1 === 1) {
-                    cell.border.left = { style: "thick" };
-                }
-                if (colIndex + 1 === 9) {
-                    cell.border.right = { style: "thick" };
-                }
-            }
+            console.log(`✅ Inserted ticket ${index + 1} at row ${currentRow} with matching styling`);
+            currentRow++;
         });
 
-        // ✅ GUNAKAN REFERENCE HEIGHT
-        row.height = referenceHeight;
-        
-        row.commit();
-        
-        console.log(`✅ Inserted ticket ${index + 1} at row ${currentRow} with matching styling`);
-        currentRow++;
-    });
-
-    console.log(`🎉 Successfully inserted ${sortedTickets.length} tickets with EXACT formatting from existing file`);
-    return sortedTickets.length;
-};
-
-    // ==================== ✅ UPDATE MAIN EXPORT FUNCTION ====================
-    // Backup original function first
-    if (!window.originalExportToExcelAppendSorted) {
-        window.originalExportToExcelAppendSorted = window.exportToExcelAppendSorted;
-    }
-
-    window.exportToExcelAppendSorted = async function(displayedTickets, filterInfo = "My Assigned Tickets") {
-        try {
-            if (!displayedTickets || displayedTickets.length === 0) {
-                throw new Error("No tickets data available");
-            }
-
-            // Ask user for action
-            const { value: action } = await Swal.fire({
-                title: "Export Your Tickets",
-                html: `
-                    <div style="text-align: center;">
-                    <i class="fa-solid fa-file-excel" style="font-size: 3rem; color: #217346; margin-bottom: 1rem;"></i>
-                    <p><strong>Export ${displayedTickets.length} tickets</strong></p>
-                    <p style="font-size: 0.9rem; color: #666;">${filterInfo}</p>
-                    <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
-                        <p style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Choose export method:</strong></p>
-                        <p style="font-size: 0.7rem; color: #666;">• <strong>Create New:</strong> Buat file Excel baru</p>
-                        <p style="font-size: 0.7rem; color: #666;">• <strong>Append Existing:</strong> Tambah baris baru & data ke file yang sudah ada</p>
-                    </div>
-                    </div>
-                `,
-                icon: "question",
-                showDenyButton: true,
-                showCancelButton: true,
-                confirmButtonText: "Create New File",
-                denyButtonText: "Append to Existing File",
-                cancelButtonText: "Cancel",
-                confirmButtonColor: "#217346",
-                denyButtonColor: "#28a745",
-                cancelButtonColor: "#6b7280",
-            });
-
-            if (action === undefined) return; // Cancelled
-
-            if (action === false) {
-                // Use the NEW improved append function with row insertion
-                await window.appendToExistingExcel(displayedTickets, filterInfo);
-            } else {
-                // Use ORIGINAL function for new file creation (TIDAK DIUBAH)
-                await window.originalExportToExcelAppendSorted(displayedTickets, filterInfo);
-            }
-
-        } catch (error) {
-            console.error("Export error:", error);
-            await Swal.fire({
-                title: "Export Failed",
-                text: error.message || "Terjadi kesalahan saat mengekspor data.",
-                icon: "error",
-                confirmButtonColor: "#dc3545",
-            });
-        }
+        console.log(`🎉 Successfully inserted ${sortedTickets.length} tickets with EXACT formatting from existing file`);
+        return sortedTickets.length;
     };
 
-    // ==================== ✅ CORE FUNCTIONS (SAMA SEPERTI SEBELUMNYA) ====================
+    // ==================== ✅ CORE FUNCTIONS ====================
 
     window.parseUniversalTimestamp = function(timestamp) {
         if (!timestamp) return null;
@@ -512,7 +745,7 @@ window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, last
         return "OT";
     };
 
-    // ==================== ✅ OTHER ESSENTIAL FUNCTIONS ====================
+    // ==================== ✅ FILE HANDLING FUNCTIONS ====================
 
     window.loadFileInput = function() {
         return new Promise((resolve, reject) => {
@@ -564,7 +797,7 @@ window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, last
         });
     };
 
-    // ==================== ✅ ADMIN USER & TICKET FUNCTIONS ====================
+    // ==================== ✅ TICKET DATA FUNCTIONS ====================
 
     window.getCurrentAdminUser = function() {
         try {
@@ -662,32 +895,36 @@ window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, last
 
     window.getAllAvailableTickets = function() {
         try {
-            if (window.adminDashboard) {
-                if (window.adminDashboard.filteredTickets && window.adminDashboard.filteredTickets.length > 0) {
-                    return window.adminDashboard.filteredTickets;
+            // Coba berbagai sumber data
+            const possibleSources = [
+                window.adminDashboard?.filteredTickets,
+                window.adminDashboard?.tickets,
+                window.adminData?.tickets,
+                window.allTickets,
+                window.ticketData,
+                window.tickets
+            ];
+            
+            for (const source of possibleSources) {
+                if (source && Array.isArray(source) && source.length > 0) {
+                    console.log("📦 Found tickets source:", source.length, "tickets");
+                    return source;
                 }
-                if (window.adminDashboard.tickets && window.adminDashboard.tickets.length > 0) {
-                    return window.adminDashboard.tickets;
-                }
             }
             
-            if (window.adminData && window.adminData.tickets) {
-                return window.adminData.tickets;
+            // Fallback ke localStorage
+            const savedTickets = localStorage.getItem("tickets-backup");
+            if (savedTickets) {
+                const tickets = JSON.parse(savedTickets);
+                console.log("📦 Using backup tickets:", tickets.length);
+                return tickets;
             }
             
-            if (window.allTickets && Array.isArray(window.allTickets)) {
-                return window.allTickets;
-            }
-            
-            const recoveredTickets = window.recoverTicketsData();
-            if (recoveredTickets) {
-                return recoveredTickets;
-            }
-            
+            console.warn("❌ No tickets found in any source");
             return [];
             
         } catch (error) {
-            console.error("? Error getting all available tickets:", error);
+            console.error("❌ Error getting tickets:", error);
             return [];
         }
     };
@@ -738,58 +975,25 @@ window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, last
         }
     };
 
-    // ==================== ✅ WRAPPER FUNCTION ====================
-    window.handleExportToExcel = async function() {
-        try {
-            const currentUser = window.getCurrentAdminUser();
-            if (!currentUser) {
-                await Swal.fire({
-                    title: "Authentication Required",
-                    text: "Please login to export your assigned tickets.",
-                    icon: "warning",
-                    confirmButtonColor: "#ef070a",
-                });
-                return;
+    // ==================== ✅ EVENT HANDLER SETUP ====================
+
+    function initializeExportHandler() {
+        document.removeEventListener('click', window.exportButtonHandler);
+        
+        window.exportButtonHandler = function(e) {
+            const exportBtn = e.target.closest('#exportToExcelBtn, .export-excel-btn, [onclick*="export"], button[onclick*="handleExportToExcel"]');
+            if (exportBtn) {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                console.log("🔄 Export button detected");
+                window.handleExportToExcel();
             }
-
-            const myTickets = window.getMyAssignedTickets();
-            const filterInfo = window.getCurrentFilterInfo();
-
-            if (!myTickets || myTickets.length === 0) {
-                await Swal.fire({
-                    title: "No Tickets Assigned To You",
-                    html: `
-                        <div style="text-align: left;">
-                        <p><strong>You don't have any tickets assigned to your account.</strong></p>
-                        <p><strong>Current User:</strong> ${currentUser.name || currentUser.email}</p>
-                        <p><strong>To get tickets assigned to you:</strong></p>
-                        <ul>
-                            <li>Click "Take" button on unassigned tickets</li>
-                            <li>Ask Super Admin to assign tickets to you</li>
-                        </ul>
-                        </div>
-                    `,
-                    icon: "info",
-                    confirmButtonColor: "#ef070a",
-                });
-                return;
-            }
-
-            await window.exportToExcelAppendSorted(myTickets, filterInfo);
-            
-        } catch (error) {
-            console.error("?? Export handler error:", error);
-            await Swal.fire({
-                title: "Export Failed",
-                text: "Could not start export process. Please try again.",
-                icon: "error",
-                confirmButtonColor: "#ef070a",
-            });
-        }
-    };
+        };
+        
+        document.addEventListener('click', window.exportButtonHandler, true);
+    }
 
     // ==================== ✅ GLOBAL INITIALIZATION ====================
-    window.allTickets = window.allTickets || [];
 
     window.updateAllTickets = function(newTickets) {
         if (Array.isArray(newTickets)) {
@@ -805,6 +1009,20 @@ window.insertTicketsDataWithFormatting = function(sheet, tickets, startRow, last
     // Update global export function
     window.exportToExcel = window.exportToExcelAppendSorted;
 
-    console.log("✅ Improved Export JS loaded - ROW INSERTION MODE (Append Only Fixed)");
+    // Override any existing problematic functions
+    if (typeof window.exportToExcel === 'function') {
+        window.originalExportToExcel = window.exportToExcel;
+        window.exportToExcel = window.exportToExcelAppendSorted;
+    }
+
+    // Cleanup function
+    window.cleanupExportHandlers = function() {
+        document.removeEventListener('click', window.exportButtonHandler);
+        console.log("🧹 Export handlers cleaned up");
+    };
+
+    // Initialize everything
+    initializeExportHandler();
+    console.log("✅ Complete Export Script Loaded Successfully - HEADER STYLING READY");
 
 })();
