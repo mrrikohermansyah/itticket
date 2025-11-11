@@ -47,33 +47,278 @@ const auth = getAuth(app);
 // Admin Dashboard dengan Permission System
 class AdminDashboard {
     constructor() {
-        this.adminUser = null;
-        this.tickets = [];
-        this.filteredTickets = [];
-        this.currentFilter = 'all';
-        this.userUnsubscribe = null;
-        this.unsubscribe = null;
-        this.db = db;
-        this.auth = auth;
-        this.currentUpdatingTicketId = null;
+    this.adminUser = null;
+    this.tickets = [];
+    this.filteredTickets = [];
+    this.currentFilter = 'all';
+    this.userUnsubscribe = null;
+    this.unsubscribe = null;
+    this.db = db;
+    this.auth = auth;
+    this.currentUpdatingTicketId = null;
+    this.ticketModalUnsubscribe = null;
+    this.currentModalTicketId = null;
 
-        // ✅ TAMBAHKAN INI: Date filter properties
+    // ✅ TAMBAHKAN INI: Date filter properties
     this.dateFilter = {
         startDate: null,
         endDate: null,
         isActive: false
     };
+    
+    this.init();
+}
+
+
+
+async init() {
+    try {
+        console.log('🚀 Admin Dashboard initializing...');
         
-         this.handleTableClick = this.handleTableClick.bind(this);
+        // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
+        this.handleTableClick = this.handleTableClick.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
         this.handleDateChange = this.handleDateChange.bind(this);
         this.handleTodayClick = this.handleTodayClick.bind(this);
         this.handleClearDateClick = this.handleClearDateClick.bind(this);
         this.applyAllFilters = this.applyAllFilters.bind(this);
         this.filterTickets = this.filterTickets.bind(this);
+        this.handleExport = this.handleExport.bind(this);
+        this.handleManageTeam = this.handleManageTeam.bind(this);
         
-        this.init();
+        // ✅ CHECK DOM ELEMENTS FIRST
+        this.checkDOMElements();
+        
+        // Cek auth status
+        await this.checkAuth();
+        
+        // Load admin info
+        this.loadAdminInfo();
+        
+        // Setup event listeners
+        this.initializeEventListeners();
+        
+        // Initialize update form
+        this.initializeUpdateForm();
+        
+        // Load tickets
+        await this.loadTickets();
+        
+        // ✅ SETUP BOTH REAL-TIME LISTENERS
+        this.setupRealTimeListener();       // Untuk tickets
+        this.setupUserDataListener();       // Untuk user data
+        
+        console.log('✅ Admin Dashboard ready');
+        
+    } catch (error) {
+        console.error('❌ Admin Dashboard init error:', error);
     }
+}
+
+// ✅ PASTIKAN METHOD handleManageTeam SUDAH DIDEKLARASIKAN
+async handleManageTeam(e) {
+    e.preventDefault();
+    window.location.href = 'manage-team.html';
+}
+
+// ✅ PASTIKAN METHOD handleExport SUDAH DIDEKLARASIKAN
+async handleExport() {
+    try {
+        console.log('📤 Export button clicked');
+        await this.handleExportWithCustomDialog();
+    } catch (error) {
+        console.error('❌ Export error:', error);
+        await Swal.fire({
+            title: 'Export Failed',
+            text: 'Failed to export tickets: ' + error.message,
+            icon: 'error'
+        });
+    }
+}
+
+// ✅ ALTERNATIF: Custom Export Dialog dengan Pilihan Eksplisit
+async handleExportWithCustomDialog() {
+    try {
+        const exportBtn = document.getElementById('exportTickets');
+        const originalText = exportBtn?.innerHTML || '';
+        
+        if (exportBtn) {
+            exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
+            exportBtn.disabled = true;
+        }
+
+        const exportData = this.getDisplayedTicketsForExport();
+        
+        if (exportData.length === 0) {
+            await Swal.fire({
+                title: 'No Data',
+                text: 'No tickets available for export.',
+                icon: 'warning',
+                confirmButtonColor: '#ef070a'
+            });
+            return;
+        }
+
+        console.log(`📊 Preparing to export ${exportData.length} tickets`);
+        
+        // Update global data
+        if (typeof window.updateAllTickets === 'function') {
+            window.updateAllTickets(exportData);
+        }
+
+        // Set filter info
+        if (typeof window.setExportFilterInfo === 'function') {
+            const filterInfo = this.getCurrentFilterInfo();
+            window.setExportFilterInfo(filterInfo);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await this.fixExportCompatibility();
+
+        // ✅ CUSTOM DIALOG UNTUK PILIHAN EXPORT
+        const { value: exportAction } = await Swal.fire({
+            title: 'Export Tickets',
+            html: `
+                <div style="text-align: center;">
+                    <i class="fas fa-file-excel" style="font-size: 3rem; color: #217346; margin-bottom: 1rem;"></i>
+                    <p><strong>Export ${exportData.length} tickets</strong></p>
+                    <p style="font-size: 0.9rem; color: #666;">${this.getCurrentFilterInfo()}</p>
+                    <div style="margin-top: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 0.5rem;">
+                        <p style="font-size: 0.8rem; margin-bottom: 0.5rem;"><strong>Choose export method:</strong></p>
+                        <p style="font-size: 0.7rem; color: #666;">• <strong>Create New:</strong> Buat file Excel baru</p>
+                        <p style="font-size: 0.7rem; color: #666;">• <strong>Append Existing:</strong> Tambah baris baru & data ke file yang sudah ada</p>
+                    </div>
+                </div>
+            `,
+            icon: 'question',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: 'Create New File',
+            denyButtonText: 'Append to Existing File',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#217346',
+            denyButtonColor: '#28a745',
+            cancelButtonColor: '#6b7280',
+        });
+
+        if (exportAction === undefined) {
+            console.log('❌ Export cancelled by user');
+            return; // Cancelled
+        }
+
+        let exportSuccess = false;
+
+        if (exportAction === false) {
+            // Append to Existing File
+            console.log('📥 User chose: Append to Existing File');
+            if (typeof window.appendToExistingExcel === 'function') {
+                try {
+                    await window.appendToExistingExcel(exportData, this.getCurrentFilterInfo());
+                    exportSuccess = true;
+                } catch (error) {
+                    console.error('❌ Append export failed:', error);
+                    await Swal.fire({
+                        title: 'Append Failed',
+                        text: 'Failed to append to existing file: ' + error.message,
+                        icon: 'error'
+                    });
+                }
+            } else {
+                console.error('❌ appendToExistingExcel function not found');
+            }
+        } else {
+            // Create New File
+            console.log('🆕 User chose: Create New File');
+            if (typeof window.originalExportToExcelAppendSorted === 'function') {
+                try {
+                    await window.originalExportToExcelAppendSorted(exportData, this.getCurrentFilterInfo());
+                    exportSuccess = true;
+                } catch (error) {
+                    console.error('❌ New file export failed:', error);
+                    await Swal.fire({
+                        title: 'Export Failed',
+                        text: 'Failed to create new file: ' + error.message,
+                        icon: 'error'
+                    });
+                }
+            } else if (typeof window.exportToExcelAppendSorted === 'function') {
+                try {
+                    await window.exportToExcelAppendSorted(exportData, this.getCurrentFilterInfo());
+                    exportSuccess = true;
+                } catch (error) {
+                    console.error('❌ Export failed:', error);
+                }
+            }
+        }
+
+        if (!exportSuccess) {
+            // Fallback to CSV
+            console.log('🔄 Using fallback CSV export...');
+            await this.fallbackExport(exportData);
+        }
+        
+    } catch (error) {
+        console.error('❌ Export error:', error);
+        await Swal.fire({
+            title: 'Export Failed',
+            text: 'Could not export data: ' + error.message,
+            icon: 'error',
+            confirmButtonColor: '#ef070a'
+        });
+    } finally {
+        const exportBtn = document.getElementById('exportTickets');
+        if (exportBtn) {
+            exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
+            exportBtn.disabled = false;
+        }
+    }
+}
+
+// ✅ DEBUG: Check export functionality
+debugExportFunctionality() {
+    console.log('🔍 Checking export functionality...');
+    
+    // Check if export button exists
+    const exportBtn = document.getElementById('exportTickets');
+    console.log('📤 Export button:', exportBtn);
+    
+    // Check if event listener is attached
+    if (exportBtn) {
+        const clickEvents = exportBtn.onclick;
+        console.log('🎯 Export button click events:', clickEvents);
+    }
+    
+    // Check if method exists
+    console.log('🔧 handleExport method exists:', typeof this.handleExport === 'function');
+    console.log('🔧 handleExportWithCustomDialog method exists:', typeof this.handleExportWithCustomDialog === 'function');
+}
+
+async init() {
+    try {
+        console.log('🚀 Admin Dashboard initializing...');
+        
+        // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
+        this.handleTableClick = this.handleTableClick.bind(this);
+        this.handleLogout = this.handleLogout.bind(this);
+        this.handleDateChange = this.handleDateChange.bind(this);
+        this.handleTodayClick = this.handleTodayClick.bind(this);
+        this.handleClearDateClick = this.handleClearDateClick.bind(this);
+        this.applyAllFilters = this.applyAllFilters.bind(this);
+        this.filterTickets = this.filterTickets.bind(this);
+        this.handleExport = this.handleExport.bind(this);
+        this.handleManageTeam = this.handleManageTeam.bind(this);
+        
+        // ✅ CHECK DOM ELEMENTS FIRST
+        this.checkDOMElements();
+        
+        // ✅ DEBUG EXPORT FUNCTIONALITY
+        this.debugExportFunctionality();
+        
+        // ... rest of init code
+    } catch (error) {
+        console.error('❌ Admin Dashboard init error:', error);
+    }
+}
 
 applyAllFilters() {
     console.log('🔍 Applying all filters...');
@@ -462,6 +707,17 @@ filterTickets() {
     async init() {
         try {
             console.log('🚀 Admin Dashboard initializing...');
+
+            // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
+        this.handleTableClick = this.handleTableClick.bind(this);
+        this.handleLogout = this.handleLogout.bind(this);
+        this.handleDateChange = this.handleDateChange.bind(this);
+        this.handleTodayClick = this.handleTodayClick.bind(this);
+        this.handleClearDateClick = this.handleClearDateClick.bind(this);
+        this.applyAllFilters = this.applyAllFilters.bind(this);
+        this.filterTickets = this.filterTickets.bind(this);
+        this.handleExport = this.handleExport.bind(this);
+        this.handleExportWithCustomDialog = this.handleExportWithCustomDialog.bind(this); // ← TAMBAHKAN INI
             
             // ✅ CHECK DOM ELEMENTS FIRST
             this.checkDOMElements();
@@ -1197,9 +1453,7 @@ isOnUsersPage() {
     // Manage Team Button
     const manageTeamBtn = document.getElementById('manageTeamBtn');
     if (manageTeamBtn) {
-        manageTeamBtn.addEventListener('click', (e) => {
-            this.handleManageTeam(e);
-        });
+        manageTeamBtn.addEventListener('click', this.handleManageTeam);
     }
 
     // Filters
@@ -1207,15 +1461,11 @@ isOnUsersPage() {
     const priorityFilter = document.getElementById('priorityFilter');
     
     if (statusFilter) {
-        statusFilter.addEventListener('change', () => {
-            this.filterTickets();
-        });
+        statusFilter.addEventListener('change', this.filterTickets);
     }
     
     if (priorityFilter) {
-        priorityFilter.addEventListener('change', () => {
-            this.filterTickets();
-        });
+        priorityFilter.addEventListener('change', this.filterTickets);
     }
 
     // ✅ TAMBAHKAN INI: Date Filter Listeners
@@ -1245,12 +1495,10 @@ isOnUsersPage() {
         tableBody.addEventListener('click', this.handleTableClick);
     }
 
-    // Export button
+    // Export button - ✅ PERBAIKAN: Gunakan method yang sudah di-bind
     const exportBtn = document.getElementById('exportTickets');
     if (exportBtn) {
-        exportBtn.addEventListener('click', () => {
-            this.handleExport();
-        });
+        exportBtn.addEventListener('click', this.handleExport); // ← INI YANG DIPERBAIKI
     }
 
     console.log('✅ All event listeners initialized');
@@ -2445,55 +2693,38 @@ updateFilterInfoDisplay(filterInfo) {
     }
 
     // ✅ METHOD VIEW TICKET
-    async viewTicket(ticketId) {
-        try {
-            console.log(`👀 Viewing ticket: ${ticketId}`);
-            
-            // Cek dulu di local data
-            const localTicket = this.tickets.find(t => t.id === ticketId);
-            if (!localTicket) {
-                console.error('❌ Ticket not found in local data');
-                await Swal.fire({
-                    title: 'Error!',
-                    text: 'Ticket not found in local data',
-                    icon: 'error',
-                    confirmButtonColor: '#ef070a'
-                });
-                return;
-            }
-
-            console.log('📋 Local ticket data:', localTicket);
-
-            // Ambil data terbaru dari Firestore
+    // ✅ UPDATE VIEW TICKET METHOD UNTUK REAL-TIME
+async viewTicket(ticketId) {
+    try {
+        console.log(`👀 Viewing ticket with real-time: ${ticketId}`);
+        
+        // Set current modal ticket
+        this.currentModalTicketId = ticketId;
+        
+        // Cek cached data dulu untuk loading cepat
+        const cachedTicket = this.tickets.find(t => t.id === ticketId);
+        if (cachedTicket) {
+            console.log('📦 Using cached ticket data for initial display');
+            await this.showTicketModal(ticketId);
+        } else {
+            // Fallback: load dari Firestore
             const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
-            
-            if (!ticketDoc.exists()) {
-                console.error('❌ Ticket not found in Firestore');
-                await Swal.fire({
-                    title: 'Error!',
-                    text: 'Ticket not found in database',
-                    icon: 'error',
-                    confirmButtonColor: '#ef070a'
-                });
-                return;
+            if (ticketDoc.exists()) {
+                await this.showTicketModal(ticketId);
+            } else {
+                throw new Error('Ticket not found');
             }
-
-            const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
-            console.log('🎫 Ticket data from Firestore:', ticket);
-            
-            // Show ticket details in modal
-            await this.showTicketModal(ticket);
-            
-        } catch (error) {
-            console.error('❌ Error viewing ticket:', error);
-            await Swal.fire({
-                title: 'Error!',
-                text: 'Failed to load ticket details: ' + error.message,
-                icon: 'error',
-                confirmButtonColor: '#ef070a'
-            });
         }
+        
+    } catch (error) {
+        console.error('❌ Error viewing ticket:', error);
+        await Swal.fire({
+            title: 'Error!',
+            text: 'Failed to load ticket: ' + error.message,
+            icon: 'error'
+        });
     }
+}
 
     // ✅ METHOD DELETE TICKET
     async deleteTicket(ticketId) {
@@ -2543,84 +2774,151 @@ updateFilterInfoDisplay(filterInfo) {
     }
 
     // ✅ METHOD SHOW TICKET MODAL - FIXED VERSION
-    async showTicketModal(ticket) {
-        try {
-            console.log('🎫 showTicketModal called for ticket:', ticket.code);
-            
-            const modal = document.getElementById('ticketModal');
-            const modalBody = document.getElementById('ticketModalBody');
-            
-            if (!modal || !modalBody) {
-                console.error('❌ Modal elements not found');
-                await Swal.fire({
-                    title: 'Error!',
-                    text: 'Modal elements not found in page',
-                    icon: 'error'
-                });
-                return;
-            }
+    // ✅ METHOD SHOW TICKET MODAL DENGAN REAL-TIME DATA
+async showTicketModal(ticketId) {
+    try {
+        console.log(`👀 Opening real-time modal for ticket: ${ticketId}`);
+        
+        const modal = document.getElementById('ticketModal');
+        const modalBody = document.getElementById('ticketModalBody');
+        
+        if (!modal || !modalBody) {
+            console.error('❌ Modal elements not found');
+            return;
+        }
 
-            console.log('🔍 Modal elements found, preparing content...');
+        // Show loading state
+        modalBody.innerHTML = `
+            <div class="modal-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Loading ticket details...</p>
+            </div>
+        `;
 
-            // Dapatkan info admin
-            const assignedAdmins = await this.getAssignedAdminInfo(ticket);
-            const permissions = this.checkPermissions(ticket);
+        // Show modal immediately
+        modal.style.display = 'flex';
+        document.body.classList.add('modal-open');
 
-            console.log('👥 Assigned admins:', assignedAdmins);
-            console.log('🔐 Permissions:', permissions);
+        // Setup real-time listener untuk ticket
+        this.setupTicketRealTimeListener(ticketId, modalBody);
+        
+    } catch (error) {
+        console.error('❌ Error opening modal:', error);
+        this.showErrorModal(modalBody, 'Failed to load ticket details');
+    }
+}
 
-            // Render content langsung
-            const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
-            modalBody.innerHTML = modalHTML;
-
-            // ✅ PERBAIKAN UTAMA: Multiple approach untuk show modal
-            console.log('🔄 Showing modal with multiple methods...');
-            
-            // Method 1: Style langsung dengan important
-            modal.style.display = 'flex !important';
-            
-            // Method 2: Tambah class show
-            modal.classList.add('show', 'active', 'visible');
-            
-            // Method 3: Force reflow multiple times
-            void modal.offsetWidth;
-            void modal.offsetHeight;
-            
-            // Method 4: Set timeout untuk memastikan render
-            setTimeout(() => {
-                modal.style.display = 'flex';
-                document.body.classList.add('modal-open', 'no-scroll');
-                
-                // Method 5: Check dan retry jika masih tidak visible
-                setTimeout(() => {
-                    const computedStyle = window.getComputedStyle(modal);
-                    console.log('📊 Final modal computed styles:', {
-                        display: computedStyle.display,
-                        opacity: computedStyle.opacity,
-                        visibility: computedStyle.visibility,
-                        zIndex: computedStyle.zIndex
+// ✅ REAL-TIME LISTENER UNTUK TICKET DATA
+setupTicketRealTimeListener(ticketId, modalBody) {
+    try {
+        console.log(`🔮 Setting up real-time listener for ticket: ${ticketId}`);
+        
+        const ticketRef = doc(this.db, "tickets", ticketId);
+        
+        // Unsubscribe previous listener jika ada
+        if (this.ticketModalUnsubscribe) {
+            this.ticketModalUnsubscribe();
+        }
+        
+        this.ticketModalUnsubscribe = onSnapshot(ticketRef, 
+            // ✅ Success callback
+            async (docSnapshot) => {
+                try {
+                    if (!docSnapshot.exists()) {
+                        this.showErrorModal(modalBody, 'Ticket not found');
+                        return;
+                    }
+                    
+                    const ticketData = docSnapshot.data();
+                    const ticket = this.normalizeTicketData(ticketId, ticketData);
+                    
+                    console.log('🔄 Real-time ticket update received:', {
+                        code: ticket.code,
+                        status: ticket.status,
+                        last_updated: ticket.last_updated
                     });
                     
-                    if (computedStyle.display !== 'flex' && computedStyle.display !== 'block') {
-                        console.warn('⚠️ Modal still not visible, using fallback method...');
-                        // Fallback: create new modal
-                        this.createFallbackModal(ticket, assignedAdmins, permissions);
-                    }
-                }, 50);
-            }, 10);
-
-            console.log('✅ Modal show methods executed');
-
-        } catch (error) {
-            console.error('❌ Error showing modal:', error);
-            await Swal.fire({
-                title: 'Error!',
-                text: 'Failed to show ticket details: ' + error.message,
-                icon: 'error',
-                confirmButtonColor: '#ef070a'
-            });
-        }
+                    // Render modal content dengan data terbaru
+                    await this.renderRealTimeModalContent(ticket, modalBody);
+                    
+                } catch (error) {
+                    console.error('❌ Error processing real-time update:', error);
+                    this.showErrorModal(modalBody, 'Error updating ticket view');
+                }
+            },
+            // ✅ Error callback
+            (error) => {
+                console.error('❌ Real-time listener error:', error);
+                this.showErrorModal(modalBody, 'Connection error - showing cached data');
+                
+                // Fallback ke cached data
+                const cachedTicket = this.tickets.find(t => t.id === ticketId);
+                if (cachedTicket) {
+                    this.renderRealTimeModalContent(cachedTicket, modalBody);
+                }
+            }
+        );
+        
+        console.log('✅ Real-time ticket listener activated');
+        
+    } catch (error) {
+        console.error('❌ Error setting up real-time listener:', error);
+        this.showErrorModal(modalBody, 'Failed to setup real-time updates');
     }
+}
+
+// ✅ RENDER MODAL CONTENT DENGAN REAL-TIME DATA
+async renderRealTimeModalContent(ticket, modalBody) {
+    try {
+        console.log('🎨 Rendering real-time modal content for:', ticket.code);
+        
+        // Dapatkan info admin terbaru
+        const assignedAdmins = await this.getAssignedAdminInfo(ticket);
+        const permissions = this.checkPermissions(ticket);
+        
+        // Generate HTML content
+        const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
+        
+        // Update modal body dengan animation
+        modalBody.style.opacity = '0.7';
+        setTimeout(() => {
+            modalBody.innerHTML = modalHTML;
+            modalBody.style.opacity = '1';
+            
+            // Add real-time update indicator
+            this.addRealTimeIndicator(modalBody);
+            
+        }, 150);
+        
+        console.log('✅ Modal content updated in real-time');
+        
+    } catch (error) {
+        console.error('❌ Error rendering modal content:', error);
+        throw error;
+    }
+}
+
+// ✅ REAL-TIME UPDATE INDICATOR
+addRealTimeIndicator(modalBody) {
+    const existingIndicator = modalBody.querySelector('.real-time-indicator');
+    if (existingIndicator) return;
+    
+    const indicator = document.createElement('div');
+    indicator.className = 'real-time-indicator';
+    indicator.innerHTML = `
+        <div class="real-time-pulse">
+            <i class="fas fa-circle"></i>
+            <span>Live Updates</span>
+        </div>
+    `;
+    
+    // Insert setelah header
+    const modalHeader = modalBody.querySelector('.modal-header');
+    if (modalHeader) {
+        modalHeader.appendChild(indicator);
+    }
+}
+
 
     // ✅ FALLBACK METHOD JIKA MODAL UTAMA TIDAK BEKERJA
     createFallbackModal(ticket, assignedAdmins, permissions) {
@@ -2674,213 +2972,246 @@ updateFilterInfoDisplay(filterInfo) {
     }
 
     // ✅ METHOD UNTUK GET MODAL HTML
-    getTicketModalHTML(ticket, assignedAdmins, permissions) {
-        return `
-            <div class="ticket-details">
-  <!-- Ticket Summary Bar -->
-  <div class="ticket-summary-bar">
-    <span class="ticket-code">${this.escapeHtml(ticket.code)}</span>
-    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}" style="margin-left: auto;">
-      ${this.escapeHtml(ticket.status)}
-    </span>
-  </div>
+   getTicketModalHTML(ticket, assignedAdmins, permissions) {
+    const lastUpdated = ticket.last_updated ? 
+        new Date(ticket.last_updated).toLocaleString('en-GB', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        }) : 'Just now';
+        
+    return `
+        <div class="ticket-details real-time-ticket">
+            <!-- Real-time Header -->
+            <div class="ticket-real-time-header">
+                <div class="ticket-summary-bar">
+                    <span class="ticket-code">${this.escapeHtml(ticket.code)}</span>
+                    <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                        ${this.escapeHtml(ticket.status)}
+                    </span>
+                </div>
+                <div class="real-time-info">
+                    <small class="last-updated">
+                        <i class="fas fa-clock"></i> 
+                        Updated: ${lastUpdated}
+                    </small>
+                </div>
+            </div>
 
-  <!-- Ticket Info -->
-  <div class="ticket-section">
-    <h3><i class="fas fa-info-circle"></i> Ticket Information</h3>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Subject:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.subject)}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Priority:</strong></div>
-      <div class="ticket-col">
-        <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
-          ${this.escapeHtml(ticket.priority)}
-        </span>
-      </div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Created:</strong></div>
-      <div class="ticket-col value">
-        ${ticket.created_at ? new Date(ticket.created_at).toLocaleString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }) : 'N/A'}
-      </div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Last Updated:</strong></div>
-      <div class="ticket-col value">
-        ${ticket.last_updated ? new Date(ticket.last_updated).toLocaleString('en-GB', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
-        }) : 'N/A'}
-      </div>
-    </div>
-  </div>
+            <!-- Ticket Info dengan Auto-update -->
+            <div class="ticket-section">
+                <h3><i class="fas fa-info-circle"></i> Ticket Information</h3>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Subject:</strong></div>
+                    <div class="ticket-col value" data-field="subject">${this.escapeHtml(ticket.subject)}</div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Priority:</strong></div>
+                    <div class="ticket-col" data-field="priority">
+                        <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
+                            ${this.escapeHtml(ticket.priority)}
+                        </span>
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Status:</strong></div>
+                    <div class="ticket-col" data-field="status">
+                        <span class="status-badge status-${(ticket.status || 'open').toLowerCase().replace(' ', '-')}">
+                            ${this.escapeHtml(ticket.status)}
+                        </span>
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Created:</strong></div>
+                    <div class="ticket-col value">
+                        ${ticket.created_at ? new Date(ticket.created_at).toLocaleString('en-GB', {
+                            day: 'numeric', month: 'short', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: false
+                        }) : 'N/A'}
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Last Updated:</strong></div>
+                    <div class="ticket-col value" data-field="last_updated">
+                        ${lastUpdated}
+                    </div>
+                </div>
+            </div>
 
-  <!-- User Info -->
-  <div class="ticket-section">
-    <h3><i class="fas fa-user"></i> User Information</h3>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Name:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.user_name)}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Department:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.user_department)}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Email:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.user_email)}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Phone:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.user_phone || '–')}</div>
-    </div>
-  </div>
+            <!-- User Info -->
+            <div class="ticket-section">
+                <h3><i class="fas fa-user"></i> User Information</h3>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Name:</strong></div>
+                    <div class="ticket-col value" data-field="user_name">${this.escapeHtml(ticket.user_name)}</div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Department:</strong></div>
+                    <div class="ticket-col value" data-field="user_department">${this.escapeHtml(ticket.user_department)}</div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Email:</strong></div>
+                    <div class="ticket-col value" data-field="user_email">${this.escapeHtml(ticket.user_email)}</div>
+                </div>
+            </div>
 
-  <!-- Technical Details -->
-  <div class="ticket-section">
-    <h3><i class="fas fa-laptop"></i> Technical Details</h3>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Location:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.location || '–')}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Device:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.device || '–')}</div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Inventory #:</strong></div>
-      <div class="ticket-col value">${this.escapeHtml(ticket.inventory || '–')}</div>
-    </div>
-  </div>
+            <!-- Assignment Info dengan Real-time -->
+            <div class="ticket-section">
+                <h3><i class="fas fa-user-tie"></i> Assignment</h3>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Action By:</strong></div>
+                    <div class="ticket-col value" data-field="action_by">
+                        ${assignedAdmins.actionBy ? 
+                            `${this.escapeHtml(assignedAdmins.actionBy.name)} 
+                             <small>(${this.escapeHtml(assignedAdmins.actionBy.email)})</small>` : 
+                            '<em>Unassigned</em>'}
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Assigned To:</strong></div>
+                    <div class="ticket-col value" data-field="assigned_to">
+                        ${assignedAdmins.assignedTo ? 
+                            `${this.escapeHtml(assignedAdmins.assignedTo.name)} 
+                             <small>(${this.escapeHtml(assignedAdmins.assignedTo.email)})</small>` : 
+                            '<em>Unassigned</em>'}
+                    </div>
+                </div>
+            </div>
 
-  <!-- Problem Description -->
-  <div class="ticket-section">
-    <h3><i class="fas fa-comment-dots"></i> Problem Description</h3>
-    <div class="ticket-description-box">
-      ${ticket.message ? this.escapeHtml(ticket.message).replace(/\n/g, '<br>') : '<em>No description provided.</em>'}
-    </div>
-  </div>
+            <!-- Update History dengan Real-time -->
+            <div class="ticket-section">
+                <h3><i class="fas fa-history"></i> Update History 
+                    <span class="update-count">(${ticket.updates ? ticket.updates.length : 0} updates)</span>
+                </h3>
+                <div class="updates-timeline" data-field="updates">
+                    ${ticket.updates && ticket.updates.length > 0 ? 
+                        ticket.updates.slice().reverse().map(update => `
+                            <div class="update-item">
+                                <div class="update-header">
+                                    <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
+                                    <span class="update-time">
+                                        ${update.timestamp ? new Date(update.timestamp).toLocaleString('en-GB', {
+                                            day: 'numeric', month: 'short', year: 'numeric',
+                                            hour: '2-digit', minute: '2-digit', hour12: false
+                                        }) : 'Unknown'}
+                                    </span>
+                                </div>
+                                <div class="update-notes">${this.escapeHtml(update.notes || '–')}</div>
+                                <div class="update-by">by ${this.escapeHtml(update.updatedBy || 'System')}</div>
+                            </div>
+                        `).join('') : 
+                        '<div class="no-updates">No updates yet</div>'
+                    }
+                </div>
+            </div>
 
-  <!-- Admin Notes (if any) -->
-  ${ticket.note ? `
-  <div class="ticket-section">
-    <h3><i class="fas fa-sticky-note"></i> Admin Notes</h3>
-    <div class="ticket-description-box">
-      ${this.escapeHtml(ticket.note).replace(/\n/g, '<br>')}
-    </div>
-  </div>
-  ` : ''}
-
-  <!-- Assignment Info -->
-  <div class="ticket-section">
-    <h3><i class="fas fa-user-tie"></i> Assignment</h3>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Action By:</strong></div>
-      <div class="ticket-col value">
-        ${assignedAdmins.actionBy ? 
-          `${this.escapeHtml(assignedAdmins.actionBy.name)} <small>(${this.escapeHtml(assignedAdmins.actionBy.email)})</small>` : 
-          '<em>Unassigned</em>'}
-      </div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Assigned To:</strong></div>
-      <div class="ticket-col value">
-        ${assignedAdmins.assignedTo ? 
-          `${this.escapeHtml(assignedAdmins.assignedTo.name)} <small>(${this.escapeHtml(assignedAdmins.assignedTo.email)})</small>` : 
-          '<em>Unassigned</em>'}
-      </div>
-    </div>
-    <div class="ticket-row">
-      <div class="ticket-col"><strong>Your Role:</strong></div>
-      <div class="ticket-col value">
-        <span class="role-badge">${this.escapeHtml(this.adminUser.role)}</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- Update History -->
-  ${ticket.updates && ticket.updates.length > 0 ? `
-  <div class="ticket-section">
-    <h3><i class="fas fa-history"></i> Update History</h3>
-    <div class="updates-timeline">
-      ${ticket.updates.slice().reverse().map(update => `
-        <div class="update-item">
-          <div class="update-header">
-            <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
-            <span class="update-time">
-              ${update.timestamp ? new Date(update.timestamp).toLocaleString('en-GB', {
-                day: 'numeric',
-                month: 'short',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: false
-              }) : 'Unknown'}
-            </span>
-          </div>
-          <div class="update-notes">${this.escapeHtml(update.notes || '–')}</div>
-          <div class="update-by">by ${this.escapeHtml(update.updatedBy || 'System')}</div>
+            <!-- Action Buttons -->
+            <div class="modal-actions">
+                ${permissions.canUpdate ? `
+                    <button class="btn-primary" onclick="adminDashboard.updateTicketModal('${ticket.id}')">
+                        <i class="fas fa-edit"></i> Update Ticket
+                    </button>
+                ` : ''}
+                
+                <div class="action-buttons-group">
+                    ${ticket.status === 'Open' && permissions.canStart ? `
+                        <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
+                            <i class="fas fa-play"></i> Start
+                        </button>
+                    ` : ''}
+                    ${ticket.status === 'In Progress' && permissions.canResolve ? `
+                        <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
+                            <i class="fas fa-check"></i> Resolve
+                        </button>
+                    ` : ''}
+                    ${permissions.canDelete ? `
+                        <button class="btn-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    ` : ''}
+                </div>
+                
+                <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
         </div>
-      `).join('')}
-    </div>
-  </div>
-  ` : ''}
+    `;
+}
 
-  <!-- Action Buttons -->
-<div class="modal-actions" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee;">
-  <!-- Kiri: Update Ticket (jika ada izin) -->
-  ${permissions.canUpdate ? `
-    <button class="btn-primary" onclick="adminDashboard.updateTicketModal('${ticket.id}')">
-      <i class="fas fa-edit"></i> Update Ticket
-    </button>
-  ` : `<div></div>`}
+// ✅ METHOD UNTUK UPDATE SPECIFIC FIELDS SAAT REAL-TIME UPDATE
+updateModalField(modalBody, fieldName, newValue) {
+    const fieldElements = modalBody.querySelectorAll(`[data-field="${fieldName}"]`);
+    
+    fieldElements.forEach(element => {
+        // Animation untuk perubahan
+        element.style.transition = 'all 0.3s ease';
+        element.style.backgroundColor = '#fff3cd'; // Highlight color
+        
+        // Update content berdasarkan field type
+        if (fieldName === 'status') {
+            element.innerHTML = `<span class="status-badge status-${newValue.toLowerCase().replace(' ', '-')}">${newValue}</span>`;
+        } else if (fieldName === 'priority') {
+            element.innerHTML = `<span class="priority-badge priority-${newValue.toLowerCase()}">${newValue}</span>`;
+        } else if (fieldName === 'last_updated') {
+            element.textContent = new Date(newValue).toLocaleString('en-GB', {
+                day: 'numeric', month: 'short', year: 'numeric',
+                hour: '2-digit', minute: '2-digit', second: '2-digit',
+                hour12: false
+            });
+        } else if (fieldName === 'updates') {
+            // Handle updates array changes
+            this.renderUpdatesTimeline(element, newValue);
+        } else {
+            element.textContent = newValue;
+        }
+        
+        // Remove highlight setelah beberapa saat
+        setTimeout(() => {
+            element.style.backgroundColor = '';
+        }, 1000);
+    });
+}
 
-  <!-- Tengah: Tombol status + delete -->
-  <div class="modal-action-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
-    ${ticket.status === 'Open' && permissions.canStart ? `
-      <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
-        <i class="fas fa-play"></i> Start
-      </button>
-    ` : ''}
-    ${ticket.status === 'In Progress' && permissions.canResolve ? `
-      <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
-        <i class="fas fa-check"></i> Resolve
-      </button>
-    ` : ''}
-    ${ticket.status === 'Resolved' && permissions.canReopen ? `
-      <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
-        <i class="fas fa-redo"></i> Reopen
-      </button>
-    ` : ''}
-    ${permissions.canDelete ? `
-      <button class="btn-action btn-delete" onclick="adminDashboard.deleteTicket('${ticket.id}')">
-        <i class="fas fa-trash"></i> Delete
-      </button>
-    ` : ''}
-  </div>
-
-  <!-- Kanan: Close (selalu ada) -->
-  <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
-    <i class="fas fa-times"></i> Close
-  </button>
-</div>
-</div>
-        `;
+// ✅ RENDER UPDATES TIMELINE
+renderUpdatesTimeline(container, updates) {
+    if (!updates || updates.length === 0) {
+        container.innerHTML = '<div class="no-updates">No updates yet</div>';
+        return;
     }
+    
+    const updatesHTML = updates.slice().reverse().map(update => `
+        <div class="update-item">
+            <div class="update-header">
+                <strong>${this.escapeHtml(update.status || 'Updated')}</strong>
+                <span class="update-time">
+                    ${update.timestamp ? new Date(update.timestamp).toLocaleString('en-GB', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: false
+                    }) : 'Unknown'}
+                </span>
+            </div>
+            <div class="update-notes">${this.escapeHtml(update.notes || '–')}</div>
+            <div class="update-by">by ${this.escapeHtml(update.updatedBy || 'System')}</div>
+        </div>
+    `).join('');
+    
+    container.innerHTML = updatesHTML;
+}
 
+// ✅ ERROR HANDLING UNTUK MODAL
+showErrorModal(modalBody, message) {
+    modalBody.innerHTML = `
+        <div class="modal-error">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Error Loading Ticket</h3>
+            <p>${message}</p>
+            <button class="btn-primary" onclick="adminDashboard.closeTicketModal()">
+                <i class="fas fa-times"></i> Close
+            </button>
+        </div>
+    `;
+}
     // ✅ METHOD UNTUK ESCAPE HTML
     escapeHtml(unsafe) {
         if (unsafe === null || unsafe === undefined) return '';
@@ -2892,24 +3223,23 @@ updateFilterInfoDisplay(filterInfo) {
             .replace(/'/g, "&#039;");
     }
 
-    closeTicketModal() {
-        console.log('🚪 Closing ticket modal...');
-        
-        const modal = document.getElementById('ticketModal');
-        if (modal) {
-            modal.style.display = 'none';
-            modal.classList.remove('show', 'active', 'visible');
-            document.body.classList.remove('modal-open', 'no-scroll');
-            console.log('✅ Ticket modal closed');
-        }
-        
-        // Juga close fallback modal jika ada
-        const fallbackModal = document.getElementById('fallbackTicketModal');
-        if (fallbackModal) {
-            fallbackModal.remove();
-            console.log('✅ Fallback modal closed');
-        }
+   closeTicketModal() {
+    console.log('🚪 Closing ticket modal with cleanup...');
+    
+    // Unsubscribe real-time listener
+    if (this.ticketModalUnsubscribe) {
+        this.ticketModalUnsubscribe();
+        this.ticketModalUnsubscribe = null;
+        console.log('✅ Real-time listener unsubscribed');
     }
+    
+    const modal = document.getElementById('ticketModal');
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open');
+        console.log('✅ Ticket modal closed');
+    }
+}
 
 // ✅ FIX: updateTicketModal dengan simple approach
 async updateTicketModal(ticketId) {
@@ -4023,127 +4353,253 @@ async updateUserTicketsInFirestore(userId, userUpdates) {
         this.currentUpdatingTicketId = null;
     }
 
-    // ✅ EXPORT METHODS
-    getDisplayedTicketsForExport() {
-        try {
-            const exportTickets = this.filteredTickets.map(ticket => ({
-                id: ticket.id,
-                code: ticket.code,
-                subject: ticket.subject,
-                name: ticket.user_name,
-                user_email: ticket.user_email,
-                department: ticket.user_department,
-                location: ticket.location,
-                inventory: ticket.inventory,
-                device: ticket.device,
-                message: ticket.message,
-                priority: ticket.priority,
-                status_ticket: ticket.status,
-                qa: ticket.qa,
-                action_by: ticket.action_by,
-                assigned_to: ticket.assigned_to,
-                note: ticket.note,
-                user_phone: ticket.user_phone,
-                createdAt: ticket.created_at,
-                updatedAt: ticket.last_updated
-            }));
-            
-            return exportTickets;
-            
-        } catch (error) {
-            console.error('❌ Error preparing export data:', error);
-            return [];
-        }
-    }
-
-    // ✅ UPDATE EXPORT METHOD UNTUK INCLUDE DATE FILTER INFO
-async handleExport() {
+  // ✅ ENHANCED EXPORT DATA PREPARATION YANG COMPATIBLE
+getDisplayedTicketsForExport() {
     try {
-        const exportBtn = document.getElementById('exportTickets');
-        const originalText = exportBtn.innerHTML;
+        console.log('📊 Preparing export data for filtered tickets...');
         
-        exportBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
-        exportBtn.disabled = true;
-
-        const exportData = this.getDisplayedTicketsForExport();
-        
-        if (exportData.length === 0) {
-            await Swal.fire({
-                title: 'No Data',
-                text: 'No tickets available for export.',
-                icon: 'warning',
-                confirmButtonColor: '#ef070a'
-            });
-            return;
-        }
-
-        // ✅ TAMBAHKAN: Include filter info dalam export
-        if (window.updateAllTickets && typeof window.updateAllTickets === 'function') {
-            window.updateAllTickets(exportData);
+        const exportTickets = this.filteredTickets.map(ticket => {
+            // Format dates untuk export - SESUAI DENGAN FORMAT DI EXPORT.JS
+            const createdDate = ticket.created_at ? 
+                new Date(ticket.created_at) : null;
+                
+            const updatedDate = ticket.last_updated ? 
+                new Date(ticket.last_updated) : null;
             
-            // Pass filter info ke export function
-            if (typeof window.setExportFilterInfo === 'function') {
-                const filterInfo = this.getCurrentFilterInfo();
-                window.setExportFilterInfo(filterInfo);
+            // Get assigned admin info - SESUAI DENGAN LOGIC DI EXPORT.JS
+            let assignedAdmin = 'Unassigned';
+            if (ticket.assigned_to) {
+                const adminInfo = window.adminCache && window.adminCache[ticket.assigned_to];
+                if (adminInfo) {
+                    assignedAdmin = `${adminInfo.name} (${adminInfo.email})`;
+                } else {
+                    assignedAdmin = ticket.assigned_to;
+                }
+            } else if (ticket.action_by) {
+                const adminInfo = window.adminCache && window.adminCache[ticket.action_by];
+                if (adminInfo) {
+                    assignedAdmin = `${adminInfo.name} (${adminInfo.email})`;
+                } else {
+                    assignedAdmin = ticket.action_by;
+                }
             }
-        }
+            
+            // ✅ FORMAT DATA SESUAI DENGAN YANG DIHARAPKAN OLEH EXPORT.JS
+            return {
+                id: ticket.id,
+                code: ticket.code || 'UNKNOWN',
+                subject: ticket.subject || 'No Subject',
+                name: ticket.user_name || 'Unknown User', // ← export.js pakai 'name'
+                user_name: ticket.user_name || 'Unknown User', // ← backup field
+                user_email: ticket.user_email || '',
+                department: ticket.user_department || '',
+                user_department: ticket.user_department || '', // ← backup field
+                location: ticket.location || '',
+                inventory: ticket.inventory || '',
+                device: ticket.device || '',
+                message: ticket.message || '',
+                priority: ticket.priority || 'Medium',
+                status_ticket: ticket.status || 'Open', // ← export.js pakai 'status_ticket'
+                status: ticket.status || 'Open', // ← backup field
+                qa: ticket.qa || '',
+                action_by: ticket.action_by || '',
+                assigned_to: assignedAdmin,
+                assigned_name: ticket.assigned_name || '', // ← field tambahan
+                note: ticket.note || '',
+                user_phone: ticket.user_phone || '',
+                createdAt: createdDate, // ← Date object untuk export.js
+                created_at: ticket.created_at, // ← raw timestamp
+                updatedAt: updatedDate, // ← Date object untuk export.js
+                last_updated: ticket.last_updated, // ← raw timestamp
+                raw_created_at: ticket.created_at,
+                raw_updated_at: ticket.last_updated
+            };
+        });
         
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        if (typeof window.handleExportToExcel === 'function') {
-            await window.handleExportToExcel();
-        } else {
-            await this.fallbackExport(exportData);
-        }
+        console.log(`✅ Prepared ${exportTickets.length} tickets for export`);
+        return exportTickets;
         
     } catch (error) {
-        console.error('❌ Export error:', error);
-        await Swal.fire({
-            title: 'Export Failed',
-            text: 'Could not export data. Please try again.',
-            icon: 'error',
-            confirmButtonColor: '#ef070a'
-        });
-    } finally {
-        const exportBtn = document.getElementById('exportTickets');
-        if (exportBtn) {
-            exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> Export Excel';
-            exportBtn.disabled = false;
-        }
+        console.error('❌ Error preparing export data:', error);
+        return [];
     }
 }
 
-// ✅ METHOD UNTUK GET CURRENT FILTER INFO
-getCurrentFilterInfo() {
-    const info = {
-        status: document.getElementById('statusFilter')?.value || 'all',
-        priority: document.getElementById('priorityFilter')?.value || 'all',
-        dateRange: null
-    };
-    
-    if (this.dateFilter.isActive) {
-        const startDate = this.dateFilter.startDate;
-        const endDate = this.dateFilter.endDate;
+
+// ✅ HELPER METHOD UNTUK DAPATKAN EXPORT METHOD YANG DIGUNAKAN
+getUsedExportMethod() {
+    if (typeof window.handleExportToExcel === 'function') return 'handleExportToExcel';
+    if (typeof window.exportToExcelAppendSorted === 'function') return 'exportToExcelAppendSorted';
+    if (typeof window.exportToExcel === 'function') return 'exportToExcel';
+    return 'CSV Fallback';
+}
+
+// ✅ PERBAIKAN: Enhanced Export Compatibility Fix
+async fixExportCompatibility() {
+    try {
+        console.log('🔧 Fixing export compatibility...');
         
-        if (startDate && endDate) {
-            info.dateRange = {
-                start: startDate.toISOString().split('T')[0],
-                end: endDate.toISOString().split('T')[0]
-            };
-        } else if (startDate) {
-            info.dateRange = {
-                start: startDate.toISOString().split('T')[0],
-                end: null
-            };
-        } else if (endDate) {
-            info.dateRange = {
-                start: null,
-                end: endDate.toISOString().split('T')[0]
+        // ✅ PERBAIKI MISSING FUNCTION: window.originalExportToExcelAppendSorted
+        if (typeof window.originalExportToExcelAppendSorted === 'undefined') {
+            console.log('🔄 Creating missing function: originalExportToExcelAppendSorted');
+            
+            if (typeof window.exportToExcelAppendSorted === 'function') {
+                window.originalExportToExcelAppendSorted = window.exportToExcelAppendSorted;
+                console.log('✅ originalExportToExcelAppendSorted set to exportToExcelAppendSorted');
+            } else {
+                window.originalExportToExcelAppendSorted = function(displayedTickets, filterInfo) {
+                    console.warn('⚠️ originalExportToExcelAppendSorted called but not implemented');
+                    return this.fallbackExport(displayedTickets);
+                }.bind(this);
+            }
+        }
+        
+        // ✅ PERBAIKI MISSING FUNCTION: setExportFilterInfo
+        if (typeof window.setExportFilterInfo === 'undefined') {
+            console.log('🔄 Creating missing function: setExportFilterInfo');
+            window.setExportFilterInfo = function(filterInfo) {
+                console.log('📊 setExportFilterInfo called:', filterInfo);
+                window.exportFilterInfo = filterInfo;
             };
         }
+        
+        // ✅ PASTIKAN appendToExistingExcel ADA
+        if (typeof window.appendToExistingExcel === 'undefined') {
+            console.log('🔄 Creating missing function: appendToExistingExcel');
+            window.appendToExistingExcel = async function(displayedTickets, filterInfo) {
+                console.log('📥 appendToExistingExcel called:', displayedTickets?.length, 'tickets');
+                await Swal.fire({
+                    title: 'Append Function Not Available',
+                    text: 'The append to existing file feature is not available in this version.',
+                    icon: 'warning'
+                });
+                // Fallback to new file creation
+                if (typeof window.originalExportToExcelAppendSorted === 'function') {
+                    return window.originalExportToExcelAppendSorted(displayedTickets, filterInfo);
+                }
+            };
+        }
+        
+        console.log('✅ Export compatibility check completed');
+        
+    } catch (error) {
+        console.error('❌ Error fixing export compatibility:', error);
     }
-    
-    return info;
+}
+
+// ✅ ENHANCED FALLBACK EXPORT
+async fallbackExport(exportData) {
+    try {
+        console.log('📄 Starting fallback CSV export...');
+        
+        const headers = [
+            'Ticket Code', 'Subject', 'User Name', 'User Email', 'Department', 
+            'Location', 'Priority', 'Status', 'Created Date', 'Last Updated',
+            'Assigned To', 'Admin Notes', 'Device Type', 'Inventory Number'
+        ];
+        
+        const csvData = exportData.map(ticket => [
+            ticket.code || '',
+            ticket.subject || '',
+            ticket.name || '',
+            ticket.user_email || '',
+            ticket.department || '',
+            ticket.location || '',
+            ticket.priority || '',
+            ticket.status_ticket || '',
+            ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('en-GB') : '',
+            ticket.updatedAt ? new Date(ticket.updatedAt).toLocaleDateString('en-GB') : '',
+            ticket.assigned_to || '',
+            ticket.note || '',
+            ticket.device || '',
+            ticket.inventory || ''
+        ]);
+
+        const csvContent = [headers, ...csvData]
+            .map(row => row.map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+            .join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        
+        const timestamp = new Date().toISOString().split('T')[0];
+        link.href = url;
+        link.setAttribute('download', `tickets-export-${timestamp}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        
+        console.log('✅ Fallback CSV export completed');
+        
+    } catch (error) {
+        console.error('❌ Fallback export error:', error);
+        throw error;
+    }
+}
+
+// ✅ GET CURRENT FILTER INFO YANG COMPATIBLE
+getCurrentFilterInfo() {
+    try {
+        const statusFilter = document.getElementById('statusFilter');
+        const priorityFilter = document.getElementById('priorityFilter');
+        
+        const statusValue = statusFilter ? statusFilter.value : 'all';
+        const priorityValue = priorityFilter ? priorityFilter.value : 'all';
+        
+        let filterText = '';
+        
+        // Status filter info
+        if (statusValue !== 'all') {
+            filterText += `Status: ${statusValue}`;
+        }
+        
+        // Priority filter info
+        if (priorityValue !== 'all') {
+            if (filterText) filterText += ', ';
+            filterText += `Priority: ${priorityValue}`;
+        }
+        
+        // Date filter info
+        if (this.dateFilter.isActive) {
+            const startDate = this.dateFilter.startDate;
+            const endDate = this.dateFilter.endDate;
+            
+            if (filterText) filterText += ', ';
+            
+            if (startDate && endDate) {
+                if (startDate.getTime() === endDate.getTime()) {
+                    filterText += `Date: ${startDate.toLocaleDateString()}`;
+                } else {
+                    filterText += `Date: ${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
+                }
+            } else if (startDate) {
+                filterText += `From: ${startDate.toLocaleDateString()}`;
+            } else if (endDate) {
+                filterText += `Until: ${endDate.toLocaleDateString()}`;
+            }
+        }
+        
+        // Add user info
+        const currentUser = this.adminUser;
+        let userInfo = 'Unknown User';
+        
+        if (currentUser) {
+            userInfo = currentUser.name || currentUser.email || currentUser.uid;
+        }
+        
+        const finalFilterInfo = filterText ? 
+            `${userInfo} - ${filterText}` : 
+            `${userInfo} - All Tickets`;
+            
+        console.log('📊 Current filter info:', finalFilterInfo);
+        return finalFilterInfo;
+        
+    } catch (error) {
+        console.error('❌ Error getting filter info:', error);
+        return 'My Assigned Tickets';
+    }
 }
 
     async fallbackExport(exportData) {
