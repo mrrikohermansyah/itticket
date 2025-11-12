@@ -1,7 +1,7 @@
 // Import dependencies
-import { 
+import {
   getAuth, onAuthStateChanged, signOut,
-  createUserWithEmailAndPassword, signInWithEmailAndPassword 
+  createUserWithEmailAndPassword, signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
   getFirestore, doc, getDoc, setDoc, updateDoc,
@@ -31,67 +31,58 @@ class Dashboard {
 
   async init() {
     try {
-        console.log('Dashboard initializing...');
-        
-        const user = await this.authService.getCurrentUser();
-        
-        if (!user) {
-            this.redirectToLogin();
-            return;
-        }
+      console.log('Dashboard initializing...');
 
-        // Check admin collection
-        const adminDoc = await getDoc(doc(this.db, "admins", user.uid));
-        
-        if (adminDoc.exists()) {
-            const adminData = adminDoc.data();
-            console.log('✅ Admin detected:', adminData.role, 'redirecting to admin dashboard...');
-            window.location.href = '../admin/index.html';
-            return;
-        }
+      const user = await this.authService.getCurrentUser();
 
-        // Check user collection
-        const userDoc = await getDoc(doc(this.db, "users", user.uid));
-        
-        if (!userDoc.exists()) {
-            console.log('❌ User data not found in Firestore');
-            this.redirectToLogin();
-            return;
-        }
+      if (!user) {
+        console.log('❌ No user found, redirecting to login');
+        this.redirectToLogin();
+        return;
+      }
 
-        const userData = userDoc.data();
-        
-        // Check role
-        if (userData.role && userData.role !== 'user') {
-            console.log('🔄 Non-user role detected:', userData.role, 'redirecting to admin...');
-            window.location.href = '../admin/index.html';
-            return;
-        }
+      console.log('✅ User authenticated in Firebase Auth:', user.uid);
 
-        // Regular user
-        this.currentUser = {
-            id: user.uid,
-            ...userData
-        };
+      // ✅ TEMPORARY: Skip Firestore checks dulu
+      this.currentUser = {
+        id: user.uid,
+        email: user.email,
+        full_name: user.email.split('@')[0], // Default name
+        role: 'user',
+        department: 'General',
+        location: 'Blue Office'
+      };
 
-        console.log('✅ User authenticated:', this.currentUser);
+      console.log('✅ Using temporary user data:', this.currentUser);
 
-        // Setup realtime listener FIRST
-        await this.setupRealtimeTickets();
-        this.loadUserInfo();
-        this.initializeEventListeners();
+      // ✅ Load UI tanpa Firestore checks
+      this.loadUserInfo();
+      this.initializeEventListeners();
+
+      // ✅ Setup tickets listener (optional)
+      await this.setupRealtimeTickets();
+
+      console.log('✅ Dashboard initialized successfully');
 
     } catch (error) {
-        console.error('Dashboard init error:', error);
-        this.redirectToLogin();
+      console.error('❌ Dashboard init error:', error);
+      // Jangan redirect dulu, biarkan user tetap di dashboard
+      this.showError('System initializing...');
     }
   }
 
-  // Setup Realtime Listener for Tickets
   async setupRealtimeTickets() {
     try {
+      console.log('🔄 Setting up realtime tickets listener...');
+
+      // Cek dulu apakah user sudah ada
+      if (!this.currentUser || !this.currentUser.id) {
+        console.log('⚠️ No current user, skipping tickets setup');
+        return;
+      }
+
       const q = query(
-        collection(this.db, "tickets"), 
+        collection(this.db, "tickets"),
         where("user_id", "==", this.currentUser.id),
         orderBy("created_at", "desc")
       );
@@ -101,130 +92,185 @@ class Dashboard {
         this.unsubscribeTickets();
       }
 
-      // ✅ Load initial data
-      const initialSnapshot = await getDocs(q);
-      this.tickets = [];
-      
-      // Batch resolve admin names untuk performance
-      const adminResolvePromises = [];
-      const adminCache = new Map();
-      
-      for (const doc of initialSnapshot.docs) {
-        let ticket = this.normalizeTicketData(doc.id, doc.data());
-        
-        // Resolve admin name jika ada admin_id
-        if (ticket.admin_id && !adminCache.has(ticket.admin_id)) {
-          adminResolvePromises.push(
-            this.getAdminName(ticket.admin_id).then(adminName => {
-              adminCache.set(ticket.admin_id, adminName);
-              ticket.action_by = adminName;
-            })
-          );
-        } else if (ticket.admin_id) {
-          ticket.action_by = adminCache.get(ticket.admin_id);
-        }
-        
-        this.tickets.push(ticket);
+      // ✅ Coba get data dulu untuk test permissions
+      try {
+        const testSnapshot = await getDocs(q);
+        console.log('✅ Firestore access OK, tickets found:', testSnapshot.size);
+      } catch (testError) {
+        console.error('❌ Firestore access denied:', testError);
+        this.showFirestoreError();
+        return; // Stop here if no permission
       }
-      
-      // Tunggu semua admin names selesai di-resolve
-      if (adminResolvePromises.length > 0) {
-        await Promise.all(adminResolvePromises);
-      }
-      
-      // Render initial data
-      this.renderTickets();
-      this.updateStats();
-      console.log('✅ Initial tickets loaded:', this.tickets.length);
 
-      // ✅ Realtime listener dengan cache admin names
-      this.unsubscribeTickets = onSnapshot(q, async (snapshot) => {
-        console.log('🔄 Realtime update received for tickets');
-        
-        const adminCache = new Map();
-        
-        for (const change of snapshot.docChanges()) {
-          const doc = change.doc;
-          let ticket = this.normalizeTicketData(doc.id, doc.data());
-
-          // Skip deleted tickets
-          if (ticket.deleted) {
-            const index = this.tickets.findIndex(t => t.id === doc.id);
-            if (index !== -1) this.tickets.splice(index, 1);
-            continue;
-          }
-          
-          // Resolve admin name dengan cache
-          if (ticket.admin_id && !adminCache.has(ticket.admin_id)) {
-            const adminName = await this.getAdminName(ticket.admin_id);
-            adminCache.set(ticket.admin_id, adminName);
-            ticket.action_by = adminName;
-          } else if (ticket.admin_id) {
-            ticket.action_by = adminCache.get(ticket.admin_id);
-          }
-          
-          if (change.type === "added") {
-            const existingIndex = this.tickets.findIndex(t => t.id === doc.id);
-            if (existingIndex === -1) {
-              console.log('➕ New ticket detected:', ticket.code);
-              this.tickets.unshift(ticket);
-            }
-          }
-          if (change.type === "modified") {
-            console.log('✏️ Updated ticket:', ticket.code, 'Status:', ticket.status);
-            const index = this.tickets.findIndex(t => t.id === doc.id);
-            if (index !== -1) {
-              this.tickets[index] = ticket;
-              this.showRealtimeNotification(ticket);
-            } else {
-              this.tickets.unshift(ticket);
-            }
-          }
-          if (change.type === "removed") {
-            console.log('🗑️ Removed ticket:', ticket.code);
-            this.tickets = this.tickets.filter(t => t.id !== doc.id);
-          }
+      // ✅ Setup realtime listener dengan error handling
+      this.unsubscribeTickets = onSnapshot(q,
+        (snapshot) => {
+          // Success callback
+          console.log('🔄 Realtime update received for tickets');
+          this.processTicketsSnapshot(snapshot);
+        },
+        (error) => {
+          // Error callback
+          console.error('❌ Realtime listener error:', error);
+          this.showFirestoreError();
         }
-
-        // Sort dan update UI
-        this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        this.renderTickets();
-        this.updateStats();
-        
-        console.log('✅ Tickets updated in realtime. Total:', this.tickets.length);
-        
-      }, (error) => {
-        console.error('Error in realtime listener:', error);
-        this.showError('Failed to get realtime updates');
-      });
+      );
 
     } catch (error) {
-      console.error('Error setting up realtime listener:', error);
+      console.error('❌ Error setting up realtime listener:', error);
+      this.showFirestoreError();
     }
   }
 
+  // Method baru untuk handle Firestore errors
+  showFirestoreError() {
+    console.log('🔧 Showing Firestore error message');
+
+    // Tampilkan message ke user
+    const ticketsList = document.getElementById('ticketsList');
+    if (ticketsList) {
+      ticketsList.innerHTML = `
+            <div class="error-state">
+                <i class="fas fa-exclamation-triangle"></i>
+                <h3>Database Access Limited</h3>
+                <p>You can still submit new tickets, but viewing existing tickets is temporarily unavailable.</p>
+                <button class="btn-retry" id="retryTickets">Retry Connection</button>
+            </div>
+        `;
+
+      // Add retry button listener
+      document.getElementById('retryTickets')?.addEventListener('click', () => {
+        this.setupRealtimeTickets();
+      });
+    }
+  }
+
+  // Pisahkan processing logic
+  processTicketsSnapshot(snapshot) {
+    console.log('📊 Processing tickets snapshot...');
+
+    const adminCache = new Map();
+    const processPromises = [];
+
+    for (const change of snapshot.docChanges()) {
+      const doc = change.doc;
+      let ticket = this.normalizeTicketData(doc.id, doc.data());
+
+      // Skip deleted tickets
+      if (ticket.deleted) {
+        const index = this.tickets.findIndex(t => t.id === doc.id);
+        if (index !== -1) this.tickets.splice(index, 1);
+        continue;
+      }
+
+      // Process admin names
+      if (ticket.admin_id) {
+        processPromises.push(this.resolveAdminName(ticket, adminCache));
+      }
+
+      if (change.type === "added") {
+        const existingIndex = this.tickets.findIndex(t => t.id === doc.id);
+        if (existingIndex === -1) {
+          this.tickets.unshift(ticket);
+        }
+      }
+      if (change.type === "modified") {
+        const index = this.tickets.findIndex(t => t.id === doc.id);
+        if (index !== -1) {
+          this.tickets[index] = ticket;
+        } else {
+          this.tickets.unshift(ticket);
+        }
+      }
+      if (change.type === "removed") {
+        this.tickets = this.tickets.filter(t => t.id !== doc.id);
+      }
+    }
+
+    // Wait for all admin names to resolve
+    Promise.all(processPromises).then(() => {
+      this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      this.renderTickets();
+      this.updateStats();
+      console.log('✅ Tickets updated. Total:', this.tickets.length);
+    });
+  }
+
+  // Method untuk resolve admin names
+  async resolveAdminName(ticket, adminCache) {
+    if (!adminCache.has(ticket.admin_id)) {
+      const adminInfo = await this.getAdminName(ticket.admin_id);
+      adminCache.set(ticket.admin_id, adminInfo);
+    }
+    const adminInfo = adminCache.get(ticket.admin_id);
+    ticket.action_by = adminInfo.name;
+    ticket.action_by_email = adminInfo.email;
+  }
+
+  // Normalize ticket data
   // Normalize ticket data
   normalizeTicketData(id, data) {
     // Cek apakah action_by berisi ID admin atau nama
     let actionByName = data.action_by || '';
     let adminId = '';
-    
-    // Jika action_by berisi ID admin (format: "Admin (ID...)"), extract ID-nya
+
+
+
+    // CASE 1: Jika action_by berisi ID admin (format: "Admin (ID...)")
     if (actionByName.startsWith('Admin (') && actionByName.includes(')')) {
       // Format: "Admin (ZlATPRsp...)" - extract ID
       adminId = this.extractAdminId(actionByName);
       actionByName = 'Admin'; // Default, nanti akan di-update via realtime
     }
-    
+    // CASE 2: Jika action_by adalah langsung ID admin (seperti yang terjadi)
+    else if (actionByName && actionByName.length > 10 && !actionByName.includes(' ')) {
+      // Jika string panjang tanpa spasi, kemungkinan adalah ID admin
+      adminId = actionByName;
+      actionByName = 'Admin'; // Temporary, akan di-resolve nanti
+    }
+    // CASE 3: Jika action_by adalah nama biasa (bukan ID)
+    else if (actionByName && actionByName !== 'Admin') {
+      // Biarkan sebagai nama
+      adminId = '';
+    }
+
     // Cek dari updates history untuk nama admin sebenarnya
     let actualAdminName = '';
+    let actualAdminEmail = '';
     if (data.updates && data.updates.length > 0) {
       // Cari update terakhir yang mengandung "by [nama]"
       const lastUpdate = data.updates[data.updates.length - 1];
       if (lastUpdate.updatedBy && lastUpdate.updatedBy !== 'Admin') {
         actualAdminName = lastUpdate.updatedBy;
       }
+      if (lastUpdate.updatedByEmail) {
+        actualAdminEmail = lastUpdate.updatedByEmail;
+      }
     }
+
+    // Tentukan display untuk assigned to
+    let assignedToDisplay = 'Unassigned';
+    let assignedEmail = '';
+
+    // Jika ada admin_id yang valid, berarti sudah di-assign
+    if (adminId) {
+      assignedToDisplay = 'Loading...'; // Temporary, akan di-resolve di realtime listener
+      assignedEmail = ''; // Akan di-resolve nanti
+    }
+    // Jika ada action_by yang bukan format ID dan bukan empty, gunakan itu
+    else if (actionByName && !actionByName.startsWith('Admin (') && actionByName !== 'Admin') {
+      assignedToDisplay = actionByName;
+      // Coba extract email dari action_by jika ada format email
+      if (actionByName.includes('@')) {
+        const emailMatch = actionByName.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
+        if (emailMatch) {
+          assignedEmail = emailMatch[1];
+          assignedToDisplay = actionByName.replace(`(${assignedEmail})`, '').trim();
+        }
+      }
+    }
+
+
 
     return {
       id: id,
@@ -239,21 +285,22 @@ class Dashboard {
       message: data.message,
       priority: data.priority,
       status: data.status || data.qa || 'Open',
-      created_at: data.created_at?.toDate ? data.created_at.toDate().toISOString() : 
-                (data.created_at || new Date().toISOString()),
-      last_updated: data.last_updated?.toDate ? data.last_updated.toDate().toISOString() : 
-                   (data.last_updated || new Date().toISOString()),
-      action_by: actualAdminName || actionByName, // Prioritize actual name dari updates
+      created_at: data.created_at?.toDate ? data.created_at.toDate().toISOString() :
+        (data.created_at || new Date().toISOString()),
+      last_updated: data.last_updated?.toDate ? data.last_updated.toDate().toISOString() :
+        (data.last_updated || new Date().toISOString()),
+      action_by: assignedToDisplay,
+      action_by_email: assignedEmail,
       note: data.note || '',
       qa: data.qa || '',
       user_phone: data.user_phone || '',
       updates: data.updates || [],
       deleted: data.deleted || false,
       archived: data.archived || false,
-      admin_id: adminId, // Untuk resolve nama admin
-      original_action_by: data.action_by, // Simpan original value untuk debug
-      deleted_at: data.deleted_at?.toDate ? data.deleted_at.toDate().toISOString() : 
-                 (data.deleted_at || null),
+      admin_id: adminId, // Simpan admin_id untuk di-resolve nanti
+      original_action_by: data.action_by,
+      deleted_at: data.deleted_at?.toDate ? data.deleted_at.toDate().toISOString() :
+        (data.deleted_at || null),
       deleted_by: data.deleted_by || '',
       deleted_by_name: data.deleted_by_name || '',
       delete_reason: data.delete_reason || ''
@@ -263,7 +310,7 @@ class Dashboard {
   // Method untuk extract admin ID dari string action_by
   extractAdminId(actionByString) {
     if (!actionByString) return '';
-    
+
     // Pattern: "Admin (ZlATPRsp...)"
     const match = actionByString.match(/Admin\s*\(([^)]+)\)/);
     return match ? match[1] : '';
@@ -271,26 +318,32 @@ class Dashboard {
 
   // Method untuk mendapatkan nama admin dari ID
   async getAdminName(adminId) {
-    if (!adminId) return 'Admin';
-    
+    if (!adminId) return { name: 'Admin', email: '' };
+
     try {
       const adminDoc = await getDoc(doc(this.db, "admins", adminId));
       if (adminDoc.exists()) {
         const adminData = adminDoc.data();
-        return adminData.full_name || adminData.name || 'Admin';
+        return {
+          name: adminData.full_name || adminData.name || 'Admin',
+          email: adminData.email || ''
+        };
       }
-      
+
       // Fallback: cek di users collection
       const userDoc = await getDoc(doc(this.db, "users", adminId));
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        return userData.full_name || 'Admin';
+        return {
+          name: userData.full_name || 'Admin',
+          email: userData.email || ''
+        };
       }
-      
-      return 'Admin';
+
+      return { name: 'Admin', email: '' };
     } catch (error) {
       console.error('Error getting admin name:', error);
-      return 'Admin';
+      return { name: 'Admin', email: '' };
     }
   }
 
@@ -298,27 +351,27 @@ class Dashboard {
   isTicketOpen(ticket) {
     const status = (ticket.status || '').toLowerCase().trim();
     const qa = (ticket.qa || '').toLowerCase().trim();
-    
+
     // PRIORITIZE STATUS over QA
     // Jika status sudah jelas resolved/closed, abaikan qa
     if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
       return false;
     }
-    
+
     // Jika status jelas open/in progress
     if (status === 'open' || status === 'in progress' || status === 'pending') {
       return true;
     }
-    
+
     // Jika status tidak jelas, check qa sebagai fallback
     if (qa === 'open') {
       return true;
     }
-    
+
     if (qa === 'finish' || qa === 'finished') {
       return false;
     }
-    
+
     // Default case: jika tidak ada info yang jelas, consider as resolved untuk safety
     return false;
   }
@@ -326,8 +379,8 @@ class Dashboard {
   // Helper method untuk menentukan apakah ticket resolved
   isTicketResolved(ticket) {
     return (
-      ticket.status === 'Resolved' || 
-      ticket.qa === 'Finish' || 
+      ticket.status === 'Resolved' ||
+      ticket.qa === 'Finish' ||
       ticket.status === 'Closed' ||
       ticket.status === 'Completed'
     );
@@ -337,30 +390,30 @@ class Dashboard {
   getTicketStatusDisplay(ticket) {
     const status = (ticket.status || '').toLowerCase().trim();
     const qa = (ticket.qa || '').toLowerCase().trim();
-    
+
     // Prioritize status over qa
     if (status === 'resolved' || status === 'closed' || status === 'completed' || status === 'finished') {
       return 'Resolved';
     }
-    
+
     if (status === 'in progress') {
       return 'In Progress';
     }
-    
+
     if (status === 'pending') {
       return 'Pending';
     }
-    
+
     // Fallback to qa
     if (qa === 'finish' || qa === 'finished') {
       return 'Resolved';
     }
-    
+
     // Default case - jika tidak ada status yang jelas, anggap Open
     if (!status || status === 'open' || qa === 'open') {
       return 'Open';
     }
-    
+
     return status.charAt(0).toUpperCase() + status.slice(1);
   }
 
@@ -370,11 +423,11 @@ class Dashboard {
     if (ticket.user_id !== this.currentUser.id) {
       return false;
     }
-    
+
     // 2. Hanya ticket dengan status tertentu yang bisa di-delete
     const currentStatus = this.getTicketStatusDisplay(ticket);
     const deletableStatuses = ['Open', 'Pending'];
-    
+
     return deletableStatuses.includes(currentStatus);
   }
 
@@ -386,84 +439,100 @@ class Dashboard {
       return;
     }
 
-    const activeTickets = this.tickets.filter(ticket => 
+    const activeTickets = this.tickets.filter(ticket =>
       !ticket.deleted && !ticket.archived
     );
 
     if (activeTickets.length === 0) {
       ticketsList.innerHTML = `
-        <div class="empty-state">
-          <i class="fas fa-ticket-alt"></i>
-          <h3>No tickets yet</h3>
-          <p>Submit your first support ticket above</p>
-        </div>
-      `;
+      <div class="empty-state">
+        <i class="fas fa-ticket-alt"></i>
+        <h3>No tickets yet</h3>
+        <p>Submit your first support ticket above</p>
+      </div>
+    `;
       return;
     }
 
     const ticketsToShow = activeTickets.slice(0, 5);
-    
+
     const ticketsHtml = ticketsToShow.map(ticket => {
       const statusDisplay = this.getTicketStatusDisplay(ticket);
       const canDelete = this.canDeleteTicket(ticket);
-      
+
       return `
-        <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''} ${canDelete ? 'deletable' : ''}">
-          <div class="ticket-content">
-            <div class="ticket-header">
-              <div class="ticket-code">${ticket.code}</div>
-              <div class="ticket-priority priority-${(ticket.priority || 'medium').toLowerCase()}">
-                ${ticket.priority || 'Medium'}
-              </div>
+      <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''} ${canDelete ? 'deletable' : ''}">
+        <div class="ticket-content">
+          <div class="ticket-header">
+            <div class="ticket-code">${ticket.code}</div>
+            <div class="ticket-priority priority-${(ticket.priority || 'medium').toLowerCase()}">
+              ${ticket.priority || 'Medium'}
             </div>
-            <h4 class="ticket-subject">${ticket.subject || 'No subject'}</h4>
-            <div class="ticket-meta">
-              <span class="ticket-device">${ticket.device || 'No device'}</span>
-              <span class="ticket-location">${ticket.location || 'No location'}</span>
-              <span class="ticket-status status-${statusDisplay.toLowerCase().replace(' ', '-')}">
-                ${statusDisplay}
-              </span>
-              <span class="ticket-date">
-                ${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Unknown date'}
-              </span>
-            </div>
-            ${ticket.action_by && ticket.action_by !== 'Admin' ? `
-              <div class="ticket-assigned">
-                <small><strong>Assigned to:</strong> ${ticket.action_by}</small>
-              </div>
-            ` : ''}
-            ${ticket.note ? `
-              <div class="ticket-notes">
-                <small><strong>Admin Notes:</strong> ${ticket.note}</small>
-              </div>
-            ` : ''}
-            ${ticket.updates && ticket.updates.length > 1 ? `
-              <div class="ticket-updates">
-                <small><strong>Latest Update:</strong> ${ticket.updates[ticket.updates.length - 1].notes}</small>
-              </div>
-            ` : ''}
-            
-            <!-- Tombol Delete -->
-            ${canDelete ? `
-              <div class="ticket-actions">
-                <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}">
-                  <i class="fas fa-trash"></i> Delete Ticket
-                </button>
-              </div>
-            ` : ''}
-            
-            ${ticket.id.startsWith('temp-') ? `
-              <div class="ticket-saving">
-                <small><i class="fas fa-spinner fa-spin"></i> Saving...</small>
-              </div>
-            ` : ''}
           </div>
+          <h4 class="ticket-subject">${ticket.subject || 'No subject'}</h4>
+          <div class="ticket-meta">
+            <span class="ticket-device">${ticket.device || 'No device'}</span>
+            <span class="ticket-location">${ticket.location || 'No location'}</span>
+            <span class="ticket-status status-${statusDisplay.toLowerCase().replace(' ', '-')}">
+              ${statusDisplay}
+            </span>
+            <span class="ticket-date">
+              ${ticket.created_at ? new Date(ticket.created_at).toLocaleDateString() : 'Unknown date'}
+            </span>
+          </div>
+          <!-- Tampilkan assigned to hanya jika bukan "Unassigned" -->
+          ${ticket.action_by && ticket.action_by !== 'Unassigned' && ticket.action_by !== 'Loading...' ? `
+            <div class="ticket-assigned">
+              <small>
+                <strong>Assigned to:</strong> 
+                ${ticket.action_by}
+                ${ticket.action_by_email ? ` (${ticket.action_by_email})` : ''}
+              </small>
+            </div>
+          ` : ticket.action_by === 'Loading...' ? `
+            <div class="ticket-assigned">
+              <small>
+                <strong>Assigned to:</strong> 
+                <i class="fas fa-spinner fa-spin"></i> Loading...
+              </small>
+            </div>
+          ` : `
+            <div class="ticket-unassigned">
+              <small><strong>Assigned to:</strong> <span class="unassigned-text">Unassigned</span></small>
+            </div>
+          `}
+          ${ticket.note ? `
+            <div class="ticket-notes">
+              <small><strong>Admin Notes:</strong> ${ticket.note}</small>
+            </div>
+          ` : ''}
+          ${ticket.updates && ticket.updates.length > 1 ? `
+            <div class="ticket-updates">
+              <small><strong>Latest Update:</strong> ${ticket.updates[ticket.updates.length - 1].notes}</small>
+            </div>
+          ` : ''}
+          
+          <!-- Tombol Delete -->
+          ${canDelete ? `
+            <div class="ticket-actions">
+              <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}">
+                <i class="fas fa-trash"></i> Delete Ticket
+              </button>
+            </div>
+          ` : ''}
+          
+          ${ticket.id.startsWith('temp-') ? `
+            <div class="ticket-saving">
+              <small><i class="fas fa-spinner fa-spin"></i> Saving...</small>
+            </div>
+          ` : ''}
         </div>
-      `;
+      </div>
+    `;
     }).join('');
 
     ticketsList.innerHTML = ticketsHtml;
-    
+
     // Add event listeners untuk tombol delete
     this.attachDeleteEventListeners();
   }
@@ -471,13 +540,13 @@ class Dashboard {
   // Method untuk attach event listeners ke tombol delete
   attachDeleteEventListeners() {
     const deleteButtons = document.querySelectorAll('.btn-delete-ticket');
-    
+
     deleteButtons.forEach(button => {
       button.addEventListener('click', (e) => {
         e.preventDefault();
         const ticketId = button.getAttribute('data-ticket-id');
         const ticketCode = button.getAttribute('data-ticket-code');
-        
+
         this.handleDeleteTicket(ticketId, ticketCode);
       });
     });
@@ -516,7 +585,7 @@ class Dashboard {
 
       if (result.isConfirmed) {
         const deleteReason = document.getElementById('deleteReason')?.value.trim() || 'No reason provided';
-        
+
         // Show loading
         Swal.fire({
           title: 'Deleting Ticket...',
@@ -558,7 +627,7 @@ class Dashboard {
       }
     } catch (error) {
       console.error('❌ Error deleting ticket:', error);
-      
+
       await Swal.fire({
         title: 'Error!',
         text: error.message || 'Failed to delete ticket. Please try again.',
@@ -571,7 +640,7 @@ class Dashboard {
 
   // Update stats dashboard
   updateStats() {
-    const activeTickets = this.tickets.filter(ticket => 
+    const activeTickets = this.tickets.filter(ticket =>
       !ticket.deleted && !ticket.archived
     );
 
@@ -580,7 +649,7 @@ class Dashboard {
 
     const openEl = document.getElementById('openTickets');
     const resolvedEl = document.getElementById('resolvedTickets');
-    
+
     if (openEl) openEl.textContent = openTickets.length;
     if (resolvedEl) resolvedEl.textContent = resolvedTickets.length;
 
@@ -590,7 +659,7 @@ class Dashboard {
   // Show real-time notification
   showRealtimeNotification(ticket) {
     const statusChanges = ['In Progress', 'Resolved', 'Closed', 'Finish', 'Rejected'];
-    
+
     if (statusChanges.includes(ticket.status)) {
       const notification = document.createElement('div');
       notification.className = 'realtime-notification';
@@ -600,11 +669,14 @@ class Dashboard {
           <div>
             <strong>Ticket ${ticket.code} Updated</strong>
             <p>Status changed to: <span class="status-${ticket.status.toLowerCase()}">${ticket.status}</span></p>
+            ${ticket.action_by && ticket.action_by !== 'Unassigned' ? `
+              <p>Now assigned to: <strong>${ticket.action_by}</strong></p>
+            ` : ''}
           </div>
           <button class="notification-close">&times;</button>
         </div>
       `;
-      
+
       // Styling untuk notification
       notification.style.cssText = `
         position: fixed;
@@ -619,13 +691,13 @@ class Dashboard {
         max-width: 350px;
         animation: slideInRight 0.3s ease-out;
       `;
-      
+
       notification.querySelector('.notification-content').style.cssText = `
         display: flex;
         align-items: center;
         gap: 12px;
       `;
-      
+
       notification.querySelector('.notification-close').style.cssText = `
         background: none;
         border: none;
@@ -634,12 +706,12 @@ class Dashboard {
         color: #666;
         margin-left: auto;
       `;
-      
+
       // Close button handler
       notification.querySelector('.notification-close').addEventListener('click', () => {
         notification.remove();
       });
-      
+
       // Auto remove setelah 5 detik
       document.body.appendChild(notification);
       setTimeout(() => {
@@ -675,7 +747,7 @@ class Dashboard {
       confirmButtonText: 'Yes, Logout',
       cancelButtonText: 'Cancel'
     });
-    
+
     if (result.isConfirmed) {
       this.cleanup();
       await this.authService.logout();
@@ -687,7 +759,7 @@ class Dashboard {
       const userNameElement = document.getElementById('userName');
       const userEmailElement = document.getElementById('userEmail');
       const welcomeUserNameElement = document.getElementById('welcomeUserName');
-      
+
       if (userNameElement) userNameElement.textContent = this.currentUser.full_name || 'User';
       if (userEmailElement) userEmailElement.textContent = this.currentUser.email || '';
       if (welcomeUserNameElement) welcomeUserNameElement.textContent = this.currentUser.full_name || 'User';
@@ -751,35 +823,35 @@ class Dashboard {
       document.getElementById('edit_phone').value = this.currentUser.phone || '';
       document.getElementById('edit_department').value = this.currentUser.department || '';
       document.getElementById('edit_location').value = this.currentUser.location || '';
-       const employeeIdField = document.getElementById('edit_employee_id');
-    if (employeeIdField) {
-      employeeIdField.readOnly = false;
-      employeeIdField.placeholder = "Optional - Employee ID";
-      employeeIdField.title = "Employee ID (optional)";
-      employeeIdField.style.backgroundColor = '';
-      employeeIdField.style.color = '';
-      employeeIdField.style.cursor = '';
-    }
+      const employeeIdField = document.getElementById('edit_employee_id');
+      if (employeeIdField) {
+        employeeIdField.readOnly = false;
+        employeeIdField.placeholder = "Optional - Employee ID";
+        employeeIdField.title = "Employee ID (optional)";
+        employeeIdField.style.backgroundColor = '';
+        employeeIdField.style.color = '';
+        employeeIdField.style.cursor = '';
+      }
       profileModal.style.display = 'flex';
     }
   }
-closeProfileModal() {
-  const profileModal = document.getElementById('profileModal');
-  if (profileModal) {
-    // Reset employee_id field ke state normal
-    const employeeIdField = document.getElementById('edit_employee_id');
-    if (employeeIdField) {
-      employeeIdField.readOnly = false;
-      employeeIdField.style.backgroundColor = '';
-      employeeIdField.style.color = '';
-      employeeIdField.style.cursor = '';
-      employeeIdField.title = '';
-      employeeIdField.placeholder = '';
+  closeProfileModal() {
+    const profileModal = document.getElementById('profileModal');
+    if (profileModal) {
+      // Reset employee_id field ke state normal
+      const employeeIdField = document.getElementById('edit_employee_id');
+      if (employeeIdField) {
+        employeeIdField.readOnly = false;
+        employeeIdField.style.backgroundColor = '';
+        employeeIdField.style.color = '';
+        employeeIdField.style.cursor = '';
+        employeeIdField.title = '';
+        employeeIdField.placeholder = '';
+      }
+
+      profileModal.style.display = 'none';
     }
-    
-    profileModal.style.display = 'none';
   }
-}
 
   // Enhanced profile update dengan ticket sync
   async handleProfileUpdate(e) {
@@ -787,107 +859,107 @@ closeProfileModal() {
     const form = e.target;
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerHTML;
-    
+
     submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating Profile & Tickets...';
     submitBtn.disabled = true;
 
     try {
-        const formData = this.getFormData(form);
-        
-        // Pre-process data sebelum validasi
-        const processedData = this.preProcessFormData(formData);
+      const formData = this.getFormData(form);
 
-        // Validasi form
-        const validation = this.validateProfileForm(processedData);
-        if (!validation.isValid) {
-            throw new Error(validation.message);
-        }
+      // Pre-process data sebelum validasi
+      const processedData = this.preProcessFormData(formData);
 
-        // Update profile menggunakan service (sekarang termasuk ticket update)
-        const result = await firebaseAuthService.updateUserProfile(this.currentUser.id, processedData);
-        
-        if (!result.success) {
-            throw new Error(result.message);
-        }
+      // Validasi form
+      const validation = this.validateProfileForm(processedData);
+      if (!validation.isValid) {
+        throw new Error(validation.message);
+      }
 
-        // Update current user data dengan data yang sudah diproses
-        this.currentUser = { 
-            ...this.currentUser, 
-            ...processedData,
-            updated_at: new Date().toISOString()
-        };
-        
-        this.loadUserInfo();
+      // Update profile menggunakan service (sekarang termasuk ticket update)
+      const result = await firebaseAuthService.updateUserProfile(this.currentUser.id, processedData);
 
-        await Swal.fire({
-            title: 'Success!',
-            text: result.message || 'Profile updated successfully! All related tickets have been updated.',
-            icon: 'success',
-            confirmButtonColor: '#ef070a',
-            confirmButtonText: 'OK'
-        });
-        
-        this.closeProfileModal();
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+
+      // Update current user data dengan data yang sudah diproses
+      this.currentUser = {
+        ...this.currentUser,
+        ...processedData,
+        updated_at: new Date().toISOString()
+      };
+
+      this.loadUserInfo();
+
+      await Swal.fire({
+        title: 'Success!',
+        text: result.message || 'Profile updated successfully! All related tickets have been updated.',
+        icon: 'success',
+        confirmButtonColor: '#ef070a',
+        confirmButtonText: 'OK'
+      });
+
+      this.closeProfileModal();
 
     } catch (error) {
-        console.error('❌ Profile update error:', error);
-        await Swal.fire({
-            title: 'Error!',
-            text: error.message,
-            icon: 'error',
-            confirmButtonColor: '#ef070a',
-            confirmButtonText: 'OK'
-        });
+      console.error('❌ Profile update error:', error);
+      await Swal.fire({
+        title: 'Error!',
+        text: error.message,
+        icon: 'error',
+        confirmButtonColor: '#ef070a',
+        confirmButtonText: 'OK'
+      });
     } finally {
-        submitBtn.innerHTML = originalText;
-        submitBtn.disabled = false;
+      submitBtn.innerHTML = originalText;
+      submitBtn.disabled = false;
     }
   }
 
   // Pre-process form data untuk handle empty values
   preProcessFormData(formData) {
     const processed = { ...formData };
-    
+
     // Handle empty employee_id (ubah "-" jadi empty string)
     if (processed.employee_id === '-' || processed.employee_id === 'null') {
-        processed.employee_id = '';
+      processed.employee_id = '';
     }
-    
+
     // Handle empty phone
     if (!processed.phone || processed.phone === 'null' || processed.phone === 'undefined') {
-        processed.phone = '';
+      processed.phone = '';
     }
-    
+
     // Trim semua string values
     Object.keys(processed).forEach(key => {
-        if (typeof processed[key] === 'string') {
-            processed[key] = processed[key].trim();
-        }
+      if (typeof processed[key] === 'string') {
+        processed[key] = processed[key].trim();
+      }
     });
-    
+
     return processed;
   }
 
   // Enhanced form validation
   validateProfileForm(formData) {
     const requiredFields = ['full_name', 'email', 'department', 'location'];
-    
+
     for (const field of requiredFields) {
-        if (!formData[field] || formData[field].toString().trim() === '') {
-            return { 
-                isValid: false, 
-                message: `${field.replace('_', ' ')} is required` 
-            };
-        }
+      if (!formData[field] || formData[field].toString().trim() === '') {
+        return {
+          isValid: false,
+          message: `${field.replace('_', ' ')} is required`
+        };
+      }
     }
 
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-        return {
-            isValid: false,
-            message: 'Please enter a valid email address'
-        };
+      return {
+        isValid: false,
+        message: 'Please enter a valid email address'
+      };
     }
 
     return { isValid: true };
@@ -951,8 +1023,8 @@ closeProfileModal() {
 
       // ✅ GENERATE CODE DENGAN FIRESTORE ID (3 karakter terakhir)
       const ticketCode = window.generateTicketId(
-        this.currentUser.department, 
-        formData.device, 
+        this.currentUser.department,
+        formData.device,
         formData.location,
         ticketRef.id  // Kirim Firestore ID untuk diambil 3 karakter terakhir
       );
@@ -993,11 +1065,11 @@ closeProfileModal() {
     // Format priority untuk display
     const priorityMap = {
       'low': 'Low',
-      'medium': 'Medium', 
+      'medium': 'Medium',
       'high': 'High',
       'urgent': 'Urgent'
     };
-    
+
     const priorityDisplay = priorityMap[formData.priority] || formData.priority;
 
     return Swal.fire({
@@ -1130,7 +1202,20 @@ style.textContent = `
     border-left: 3px solid #ef070a;
   }
   
-  .ticket-assigned small {
+  .ticket-unassigned {
+    background: #f3f4f6;
+    padding: 8px 12px;
+    border-radius: 6px;
+    margin: 8px 0;
+    border-left: 3px solid #9ca3af;
+  }
+  
+  .unassigned-text {
+    color: #6b7280;
+    font-style: italic;
+  }
+  
+  .ticket-assigned small, .ticket-unassigned small {
     color: #495057;
     font-weight: 500;
   }

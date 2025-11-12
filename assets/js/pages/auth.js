@@ -1,7 +1,7 @@
 // Firebase Authentication for User
 import firebaseAuthService from '../services/firebase-auth-service.js';
 
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     initializeAuthForms();
 });
 
@@ -23,12 +23,12 @@ function initializeRegisterForm(form) {
     const successMessage = document.getElementById('successMessage');
     const submitBtn = form.querySelector('button[type="submit"]');
 
-    form.addEventListener('submit', async function(e) {
+    form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        
+
         // Reset messages
         hideMessages();
-        
+
         // Validate form
         const validation = validateRegisterForm(form);
         if (!validation.isValid) {
@@ -41,26 +41,26 @@ function initializeRegisterForm(form) {
 
         try {
             const formData = getFormData(form);
-            
+
             // VALIDASI: Cek apakah email admin
             if (isAdminEmail(formData.email)) {
                 throw new Error('Admin email detected. Please use user registration.');
             }
-            
+
             // Register user dengan Firebase
             const result = await firebaseAuthService.registerUser(formData);
-            
+
             if (!result.success) {
                 throw new Error(result.message);
             }
-            
+
             showSuccess('Registration successful! Redirecting to login...');
-            
+
             // Redirect to login page after success
             setTimeout(() => {
                 window.location.href = 'login.html';
             }, 2000);
-            
+
         } catch (error) {
             showError(error.message);
         } finally {
@@ -71,9 +71,9 @@ function initializeRegisterForm(form) {
     // Real-time password confirmation validation
     const passwordInput = document.getElementById('password');
     const confirmPasswordInput = document.getElementById('confirm_password');
-    
+
     if (passwordInput && confirmPasswordInput) {
-        confirmPasswordInput.addEventListener('input', function() {
+        confirmPasswordInput.addEventListener('input', function () {
             if (passwordInput.value !== confirmPasswordInput.value && confirmPasswordInput.value.length > 0) {
                 confirmPasswordInput.style.borderColor = 'var(--primary)';
             } else {
@@ -87,12 +87,12 @@ function initializeLoginForm(form) {
     const errorMessage = document.getElementById('errorMessage');
     const submitBtn = form.querySelector('button[type="submit"]');
 
-    form.addEventListener('submit', async function(e) {
+    form.addEventListener('submit', async function (e) {
         e.preventDefault();
-        
+
         // Reset messages
         hideMessages();
-        
+
         // Validate form
         const validation = validateLoginForm(form);
         if (!validation.isValid) {
@@ -105,27 +105,27 @@ function initializeLoginForm(form) {
 
         try {
             const formData = getFormData(form);
-            
+
             // VALIDASI: Cek apakah email admin
             if (isAdminEmail(formData.email)) {
                 throw new Error('Admin detected. Please use admin login page.');
             }
-            
+
             // Login user dengan Firebase
             const result = await firebaseAuthService.loginUser(formData.email, formData.password);
-            
+
             if (!result.success) {
                 throw new Error(result.message);
             }
-            
+
             // Session disimpan oleh Firebase Auth, tidak perlu localStorage
             showSuccess('Login successful! Redirecting...');
-            
+
             // Redirect to dashboard after success
             setTimeout(() => {
                 window.location.href = '../user/dashboard.html';
             }, 1000);
-            
+
         } catch (error) {
             showError(error.message);
         } finally {
@@ -134,22 +134,25 @@ function initializeLoginForm(form) {
     });
 }
 
-// Helper function to detect admin emails
-function isAdminEmail(email) {
-    const adminDomains = ['admin@', 'administrator@', 'superadmin@', 'itadmin@'];
-    const adminKeywords = ['admin', 'administrator', 'superadmin', 'itadmin'];
-    
+// ✅ Gunakan ini untuk deteksi admin yang lebih baik
+function detectUserType(email) {
     const emailLower = email.toLowerCase();
-    
-    // Cek domain atau keyword admin
-    return adminDomains.some(domain => emailLower.includes(domain)) ||
-           adminKeywords.some(keyword => emailLower.includes(keyword));
+
+    // Cek berdasarkan domain atau pattern
+    if (emailLower.includes('admin') ||
+        emailLower.includes('administrator') ||
+        emailLower.includes('it.') ||
+        emailLower.endsWith('@meitech-ekabintan.com')) { // sesuaikan dengan domain Anda
+        return 'admin';
+    }
+
+    return 'user';
 }
 
 // Validasi functions (TETAP SAMA)
 function validateRegisterForm(form) {
     const formData = getFormData(form);
-    
+
     // Required fields validation
     const requiredFields = ['employee_id', 'full_name', 'email', 'department', 'location', 'password', 'confirm_password'];
     for (const field of requiredFields) {
@@ -193,7 +196,7 @@ function validateRegisterForm(form) {
 
 function validateLoginForm(form) {
     const formData = getFormData(form);
-    
+
     // Required fields validation
     if (!formData.email?.trim() || !formData.password?.trim()) {
         return {
@@ -209,11 +212,11 @@ function validateLoginForm(form) {
 function getFormData(form) {
     const formData = new FormData(form);
     const data = {};
-    
+
     for (const [key, value] of formData.entries()) {
         data[key] = value;
     }
-    
+
     return data;
 }
 
@@ -236,14 +239,14 @@ function showSuccess(message) {
 function hideMessages() {
     const errorElement = document.getElementById('errorMessage');
     const successElement = document.getElementById('successMessage');
-    
+
     if (errorElement) errorElement.style.display = 'none';
     if (successElement) successElement.style.display = 'none';
 }
 
 function setLoadingState(button, isLoading, loadingText = 'Processing...') {
     if (!button) return;
-    
+
     if (isLoading) {
         button.disabled = true;
         button.classList.add('loading');
