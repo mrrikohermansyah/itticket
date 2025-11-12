@@ -32,21 +32,21 @@ class TeamManagement {
 // ✅ TAMBAHKAN DI testServiceMethods()
 async testServiceMethods() {
     try {
-        console.log('🧪 Testing service methods...');
+        // console.log('🧪 Testing service methods...');
         
         // Test getITSupportTeam
         const team = await firebaseAuthService.getITSupportTeam();
-        console.log('👥 getITSupportTeam ALL result:', team);
+        // console.log('👥 getITSupportTeam ALL result:', team);
         
         // Check active vs inactive
         const activeMembers = team.filter(member => member.is_active);
         const inactiveMembers = team.filter(member => !member.is_active);
         
-        console.log('📊 Active members:', activeMembers.length, activeMembers);
-        console.log('📊 Inactive members:', inactiveMembers.length, inactiveMembers);
+        // console.log('📊 Active members:', activeMembers.length, activeMembers);
+        // console.log('📊 Inactive members:', inactiveMembers.length, inactiveMembers);
         
         // Check total admins in Firestore
-        console.log('🔍 Total team members loaded:', team.length);
+        // console.log('🔍 Total team members loaded:', team.length);
         
     } catch (error) {
         console.error('❌ Service test failed:', error);
@@ -77,29 +77,29 @@ async init() {
             userRoleElement.textContent = this.adminUser.role || 'Admin';
         }
         
-        console.log('✅ Current user info updated:', {
-            name: this.adminUser.name,
-            role: this.adminUser.role
-        });
+        // console.log('✅ Current user info updated:', {
+        //     name: this.adminUser.name,
+        //     role: this.adminUser.role
+        // });
     }
 }
 
 // ✅ BUAT METHOD BARU DI TeamManagement UNTUK LOAD SEMUA ADMIN
 async loadAllAdmins() {
     try {
-        console.log('🔄 Loading ALL admins (including inactive)...');
+        // console.log('🔄 Loading ALL admins (including inactive)...');
         
         let allAdmins = [];
         
         // ✅ COBA BERBAGAI METHOD DENGAN FALLBACK
         if (firebaseAuthService.getAllAdmins) {
             allAdmins = await firebaseAuthService.getAllAdmins();
-            console.log('✅ Used getAllAdmins method');
+            // console.log('✅ Used getAllAdmins method');
         } 
         else if (firebaseAuthService.getITSupportTeam) {
             // Coba tanpa parameter dulu
             allAdmins = await firebaseAuthService.getITSupportTeam();
-            console.log('✅ Used getITSupportTeam method');
+            // console.log('✅ Used getITSupportTeam method');
             
             // Jika hanya return active, coba manual filter
             const inactiveCount = allAdmins.filter(a => !a.is_active).length;
@@ -109,22 +109,22 @@ async loadAllAdmins() {
         }
         else {
             // Fallback: Query Firestore langsung
-            console.log('🔄 Falling back to direct Firestore query...');
+            // console.log('🔄 Falling back to direct Firestore query...');
             const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
             const querySnapshot = await getDocs(collection(db, 'admins'));
             allAdmins = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
             }));
-            console.log('✅ Used direct Firestore query');
+            // console.log('✅ Used direct Firestore query');
         }
         
-        console.log('📋 All admins loaded:', allAdmins.length);
-        console.log('📊 Breakdown:', {
-            total: allAdmins.length,
-            active: allAdmins.filter(a => a.is_active).length,
-            inactive: allAdmins.filter(a => !a.is_active).length
-        });
+        // console.log('📋 All admins loaded:', allAdmins.length);
+        // console.log('📊 Breakdown:', {
+        //     total: allAdmins.length,
+        //     active: allAdmins.filter(a => a.is_active).length,
+        //     inactive: allAdmins.filter(a => !a.is_active).length
+        // });
         
         this.itTeam = allAdmins;
         this.renderTeam();
@@ -137,14 +137,14 @@ async loadAllAdmins() {
 
     async checkAuth() {
         try {
-            console.log('🔐 Checking authentication...');
+            // console.log('🔐 Checking authentication...');
             
             // Check if user is authenticated
             const currentUser = await firebaseAuthService.getCurrentUser();
-            console.log('👤 Current user:', currentUser);
+            // console.log('👤 Current user:', currentUser);
             
             if (!currentUser) {
-                console.log('❌ No user found, redirecting to login...');
+                // console.log('❌ No user found, redirecting to login...');
                 window.location.href = 'login.html';
                 return;
             }
@@ -153,12 +153,12 @@ async loadAllAdmins() {
             const isAdmin = await this.checkAdminAccess(currentUser.uid);
             
             if (!isAdmin) {
-                console.log('❌ User is not admin, redirecting...');
+                // console.log('❌ User is not admin, redirecting...');
                 window.location.href = 'login.html';
                 return;
             }
 
-            console.log('✅ Admin auth successful');
+            // console.log('✅ Admin auth successful');
             
             // Set admin user data
             this.adminUser = {
@@ -170,7 +170,7 @@ async loadAllAdmins() {
             // ✅ UPDATE CURRENT USER INFO
         this.updateCurrentUserInfo();
 
-        console.log('✅ Admin auth successful');
+        // console.log('✅ Admin auth successful');
 
         } catch (error) {
             console.error('❌ Auth check failed:', error);
@@ -180,13 +180,13 @@ async loadAllAdmins() {
 
     async checkAdminAccess(uid) {
         try {
-            console.log('🔍 Checking admin access for UID:', uid);
+            // console.log('🔍 Checking admin access for UID:', uid);
             
             // Check in admins collection first
             const adminDoc = await getDoc(doc(db, 'admins', uid));
             if (adminDoc.exists()) {
                 const adminData = adminDoc.data();
-                console.log('✅ Found in admins collection:', adminData);
+                // console.log('✅ Found in admins collection:', adminData);
                 return adminData;
             }
 
@@ -194,16 +194,16 @@ async loadAllAdmins() {
             const userDoc = await getDoc(doc(db, 'users', uid));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
-                console.log('📋 User data:', userData);
+                // console.log('📋 User data:', userData);
                 
                 // Check if user has admin role
                 if (userData.role && userData.role !== 'user') {
-                    console.log('✅ User has admin role:', userData.role);
+                    // console.log('✅ User has admin role:', userData.role);
                     return userData;
                 }
             }
 
-            console.log('❌ No admin access found');
+            // console.log('❌ No admin access found');
             return null;
             
         } catch (error) {
@@ -250,7 +250,7 @@ async loadAllAdmins() {
             confirmPasswordField.addEventListener('input', () => this.validatePassword());
         }
 
-        console.log('✅ Event listeners initialized');
+        // console.log('✅ Event listeners initialized');
     }
 
     // ✅ EVENT DELEGATION HANDLER
@@ -272,7 +272,7 @@ handleTeamClick(e) {
                   button.classList.contains('btn-activate') ? 'activate' : 
                   button.classList.contains('btn-delete') ? 'delete' : null;
 
-    console.log('🔄 Team action:', { action, memberId });
+    // console.log('🔄 Team action:', { action, memberId });
 
     // ✅ CHECK PERMISSION UNTUK SETIAP ACTION
     switch (action) {
@@ -314,7 +314,7 @@ handleTeamClick(e) {
             break;
             
         default:
-            console.log('❌ Unknown action:', action);
+            // console.log('❌ Unknown action:', action);
     }
 }
 
@@ -367,7 +367,7 @@ getMemberIdFromCard(card) {
 
  async loadTeamData() {
     try {
-        console.log('🔄 Loading team data...');
+        // console.log('🔄 Loading team data...');
         
         const teamGrid = document.getElementById('teamGrid');
         if (teamGrid) {
@@ -526,9 +526,9 @@ renderTeam() {
     // ✅ RE-ATTACH EVENT LISTENERS SETELAH RENDER
     this.attachEventListenersToCards();
     
-    console.log('✅ Team rendered - Total members:', this.itTeam.length, 
-                '- Active:', this.itTeam.filter(m => m.is_active).length,
-                '- Inactive:', this.itTeam.filter(m => !m.is_active).length);
+    // console.log('✅ Team rendered - Total members:', this.itTeam.length, 
+    //             '- Active:', this.itTeam.filter(m => m.is_active).length,
+    //             '- Inactive:', this.itTeam.filter(m => !m.is_active).length);
 }
 
 // ✅ METHOD BARU: Attach event listeners ke cards setelah render
@@ -663,14 +663,14 @@ async deleteMemberPermanently(memberId) {
             let deleteResult;
             
             if (firebaseAuthService.deleteAdminPermanently) {
-                console.log('🔄 Using deleteAdminPermanently method');
+                // console.log('🔄 Using deleteAdminPermanently method');
                 deleteResult = await firebaseAuthService.deleteAdminPermanently(memberId);
             } else if (firebaseAuthService.deleteAdmin) {
-                console.log('🔄 Using deleteAdmin method');
+                // console.log('🔄 Using deleteAdmin method');
                 deleteResult = await firebaseAuthService.deleteAdmin(memberId);
             } else {
                 // Fallback: Direct Firestore delete
-                console.log('🔄 Using direct Firestore delete');
+                // console.log('🔄 Using direct Firestore delete');
                 deleteResult = await this.deleteAdminDirectly(memberId);
             }
 
@@ -713,14 +713,14 @@ async deleteMemberPermanently(memberId) {
 // ✅ FALLBACK METHOD: Direct Firestore Delete
 async deleteAdminDirectly(adminId) {
     try {
-        console.log('🗑️ Deleting admin directly from Firestore:', adminId);
+        // console.log('🗑️ Deleting admin directly from Firestore:', adminId);
         
         const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
         
         // Delete dari Firestore
         await deleteDoc(doc(db, 'admins', adminId));
         
-        console.log('✅ Admin deleted directly from Firestore');
+        // console.log('✅ Admin deleted directly from Firestore');
         
         return {
             success: true,
@@ -751,7 +751,7 @@ async deleteAdminDirectly(adminId) {
 
     try {
         const formData = this.getFormData(form);
-        console.log('📋 Form data collected:', formData);
+        // console.log('📋 Form data collected:', formData);
         
         const validation = this.validateForm(formData);
         
@@ -770,8 +770,8 @@ async deleteAdminDirectly(adminId) {
             created_at: new Date().toISOString()
         };
 
-        console.log('🔄 Creating admin with data:', adminData);
-        console.log('👤 Current admin (BEFORE):', this.adminUser?.email);
+        // console.log('🔄 Creating admin with data:', adminData);
+        // console.log('👤 Current admin (BEFORE):', this.adminUser?.email);
 
         // ✅ GUNAKAN METHOD YANG AMAN (TANPA AUTO-SIGNIN)
         let result;
@@ -783,15 +783,15 @@ async deleteAdminDirectly(adminId) {
             result = await firebaseAuthService.createAdminIfNotExists(adminData, this.adminUser?.uid);
         }
 
-        console.log('📨 Creation result:', result);
+        // console.log('📨 Creation result:', result);
 
         // ✅ VERIFY SESSION (sekarang seharusnya tidak berubah)
         const currentUserAfter = await firebaseAuthService.getCurrentUser();
-        console.log('🔐 Session check:', {
-            before: this.adminUser?.email,
-            after: currentUserAfter?.email,
-            same: this.adminUser?.email === currentUserAfter?.email
-        });
+        // console.log('🔐 Session check:', {
+        //     before: this.adminUser?.email,
+        //     after: currentUserAfter?.email,
+        //     same: this.adminUser?.email === currentUserAfter?.email
+        // });
 
         // ✅ JIKA MASIH ADA SESSION TAKEOVER
         if (this.adminUser?.email !== currentUserAfter?.email) {
@@ -946,12 +946,12 @@ handleCreateError(error, formData) {
         data.specialization = [];
     }
     
-    console.log('📦 Processed form data:', data);
+    // console.log('📦 Processed form data:', data);
     return data;
 }
 
     validateForm(formData) {
-    console.log('🔍 Validating form data:', formData);
+    // console.log('🔍 Validating form data:', formData);
     
     // Required fields
     const requiredFields = ['name', 'email', 'role', 'department', 'password', 'confirm_password'];
@@ -998,7 +998,7 @@ handleCreateError(error, formData) {
         };
     }
 
-    console.log('✅ Form validation passed');
+    // console.log('✅ Form validation passed');
     return { isValid: true };
 }
 
@@ -1216,7 +1216,7 @@ showNonSuperAdminMessage() {
 // ✅ METHOD UNTUK UPDATE MEMBER
 async updateMember(memberId, updateData) {
     try {
-        console.log('🔄 Updating member:', memberId, updateData);
+        // console.log('🔄 Updating member:', memberId, updateData);
 
         // Show loading
         Swal.fire({
@@ -1442,7 +1442,7 @@ async updateMember(memberId, updateData) {
 const teamManagement = new TeamManagement();
 window.teamManagement = teamManagement; // Export ke global scope
 
-console.log('🚀 Team Management initialized');
+// console.log('🚀 Team Management initialized');
 
 // Handle page unload
 window.addEventListener('beforeunload', () => {

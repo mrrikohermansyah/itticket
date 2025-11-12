@@ -5,7 +5,7 @@
 (function() {
     'use strict';
 
-    console.log("✅ Loading Complete Export Script...");
+    // console.log("✅ Loading Complete Export Script...");
 
     // ==================== ✅ INITIALIZATION ====================
     window.isExporting = false;
@@ -1023,6 +1023,6 @@ window.setHeaderStyling = function(sheet) {
 
     // Initialize everything
     initializeExportHandler();
-    console.log("✅ Complete Export Script Loaded Successfully - HEADER STYLING READY");
+    // console.log("✅ Complete Export Script Loaded Successfully - HEADER STYLING READY");
 
 })();

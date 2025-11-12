@@ -6,11 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const errorMessage = document.getElementById('errorMessage');
 
     if (!adminLoginForm) {
-        console.log('❌ Admin login form not found');
+        // console.log('❌ Admin login form not found');
         return;
     }
 
-    console.log('✅ Admin auth script loaded');
+    // console.log('✅ Admin auth script loaded');
 
     adminLoginForm.addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -102,7 +102,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (adminUser && window.location.pathname.includes('login.html')) {
         try {
             const userData = JSON.parse(adminUser);
-            console.log('👤 Found existing admin user:', userData.email);
+            // console.log('👤 Found existing admin user:', userData.email);
             // You might want to verify the token is still valid here
         } catch (e) {
             localStorage.removeItem('adminUser');

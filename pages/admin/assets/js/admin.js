@@ -73,7 +73,7 @@ class AdminDashboard {
 
 async init() {
     try {
-        console.log('🚀 Admin Dashboard initializing...');
+        // console.log('🚀 Admin Dashboard initializing...');
         
         // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
         this.handleTableClick = this.handleTableClick.bind(this);
@@ -85,6 +85,7 @@ async init() {
         this.filterTickets = this.filterTickets.bind(this);
         this.handleExport = this.handleExport.bind(this);
         this.handleManageTeam = this.handleManageTeam.bind(this);
+        this.showNotification = this.showNotification.bind(this);
         
         // ✅ CHECK DOM ELEMENTS FIRST
         this.checkDOMElements();
@@ -94,6 +95,13 @@ async init() {
         
         // Load admin info
         this.loadAdminInfo();
+
+        this.showNotification(
+                'Login berhasil!', 
+                'success', 
+                `Selamat datang, ${this.adminUser?.name || 'Admin'}!`
+            );
+
         
         // Setup event listeners
         this.initializeEventListeners();
@@ -108,12 +116,104 @@ async init() {
         this.setupRealTimeListener();       // Untuk tickets
         this.setupUserDataListener();       // Untuk user data
         
-        console.log('✅ Admin Dashboard ready');
+        // console.log('✅ Admin Dashboard ready');
         
     } catch (error) {
         console.error('❌ Admin Dashboard init error:', error);
     }
 }
+
+showNotification(title, type = 'info', message = '', duration = 5000) {
+        try {
+            // Hapus notifikasi sebelumnya jika ada
+            const existingNotification = document.querySelector('.admin-notification');
+            if (existingNotification) {
+                existingNotification.remove();
+            }
+
+            const notification = document.createElement('div');
+            notification.className = `admin-notification ${type}`;
+            
+            notification.innerHTML = `
+                <div class="notification-content">
+                    <i class="fas fa-${this.getNotificationIcon(type)}"></i>
+                    <div class="notification-text">
+                        <strong>${title}</strong>
+                        ${message ? `<br><span style="font-size: 0.9rem; opacity: 0.9;">${message}</span>` : ''}
+                    </div>
+                    <button class="notification-close" title="Close notification">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+
+            // Auto remove setelah duration
+            let timeoutId;
+            if (duration > 0) {
+                timeoutId = setTimeout(() => {
+                    this.hideNotification(notification);
+                }, duration);
+            }
+
+            // Close button handler
+            const closeBtn = notification.querySelector('.notification-close');
+            closeBtn.addEventListener('click', () => {
+                if (timeoutId) clearTimeout(timeoutId);
+                this.hideNotification(notification);
+            });
+
+            // Optional: Auto hide ketika klik di mana saja (kecuali di notifikasi sendiri)
+            notification.addEventListener('click', (e) => {
+                if (e.target === notification) {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    this.hideNotification(notification);
+                }
+            });
+
+            // console.log(`🔔 Notification shown: ${title}`);
+
+        } catch (error) {
+            console.error('❌ Error showing notification:', error);
+        }
+    }
+
+    // ✅ METHOD UNTUK HIDE NOTIFICATION DENGAN ANIMASI
+    hideNotification(notification) {
+        if (!notification || !notification.parentNode) return;
+        
+        notification.classList.add('notification-hiding');
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 300); // Match dengan duration animation
+    }
+
+    // ✅ HELPER METHOD UNTUK NOTIFICATION ICON
+    getNotificationIcon(type) {
+        const icons = {
+            'success': 'check-circle',
+            'error': 'exclamation-circle',
+            'warning': 'exclamation-triangle',
+            'info': 'info-circle'
+        };
+        return icons[type] || 'info-circle';
+    }
+
+    // ✅ METHOD UNTUK SHOW TOAST (BACKWARD COMPATIBILITY)
+    showToastNotification(message, type = 'info') {
+        this.showNotification(
+            type === 'info' ? 'Information' : 
+            type === 'error' ? 'Error' : 
+            type === 'success' ? 'Success' : 'Notification',
+            type,
+            message,
+            3000
+        );
+    }
 
 // ✅ PASTIKAN METHOD handleManageTeam SUDAH DIDEKLARASIKAN
 async handleManageTeam(e) {
@@ -124,7 +224,7 @@ async handleManageTeam(e) {
 // ✅ PASTIKAN METHOD handleExport SUDAH DIDEKLARASIKAN
 async handleExport() {
     try {
-        console.log('📤 Export button clicked');
+        // console.log('📤 Export button clicked');
         await this.handleExportWithCustomDialog();
     } catch (error) {
         console.error('❌ Export error:', error);
@@ -159,7 +259,7 @@ async handleExportWithCustomDialog() {
             return;
         }
 
-        console.log(`📊 Preparing to export ${exportData.length} tickets`);
+        // console.log(`📊 Preparing to export ${exportData.length} tickets`);
         
         // Update global data
         if (typeof window.updateAllTickets === 'function') {
@@ -202,7 +302,7 @@ async handleExportWithCustomDialog() {
         });
 
         if (exportAction === undefined) {
-            console.log('❌ Export cancelled by user');
+            // console.log('❌ Export cancelled by user');
             return; // Cancelled
         }
 
@@ -210,7 +310,7 @@ async handleExportWithCustomDialog() {
 
         if (exportAction === false) {
             // Append to Existing File
-            console.log('📥 User chose: Append to Existing File');
+            // console.log('📥 User chose: Append to Existing File');
             if (typeof window.appendToExistingExcel === 'function') {
                 try {
                     await window.appendToExistingExcel(exportData, this.getCurrentFilterInfo());
@@ -228,7 +328,7 @@ async handleExportWithCustomDialog() {
             }
         } else {
             // Create New File
-            console.log('🆕 User chose: Create New File');
+            // console.log('🆕 User chose: Create New File');
             if (typeof window.originalExportToExcelAppendSorted === 'function') {
                 try {
                     await window.originalExportToExcelAppendSorted(exportData, this.getCurrentFilterInfo());
@@ -253,7 +353,7 @@ async handleExportWithCustomDialog() {
 
         if (!exportSuccess) {
             // Fallback to CSV
-            console.log('🔄 Using fallback CSV export...');
+            // console.log('🔄 Using fallback CSV export...');
             await this.fallbackExport(exportData);
         }
         
@@ -276,26 +376,26 @@ async handleExportWithCustomDialog() {
 
 // ✅ DEBUG: Check export functionality
 debugExportFunctionality() {
-    console.log('🔍 Checking export functionality...');
+    // console.log('🔍 Checking export functionality...');
     
     // Check if export button exists
     const exportBtn = document.getElementById('exportTickets');
-    console.log('📤 Export button:', exportBtn);
+    // console.log('📤 Export button:', exportBtn);
     
     // Check if event listener is attached
     if (exportBtn) {
         const clickEvents = exportBtn.onclick;
-        console.log('🎯 Export button click events:', clickEvents);
+        // console.log('🎯 Export button click events:', clickEvents);
     }
     
     // Check if method exists
-    console.log('🔧 handleExport method exists:', typeof this.handleExport === 'function');
-    console.log('🔧 handleExportWithCustomDialog method exists:', typeof this.handleExportWithCustomDialog === 'function');
+    // console.log('🔧 handleExport method exists:', typeof this.handleExport === 'function');
+    // console.log('🔧 handleExportWithCustomDialog method exists:', typeof this.handleExportWithCustomDialog === 'function');
 }
 
 async init() {
     try {
-        console.log('🚀 Admin Dashboard initializing...');
+        // console.log('🚀 Admin Dashboard initializing...');
         
         // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
         this.handleTableClick = this.handleTableClick.bind(this);
@@ -321,7 +421,7 @@ async init() {
 }
 
 applyAllFilters() {
-    console.log('🔍 Applying all filters...');
+    // console.log('🔍 Applying all filters...');
     
     const statusFilter = document.getElementById('statusFilter');
     const priorityFilter = document.getElementById('priorityFilter');
@@ -329,11 +429,11 @@ applyAllFilters() {
     const statusValue = statusFilter ? statusFilter.value : 'all';
     const priorityValue = priorityFilter ? priorityFilter.value : 'all';
 
-    console.log('🎯 Filter values:', {
-        status: statusValue,
-        priority: priorityValue,
-        dateFilter: this.dateFilter
-    });
+    // console.log('🎯 Filter values:', {
+    //     status: statusValue,
+    //     priority: priorityValue,
+    //     dateFilter: this.dateFilter
+    // });
 
     // Apply status dan priority filter terlebih dahulu
     let filtered = this.tickets.filter(ticket => {
@@ -342,7 +442,7 @@ applyAllFilters() {
         return statusMatch && priorityMatch;
     });
 
-    console.log(`📊 After status/priority filter: ${filtered.length} tickets`);
+    // console.log(`📊 After status/priority filter: ${filtered.length} tickets`);
 
     // Apply date filter
     filtered = this.applyDateFilter(filtered);
@@ -351,40 +451,40 @@ applyAllFilters() {
     this.renderTickets();
     this.updateStats();
     
-    console.log(`✅ Final filtered tickets: ${filtered.length}`);
+    // console.log(`✅ Final filtered tickets: ${filtered.length}`);
 }
 // ✅ PERBAIKAN: Enhanced applyDateFilter dengan debug logging yang detail
 applyDateFilter(tickets) {
     if (!this.dateFilter.isActive) {
-        console.log('📅 Date filter is NOT active, returning all tickets:', tickets.length);
+        // console.log('📅 Date filter is NOT active, returning all tickets:', tickets.length);
         return tickets;
     }
     
     const { startDate, endDate } = this.dateFilter;
     
-    console.log('🔍 [DATE FILTER DEBUG]', {
-        isActive: this.dateFilter.isActive,
-        startDate: startDate,
-        endDate: endDate,
-        startDateString: startDate?.toISOString(),
-        endDateString: endDate?.toISOString(),
-        totalTickets: tickets.length
-    });
+    // console.log('🔍 [DATE FILTER DEBUG]', {
+    //     isActive: this.dateFilter.isActive,
+    //     startDate: startDate,
+    //     endDate: endDate,
+    //     startDateString: startDate?.toISOString(),
+    //     endDateString: endDate?.toISOString(),
+    //     totalTickets: tickets.length
+    // });
 
     // Debug sample tickets
-    console.log('🎫 Sample tickets (first 5):');
+    // console.log('🎫 Sample tickets (first 5):');
     tickets.slice(0, 5).forEach((ticket, index) => {
-        console.log(`  ${index + 1}. ${ticket.code}:`, {
-            created_at: ticket.created_at,
-            date: new Date(ticket.created_at),
-            dateString: new Date(ticket.created_at).toISOString(),
-            isToday: this.isSameDay(new Date(ticket.created_at), new Date())
-        });
+        // console.log(`  ${index + 1}. ${ticket.code}:`, {
+        //     created_at: ticket.created_at,
+        //     date: new Date(ticket.created_at),
+        //     dateString: new Date(ticket.created_at).toISOString(),
+        //     isToday: this.isSameDay(new Date(ticket.created_at), new Date())
+        // });
     });
 
     const filteredTickets = tickets.filter(ticket => {
         if (!ticket.created_at) {
-            console.log(`❌ Ticket ${ticket.code} has no created_at date`);
+            // console.log(`❌ Ticket ${ticket.code} has no created_at date`);
             return false;
         }
         
@@ -393,7 +493,7 @@ applyDateFilter(tickets) {
         // Jika hanya start date yang ada, filter dari start date ke atas
         if (startDate && !endDate) {
             const isMatch = ticketDate >= startDate;
-            console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} >= ${startDate.toISOString()} = ${isMatch}`);
+            // console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} >= ${startDate.toISOString()} = ${isMatch}`);
             return isMatch;
         }
         
@@ -401,7 +501,7 @@ applyDateFilter(tickets) {
         if (!startDate && endDate) {
             const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
             const isMatch = ticketDate <= endOfDay;
-            console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} <= ${endOfDay.toISOString()} = ${isMatch}`);
+            // console.log(`📅 ${ticket.code}: ${ticketDate.toISOString()} <= ${endOfDay.toISOString()} = ${isMatch}`);
             return isMatch;
         }
         
@@ -409,23 +509,23 @@ applyDateFilter(tickets) {
         if (startDate && endDate) {
             const endOfDay = new Date(endDate.getTime() + 24 * 60 * 60 * 1000);
             const isMatch = ticketDate >= startDate && ticketDate < endOfDay;
-            console.log(`📅 ${ticket.code}: ${startDate.toISOString()} <= ${ticketDate.toISOString()} < ${endOfDay.toISOString()} = ${isMatch}`);
+            // console.log(`📅 ${ticket.code}: ${startDate.toISOString()} <= ${ticketDate.toISOString()} < ${endOfDay.toISOString()} = ${isMatch}`);
             return isMatch;
         }
         
         return true;
     });
 
-    console.log(`✅ Date filter result: ${filteredTickets.length} tickets after filtering`);
+    // console.log(`✅ Date filter result: ${filteredTickets.length} tickets after filtering`);
     
     // Show which tickets passed the filter
     if (filteredTickets.length > 0) {
-        console.log('🎯 Tickets that passed date filter:');
+        // console.log('🎯 Tickets that passed date filter:');
         filteredTickets.forEach(ticket => {
-            console.log(`  ✅ ${ticket.code}: ${new Date(ticket.created_at).toISOString()}`);
+            // console.log(`  ✅ ${ticket.code}: ${new Date(ticket.created_at).toISOString()}`);
         });
     } else {
-        console.log('❌ No tickets passed the date filter');
+        // console.log('❌ No tickets passed the date filter');
     }
 
     return filteredTickets;
@@ -440,7 +540,7 @@ isSameDay(date1, date2) {
 
 // ✅ PERBAIKAN: Enhanced handleTodayClick untuk pastikan timezone benar
 handleTodayClick() {
-    console.log('📅 Today button clicked');
+    // console.log('📅 Today button clicked');
     
     const today = new Date();
     
@@ -467,11 +567,11 @@ handleTodayClick() {
             isActive: true
         };
         
-        console.log('📅 Today filter applied:', {
-            startDate: startOfToday.toISOString(),
-            endDate: endOfToday.toISOString(),
-            display: todayString
-        });
+        // console.log('📅 Today filter applied:', {
+        //     startDate: startOfToday.toISOString(),
+        //     endDate: endOfToday.toISOString(),
+        //     display: todayString
+        // });
         
         // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
         this.applyAllFilters();
@@ -483,7 +583,7 @@ handleTodayClick() {
 }
 
 initializeDateFilter() {
-    console.log('📅 Initializing date filter...');
+    // console.log('📅 Initializing date filter...');
     
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
@@ -506,11 +606,11 @@ initializeDateFilter() {
         clearDateBtn.addEventListener('click', this.handleClearDateClick);
     }
     
-    console.log('✅ Date filter initialized');
+    // console.log('✅ Date filter initialized');
 }
 
 handleDateChange() {
-    console.log('📅 Date input changed');
+    // console.log('📅 Date input changed');
     
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
@@ -536,7 +636,7 @@ handleDateChange() {
         isActive: !!(startDate || endDate)
     };
     
-    console.log('📅 Date filter updated:', this.dateFilter);
+    // console.log('📅 Date filter updated:', this.dateFilter);
     
     // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
     this.applyAllFilters();
@@ -544,7 +644,7 @@ handleDateChange() {
 
 
 handleClearDateClick() {
-    console.log('🗑️ Clear date filter clicked');
+    // console.log('🗑️ Clear date filter clicked');
     
     const startDateInput = document.getElementById('startDate');
     const endDateInput = document.getElementById('endDate');
@@ -559,7 +659,7 @@ handleClearDateClick() {
             isActive: false
         };
         
-        console.log('📅 Date filter cleared');
+        // console.log('📅 Date filter cleared');
         
         // ✅ PERBAIKAN: Panggil applyAllFilters yang sudah di-bind
         this.applyAllFilters();
@@ -573,14 +673,14 @@ handleClearDateClick() {
 
 
 filterTickets() {
-    console.log('🔍 Filter tickets called');
+    // console.log('🔍 Filter tickets called');
     this.applyAllFilters();
 }
 
     // ==================== COMPREHENSIVE MIGRATION METHOD ====================
     async migrateTicketAssignments() {
         try {
-            console.log('🔄 Starting comprehensive ticket assignment migration...');
+            // console.log('🔄 Starting comprehensive ticket assignment migration...');
             
             // Get all tickets
             const ticketsQuery = query(collection(this.db, "tickets"));
@@ -602,7 +702,7 @@ filterTickets() {
                 }
             });
             
-            console.log('👥 Admin mapping:', adminMap);
+            // console.log('👥 Admin mapping:', adminMap);
             
             let migratedCount = 0;
             let skippedCount = 0;
@@ -639,14 +739,14 @@ filterTickets() {
                 if (data.action_by && adminMap[data.action_by]) {
                     newActionBy = adminMap[data.action_by];
                     needsMigration = true;
-                    console.log(`🔄 Migrating action_by: "${data.action_by}" -> "${newActionBy}"`);
+                    // console.log(`🔄 Migrating action_by: "${data.action_by}" -> "${newActionBy}"`);
                 }
                 
                 // Check if assigned_to needs migration
                 if (data.assigned_to && adminMap[data.assigned_to]) {
                     newAssignedTo = adminMap[data.assigned_to];
                     needsMigration = true;
-                    console.log(`🔄 Migrating assigned_to: "${data.assigned_to}" -> "${newAssignedTo}"`);
+                    // console.log(`🔄 Migrating assigned_to: "${data.assigned_to}" -> "${newAssignedTo}"`);
                 }
                 
                 if (needsMigration) {
@@ -657,13 +757,13 @@ filterTickets() {
                             assigned_name: data.action_by
                         });
                         migratedCount++;
-                        console.log(`✅ Migrated ticket ${data.code}`);
+                        // console.log(`✅ Migrated ticket ${data.code}`);
                     } catch (error) {
                         console.error(`❌ Error migrating ticket ${data.code}:`, error);
                     }
                 } else {
                     skippedCount++;
-                    console.log(`⏭️ Skipped ticket ${data.code} - already using UID or no mapping found`);
+                    // console.log(`⏭️ Skipped ticket ${data.code} - already using UID or no mapping found`);
                 }
             }
 
@@ -688,7 +788,7 @@ filterTickets() {
                 confirmButtonColor: '#ef070a'
             });
 
-            console.log(`🎉 Migration complete: ${migratedCount} migrated, ${skippedCount} skipped`);
+            // console.log(`🎉 Migration complete: ${migratedCount} migrated, ${skippedCount} skipped`);
             
             // Refresh page to load updated data
             window.location.reload();
@@ -706,7 +806,7 @@ filterTickets() {
 
     async init() {
         try {
-            console.log('🚀 Admin Dashboard initializing...');
+            // console.log('🚀 Admin Dashboard initializing...');
 
             // ✅ BIND METHODS DI SINI SETELAH SEMUA METHOD SUDAH DIDEKLARASIKAN
         this.handleTableClick = this.handleTableClick.bind(this);
@@ -741,7 +841,7 @@ filterTickets() {
         this.setupRealTimeListener();       // Untuk tickets
         this.setupUserDataListener();       // Untuk user data
             
-            console.log('✅ Admin Dashboard ready');
+            // console.log('✅ Admin Dashboard ready');
             
         } catch (error) {
             console.error('❌ Admin Dashboard init error:', error);
@@ -752,17 +852,17 @@ filterTickets() {
 // ✅ FIX: Enhanced user data real-time listener dengan ticket reload
 setupUserDataListener() {
     try {
-        console.log('🔍 [DEBUG] Setting up user data listener...');
+        // console.log('🔍 [DEBUG] Setting up user data listener...');
         
         const usersQuery = query(collection(this.db, "users"));
         
         this.userUnsubscribe = onSnapshot(usersQuery, 
             // ✅ Success callback
             (snapshot) => {
-                console.log('🔄 [DEBUG] User data snapshot received:', {
-                    totalUsers: snapshot.size,
-                    changes: snapshot.docChanges().length
-                });
+                // console.log('🔄 [DEBUG] User data snapshot received:', {
+                //     totalUsers: snapshot.size,
+                //     changes: snapshot.docChanges().length
+                // });
                 
                 let hasUserUpdates = false;
 
@@ -770,20 +870,20 @@ setupUserDataListener() {
                     const userData = change.doc.data();
                     const userId = change.doc.id;
                     
-                    console.log(`📝 [DEBUG] Change ${index + 1}:`, {
-                        type: change.type,
-                        userId: userId,
-                        userData: {
-                            name: userData.full_name,
-                            email: userData.email,
-                            department: userData.department,
-                            location: userData.location,
-                            updated_at: userData.updated_at
-                        }
-                    });
+                    // console.log(`📝 [DEBUG] Change ${index + 1}:`, {
+                    //     type: change.type,
+                    //     userId: userId,
+                    //     userData: {
+                    //         name: userData.full_name,
+                    //         email: userData.email,
+                    //         department: userData.department,
+                    //         location: userData.location,
+                    //         updated_at: userData.updated_at
+                    //     }
+                    // });
 
                     if (change.type === "modified") {
-                        console.log('🎯 [DEBUG] User MODIFIED - triggering update handler');
+                        // console.log('🎯 [DEBUG] User MODIFIED - triggering update handler');
                         // ✅ SYNC LOCATION SEBELUM PROCESS
                         const syncedUserData = {
                             ...userData,
@@ -796,7 +896,7 @@ setupUserDataListener() {
 
                 // ✅ FIX: RELOAD TICKETS JIKA ADA USER UPDATES
                 if (hasUserUpdates) {
-                    console.log('🔄 [DEBUG] User updates detected - reloading tickets...');
+                    // console.log('🔄 [DEBUG] User updates detected - reloading tickets...');
                     this.loadTickets(); // Ini akan memuat data terbaru dari Firestore
                 }
             },
@@ -807,7 +907,7 @@ setupUserDataListener() {
             }
         );
         
-        console.log('✅ [DEBUG] User data listener ACTIVATED');
+        // console.log('✅ [DEBUG] User data listener ACTIVATED');
         
     } catch (error) {
         console.error('❌ [DEBUG] Error setting up user data listener:', error);
@@ -820,11 +920,11 @@ async autoUpdateUserLocation(userId, userData) {
         const newLocation = this.syncUserLocationWithDepartment(userData);
         
         if (newLocation && newLocation !== userData.location) {
-            console.log('📝 Updating user location in Firestore:', {
-                userId,
-                from: userData.location,
-                to: newLocation
-            });
+            // console.log('📝 Updating user location in Firestore:', {
+            //     userId,
+            //     from: userData.location,
+            //     to: newLocation
+            // });
             
             const userRef = doc(this.db, "users", userId);
             await updateDoc(userRef, {
@@ -832,7 +932,7 @@ async autoUpdateUserLocation(userId, userData) {
                 updated_at: new Date().toISOString()
             });
             
-            console.log('✅ User location updated in Firestore');
+            // console.log('✅ User location updated in Firestore');
         }
     } catch (error) {
         console.error('❌ Error updating user location:', error);
@@ -842,7 +942,7 @@ async autoUpdateUserLocation(userId, userData) {
 // ✅ FIX: Enhanced user profile update handler
 handleUserProfileUpdate(userId, userData) {
     try {
-        console.log('🎯 [ENHANCED] User profile update - FULL DATA:', userData);
+        // console.log('🎯 [ENHANCED] User profile update - FULL DATA:', userData);
 
         // ✅ SYNC LOCATION DI DATABASE JIKA PERLU
         this.autoUpdateUserLocation(userId, userData);
@@ -870,11 +970,11 @@ async autoUpdateUserLocation(userId, userData) {
         
         // Cek jika location perlu diupdate di database
         if (syncedLocation && syncedLocation !== userData.location) {
-            console.log('📝 [AUTO-UPDATE] Updating user location in Firestore:', {
-                userId,
-                from: userData.location,
-                to: syncedLocation
-            });
+            // console.log('📝 [AUTO-UPDATE] Updating user location in Firestore:', {
+            //     userId,
+            //     from: userData.location,
+            //     to: syncedLocation
+            // });
             
             const userRef = doc(this.db, "users", userId);
             await updateDoc(userRef, {
@@ -882,7 +982,7 @@ async autoUpdateUserLocation(userId, userData) {
                 updated_at: new Date().toISOString()
             });
             
-            console.log('✅ User location updated in Firestore');
+            // console.log('✅ User location updated in Firestore');
             
             // Update userData object untuk konsistensi
             userData.location = syncedLocation;
@@ -895,18 +995,18 @@ async autoUpdateUserLocation(userId, userData) {
 // ✅ DEBUG: Check ticket data in Firestore
 async debugTicketData(ticketId) {
     try {
-        console.log('🔍 [DEBUG] Checking ticket data in Firestore:', ticketId);
+        // console.log('🔍 [DEBUG] Checking ticket data in Firestore:', ticketId);
         
         const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
         if (ticketDoc.exists()) {
             const ticketData = ticketDoc.data();
-            console.log('📋 [DEBUG] Firestore ticket data:', {
-                code: ticketData.code,
-                user_name: ticketData.user_name,
-                user_department: ticketData.user_department, // ← INI YANG DICEK!
-                user_email: ticketData.user_email,
-                user_id: ticketData.user_id
-            });
+            // console.log('📋 [DEBUG] Firestore ticket data:', {
+            //     code: ticketData.code,
+            //     user_name: ticketData.user_name,
+            //     user_department: ticketData.user_department, // ← INI YANG DICEK!
+            //     user_email: ticketData.user_email,
+            //     user_id: ticketData.user_id
+            // });
         } else {
             console.error('❌ [DEBUG] Ticket not found in Firestore');
         }
@@ -956,11 +1056,11 @@ syncUserLocationWithDepartment(userData) {
     const suggestedLocation = departmentLocationMap[userData.department];
     
     if (suggestedLocation && userData.location !== suggestedLocation) {
-        console.log('🔄 Auto-syncing location:', {
-            from: userData.location,
-            to: suggestedLocation,
-            department: userData.department
-        });
+        // console.log('🔄 Auto-syncing location:', {
+        //     from: userData.location,
+        //     to: suggestedLocation,
+        //     department: userData.department
+        // });
         return suggestedLocation;
     }
     
@@ -971,12 +1071,12 @@ showRealTimeUserUpdateNotification(userData) {
     // ✅ DAPATKAN LOCATION YANG SUDAH DISYNC
     const syncedLocation = this.syncUserLocationWithDepartment(userData);
 
-    console.log('🔔 [NOTIFICATION SYNCED]', {
-        name: userData.full_name,
-        department: userData.department,
-        originalLocation: userData.location,
-        displayLocation: displayLocation
-    });
+    // console.log('🔔 [NOTIFICATION SYNCED]', {
+    //     name: userData.full_name,
+    //     department: userData.department,
+    //     originalLocation: userData.location,
+    //     displayLocation: displayLocation
+    // });
 
     const notification = document.createElement('div');
     notification.className = 'realtime-user-notification';
@@ -1024,13 +1124,13 @@ updateUserTicketsInRealTime(userId, userData) {
     try {
         const syncedLocation = this.syncUserLocationWithDepartment(userData);
         
-        console.log('🔄 [REAL-TIME] Updating tickets for user:', {
-            userId,
-            userName: userData.full_name,
-            userDepartment: userData.department,
-            userEmail: userData.email,
-            userLocation: syncedLocation // ← GUNAKAN SYNCED LOCATION
-        });
+        // console.log('🔄 [REAL-TIME] Updating tickets for user:', {
+        //     userId,
+        //     userName: userData.full_name,
+        //     userDepartment: userData.department,
+        //     userEmail: userData.email,
+        //     userLocation: syncedLocation // ← GUNAKAN SYNCED LOCATION
+        // });
         
         const userTickets = this.tickets.filter(ticket => 
             ticket.user_id === userId || 
@@ -1038,7 +1138,7 @@ updateUserTicketsInRealTime(userId, userData) {
         );
     
         if (userTickets.length > 0) {
-            console.log(`📝 Found ${userTickets.length} tickets for user ${userData.full_name}`);
+            // console.log(`📝 Found ${userTickets.length} tickets for user ${userData.full_name}`);
             
             userTickets.forEach(ticket => {
                 const ticketIndex = this.tickets.findIndex(t => t.id === ticket.id);
@@ -1058,7 +1158,7 @@ updateUserTicketsInRealTime(userId, userData) {
             this.renderTickets();
             this.updateStats();
             
-            console.log('✅ Tickets updated with synced location');
+            // console.log('✅ Tickets updated with synced location');
         }
         
     } catch (error) {
@@ -1069,7 +1169,7 @@ updateUserTicketsInRealTime(userId, userData) {
 // ✅ FIX: Refresh users table
 async refreshUsersTable() {
     try {
-        console.log('🔄 Refreshing users table...');
+        // console.log('🔄 Refreshing users table...');
         
         const usersQuery = query(collection(this.db, "users"));
         const querySnapshot = await getDocs(usersQuery);
@@ -1085,7 +1185,7 @@ async refreshUsersTable() {
         // Render table
         this.renderUsersTable(users);
         
-        console.log('✅ Users table refreshed with', users.length, 'users');
+        // console.log('✅ Users table refreshed with', users.length, 'users');
         
     } catch (error) {
         console.error('❌ Error refreshing users table:', error);
@@ -1159,7 +1259,7 @@ showUserUpdateNotification(snapshot) {
     snapshot.docChanges().forEach((change) => {
         if (change.type === "modified") {
             const userData = change.doc.data();
-            console.log('👤 User data updated:', userData.full_name);
+            // console.log('👤 User data updated:', userData.full_name);
             
             // Show subtle notification
             this.showToastNotification(
@@ -1234,13 +1334,13 @@ isOnUsersPage() {
             'ticketModalBody': document.getElementById('ticketModalBody')
         };
         
-        console.log('🏗️ DOM Elements check:', requiredElements);
+        // console.log('🏗️ DOM Elements check:', requiredElements);
         
         for (const [name, element] of Object.entries(requiredElements)) {
             if (!element) {
                 console.error(`❌ Missing DOM element: ${name}`);
             } else {
-                console.log(`✅ Found: ${name}`);
+                // console.log(`✅ Found: ${name}`);
             }
         }
         
@@ -1274,12 +1374,12 @@ isOnUsersPage() {
                 }
             }
 
-            console.log('✅ Admin authenticated:', {
-                uid: this.adminUser.uid,
-                role: this.adminUser.role,
-                name: this.adminUser.name,
-                email: this.adminUser.email
-            });
+            // console.log('✅ Admin authenticated:', {
+            //     uid: this.adminUser.uid,
+            //     role: this.adminUser.role,
+            //     name: this.adminUser.name,
+            //     email: this.adminUser.email
+            // });
 
         } catch (error) {
             console.error('Admin auth check failed:', error);
@@ -1442,7 +1542,7 @@ isOnUsersPage() {
     }
 
     initializeEventListeners() {
-    console.log('🔧 Initializing event listeners...');
+    // console.log('🔧 Initializing event listeners...');
     
     // Logout
     const logoutBtn = document.getElementById('adminLogoutBtn');
@@ -1501,7 +1601,7 @@ isOnUsersPage() {
         exportBtn.addEventListener('click', this.handleExport); // ← INI YANG DIPERBAIKI
     }
 
-    console.log('✅ All event listeners initialized');
+    // console.log('✅ All event listeners initialized');
 }
 
     // ✅ INITIALIZE UPDATE FORM
@@ -1514,7 +1614,7 @@ isOnUsersPage() {
                     this.handleTicketUpdate(this.currentUpdatingTicketId);
                 }
             });
-            console.log('✅ Update form event listener added');
+            // console.log('✅ Update form event listener added');
         } else {
             console.warn('⚠️ Update form not found, will create dynamically');
         }
@@ -1522,12 +1622,12 @@ isOnUsersPage() {
 
     // ✅ METHOD HANDLE TABLE CLICK
     handleTableClick(e) {
-        console.log('🖱️ Table clicked:', e.target);
-        console.log('🔍 Element details:', {
-            tagName: e.target.tagName,
-            className: e.target.className,
-            parentClass: e.target.parentElement?.className
-        });
+        // console.log('🖱️ Table clicked:', e.target);
+        // console.log('🔍 Element details:', {
+        //     tagName: e.target.tagName,
+        //     className: e.target.className,
+        //     parentClass: e.target.parentElement?.className
+        // });
         
         // Cari button action terdekat
         let button = e.target.closest('.btn-action');
@@ -1538,23 +1638,23 @@ isOnUsersPage() {
         }
         
         if (!button) {
-            console.log('❌ No action button found');
+            // console.log('❌ No action button found');
             return;
         }
 
         const action = button.dataset.action;
-        console.log('🎯 Action detected:', action);
+        // console.log('🎯 Action detected:', action);
 
         // Cari container action buttons
         const actionContainer = button.closest('.action-buttons');
         const ticketId = actionContainer?.dataset.ticketId;
 
-        console.log('🔍 Action details:', { 
-            action: action,
-            ticketId: ticketId,
-            hasActionContainer: !!actionContainer,
-            containerHTML: actionContainer?.outerHTML
-        });
+        // console.log('🔍 Action details:', { 
+        //     action: action,
+        //     ticketId: ticketId,
+        //     hasActionContainer: !!actionContainer,
+        //     containerHTML: actionContainer?.outerHTML
+        // });
 
         if (!ticketId) {
             console.error('❌ No ticket ID found in data attribute');
@@ -1564,29 +1664,29 @@ isOnUsersPage() {
         const ticket = this.tickets.find(t => t.id === ticketId);
         if (!ticket) {
             console.error('❌ Ticket not found in local data:', ticketId);
-            console.log('📋 Available tickets:', this.tickets.map(t => t.id));
+            // console.log('📋 Available tickets:', this.tickets.map(t => t.id));
             return;
         }
 
-        console.log('🎫 Found ticket:', {
-            code: ticket.code,
-            status: ticket.status,
-            action_by: ticket.action_by,
-            assigned_to: ticket.assigned_to
-        });
+        // console.log('🎫 Found ticket:', {
+        //     code: ticket.code,
+        //     status: ticket.status,
+        //     action_by: ticket.action_by,
+        //     assigned_to: ticket.assigned_to
+        // });
 
         // Check permissions sebelum eksekusi action
         const permissions = this.checkPermissions(ticket);
-        console.log('🔐 Permissions:', permissions);
+        // console.log('🔐 Permissions:', permissions);
 
         // Eksekusi action berdasarkan jenis
         switch (action) {
             case 'view':
-                console.log('👀 View ticket clicked:', ticketId);
+                // console.log('👀 View ticket clicked:', ticketId);
                 this.viewTicket(ticketId);
                 break;
             case 'start':
-                console.log('🚀 Start ticket clicked:', ticketId);
+                // console.log('🚀 Start ticket clicked:', ticketId);
                 if (permissions.canStart) {
                     this.updateTicketStatus(ticketId, 'In Progress');
                 } else {
@@ -1594,7 +1694,7 @@ isOnUsersPage() {
                 }
                 break;
             case 'resolve':
-                console.log('✅ Resolve ticket clicked:', ticketId);
+                // console.log('✅ Resolve ticket clicked:', ticketId);
                 if (permissions.canResolve) {
                     this.updateTicketStatus(ticketId, 'Resolved');
                 } else {
@@ -1602,7 +1702,7 @@ isOnUsersPage() {
                 }
                 break;
             case 'reopen':
-                console.log('🔁 Reopen ticket clicked:', ticketId);
+                // console.log('🔁 Reopen ticket clicked:', ticketId);
                 if (permissions.canReopen) {
                     this.updateTicketStatus(ticketId, 'Open');
                 } else {
@@ -1610,7 +1710,7 @@ isOnUsersPage() {
                 }
                 break;
             case 'delete':
-                console.log('🗑️ Delete ticket clicked:', ticketId);
+                // console.log('🗑️ Delete ticket clicked:', ticketId);
                 if (permissions.canDelete) {
                     this.deleteTicket(ticketId);
                 } else {
@@ -1618,7 +1718,7 @@ isOnUsersPage() {
                 }
                 break;
             case 'take':
-                console.log('👋 Take ticket clicked:', ticketId);
+                // console.log('👋 Take ticket clicked:', ticketId);
                 if (permissions.canTake) {
                     this.takeTicket(ticketId);
                 } else {
@@ -1672,7 +1772,7 @@ isOnUsersPage() {
             try {
                 await firebaseAuthService.logout();
             } catch (error) {
-                console.log('Firebase logout:', error.message);
+                // console.log('Firebase logout:', error.message);
             }
             
             localStorage.removeItem('adminUser');
@@ -1685,11 +1785,11 @@ isOnUsersPage() {
             const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
             
             this.unsubscribe = onSnapshot(q, (snapshot) => {
-                console.log('🔄 Real-time update: tickets changed');
+                // console.log('🔄 Real-time update: tickets changed');
                 this.loadTickets();
             });
             
-            console.log('✅ Real-time listener activated');
+            // console.log('✅ Real-time listener activated');
         } catch (error) {
             console.error('❌ Error setting up real-time listener:', error);
         }
@@ -1698,7 +1798,7 @@ isOnUsersPage() {
    // ✅ FIX: Enhanced loadTickets dengan user data sync
 async loadTickets() {
     try {
-        console.log('🔄 Loading tickets dengan user data sync...');
+        // console.log('🔄 Loading tickets dengan user data sync...');
         
         const q = query(
             collection(this.db, "tickets"), 
@@ -1713,11 +1813,11 @@ async loadTickets() {
                 const data = doc.data();
                 const ticket = this.normalizeTicketData(doc.id, data);
                 
-                console.log(`🎫 [LOAD] Ticket ${ticket.code}:`, {
-                    department: ticket.user_department,
-                    name: ticket.user_name,
-                    email: ticket.user_email
-                });
+                // console.log(`🎫 [LOAD] Ticket ${ticket.code}:`, {
+                //     department: ticket.user_department,
+                //     name: ticket.user_name,
+                //     email: ticket.user_email
+                // });
                 
                 allTickets.push(ticket);
             } catch (error) {
@@ -1732,7 +1832,7 @@ async loadTickets() {
         this.renderTickets();
         this.updateStats();
         
-        console.log(`✅ Loaded ${allTickets.length} tickets`);
+        // console.log(`✅ Loaded ${allTickets.length} tickets`);
         
     } catch (error) {
         console.error('❌ Error loading tickets:', error);
@@ -1915,11 +2015,11 @@ async renderTicketsToCards() {
         const permissions = this.checkPermissions(ticket);
         const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
         
-        console.log(`?? Rendering ticket card ${ticket.id}:`, {
-            code: ticket.code,
-            status: ticket.status,
-            assignedAdmin: assignedAdminDisplay
-        });
+        // console.log(`?? Rendering ticket card ${ticket.id}:`, {
+        //     code: ticket.code,
+        //     status: ticket.status,
+        //     assignedAdmin: assignedAdminDisplay
+        // });
         
         // Tentukan action buttons berdasarkan status dan permissions
         let actionButtons = '';
@@ -2034,7 +2134,7 @@ async renderTicketsToCards() {
 
     cardsContainer.innerHTML = cardsHtml;
     
-    console.log(`?? Rendered ${this.filteredTickets.length} ticket cards`);
+    // console.log(`?? Rendered ${this.filteredTickets.length} ticket cards`);
 }
 
 // ? HELPER METHOD UNTUK TRUNCATE TEXT
@@ -2083,18 +2183,18 @@ async renderTickets() {
         const permissions = this.checkPermissions(ticket);
         const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
         
-        console.log(`?? Rendering ticket ${ticket.id}:`, {
-            id: ticket.id,
-            code: ticket.code,
-            user_name: ticket.user_name,
-            user_department: ticket.user_department, // ← INI YANG DIPERIKSA!
-            user_email: ticket.user_email,
-            user_id: ticket.user_id
-        });
+        // console.log(`?? Rendering ticket ${ticket.id}:`, {
+        //     id: ticket.id,
+        //     code: ticket.code,
+        //     user_name: ticket.user_name,
+        //     user_department: ticket.user_department, // ← INI YANG DIPERIKSA!
+        //     user_email: ticket.user_email,
+        //     user_id: ticket.user_id
+        // });
         
         // ✅ DEBUG: Cek department yang akan di-render
         const displayDepartment = ticket.user_department || 'N/A';
-        console.log(`🏢 [DEBUG RENDER] Ticket ${ticket.code} department: "${displayDepartment}"`);
+        // console.log(`🏢 [DEBUG RENDER] Ticket ${ticket.code} department: "${displayDepartment}"`);
         
         // Tentukan action buttons berdasarkan status dan permissions
         let actionButtons = '';
@@ -2208,32 +2308,25 @@ async renderTickets() {
 
         // Cek semua action buttons yang di-render
         const actionButtons = tableBody.querySelectorAll('.btn-action');
-        console.log(`🎯 Found ${actionButtons.length} action buttons in table`);
+        // console.log(`🎯 Found ${actionButtons.length} action buttons in table`);
 
         actionButtons.forEach((button, index) => {
             const action = button.dataset.action;
             const actionContainer = button.closest('.action-buttons');
             const ticketId = actionContainer?.dataset.ticketId;
             
-            console.log(`🔍 Button ${index + 1}:`, {
-                action: action,
-                ticketId: ticketId,
-                text: button.textContent.trim(),
-                hasDataAction: !!button.dataset.action,
-                hasTicketId: !!ticketId
-            });
         });
 
         // Cek khusus view buttons
         const viewButtons = tableBody.querySelectorAll('.btn-view');
-        console.log(`👀 Found ${viewButtons.length} view buttons`);
+        // console.log(`👀 Found ${viewButtons.length} view buttons`);
 
         viewButtons.forEach((button, index) => {
-            console.log(`📱 View button ${index + 1}:`, {
-                outerHTML: button.outerHTML,
-                dataset: button.dataset,
-                parentDataset: button.closest('.action-buttons')?.dataset
-            });
+            // console.log(`📱 View button ${index + 1}:`, {
+            //     outerHTML: button.outerHTML,
+            //     dataset: button.dataset,
+            //     parentDataset: button.closest('.action-buttons')?.dataset
+            // });
         });
     }
 
@@ -2386,7 +2479,7 @@ updateFilterInfoDisplay(filterInfo) {
     // ✅ METHOD UPDATE TICKET STATUS - MODIFIED VERSION
     async updateTicketStatus(ticketId, newStatus) {
         try {
-            console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+            // console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
             
             const ticketRef = doc(this.db, "tickets", ticketId);
             const ticket = this.tickets.find(t => t.id === ticketId);
@@ -2574,7 +2667,7 @@ updateFilterInfoDisplay(filterInfo) {
     // ✅ METHOD UNTUK EKSEKUSI RESOLUTION SETELAH KONFIRMASI
     async executeTicketResolution(ticketId, newStatus, note) {
         try {
-            console.log(`✅ Executing resolution for ticket ${ticketId} with note`);
+            // console.log(`✅ Executing resolution for ticket ${ticketId} with note`);
             
             const ticketRef = doc(this.db, "tickets", ticketId);
             
@@ -2633,7 +2726,7 @@ updateFilterInfoDisplay(filterInfo) {
     // ✅ METHOD TAKE TICKET
     async takeTicket(ticketId) {
         try {
-            console.log(`👋 Taking ticket: ${ticketId}`);
+            // console.log(`👋 Taking ticket: ${ticketId}`);
             
             const ticketRef = doc(this.db, "tickets", ticketId);
             const ticket = this.tickets.find(t => t.id === ticketId);
@@ -2696,7 +2789,7 @@ updateFilterInfoDisplay(filterInfo) {
     // ✅ UPDATE VIEW TICKET METHOD UNTUK REAL-TIME
 async viewTicket(ticketId) {
     try {
-        console.log(`👀 Viewing ticket with real-time: ${ticketId}`);
+        // console.log(`👀 Viewing ticket with real-time: ${ticketId}`);
         
         // Set current modal ticket
         this.currentModalTicketId = ticketId;
@@ -2704,7 +2797,7 @@ async viewTicket(ticketId) {
         // Cek cached data dulu untuk loading cepat
         const cachedTicket = this.tickets.find(t => t.id === ticketId);
         if (cachedTicket) {
-            console.log('📦 Using cached ticket data for initial display');
+            // console.log('📦 Using cached ticket data for initial display');
             await this.showTicketModal(ticketId);
         } else {
             // Fallback: load dari Firestore
@@ -2777,7 +2870,7 @@ async viewTicket(ticketId) {
     // ✅ METHOD SHOW TICKET MODAL DENGAN REAL-TIME DATA
 async showTicketModal(ticketId) {
     try {
-        console.log(`👀 Opening real-time modal for ticket: ${ticketId}`);
+        // console.log(`👀 Opening real-time modal for ticket: ${ticketId}`);
         
         const modal = document.getElementById('ticketModal');
         const modalBody = document.getElementById('ticketModalBody');
@@ -2811,7 +2904,7 @@ async showTicketModal(ticketId) {
 // ✅ REAL-TIME LISTENER UNTUK TICKET DATA
 setupTicketRealTimeListener(ticketId, modalBody) {
     try {
-        console.log(`🔮 Setting up real-time listener for ticket: ${ticketId}`);
+        // console.log(`🔮 Setting up real-time listener for ticket: ${ticketId}`);
         
         const ticketRef = doc(this.db, "tickets", ticketId);
         
@@ -2832,11 +2925,11 @@ setupTicketRealTimeListener(ticketId, modalBody) {
                     const ticketData = docSnapshot.data();
                     const ticket = this.normalizeTicketData(ticketId, ticketData);
                     
-                    console.log('🔄 Real-time ticket update received:', {
-                        code: ticket.code,
-                        status: ticket.status,
-                        last_updated: ticket.last_updated
-                    });
+                    // console.log('🔄 Real-time ticket update received:', {
+                    //     code: ticket.code,
+                    //     status: ticket.status,
+                    //     last_updated: ticket.last_updated
+                    // });
                     
                     // Render modal content dengan data terbaru
                     await this.renderRealTimeModalContent(ticket, modalBody);
@@ -2859,7 +2952,7 @@ setupTicketRealTimeListener(ticketId, modalBody) {
             }
         );
         
-        console.log('✅ Real-time ticket listener activated');
+        // console.log('✅ Real-time ticket listener activated');
         
     } catch (error) {
         console.error('❌ Error setting up real-time listener:', error);
@@ -2870,7 +2963,7 @@ setupTicketRealTimeListener(ticketId, modalBody) {
 // ✅ RENDER MODAL CONTENT DENGAN REAL-TIME DATA
 async renderRealTimeModalContent(ticket, modalBody) {
     try {
-        console.log('🎨 Rendering real-time modal content for:', ticket.code);
+        // console.log('🎨 Rendering real-time modal content for:', ticket.code);
         
         // Dapatkan info admin terbaru
         const assignedAdmins = await this.getAssignedAdminInfo(ticket);
@@ -2890,7 +2983,7 @@ async renderRealTimeModalContent(ticket, modalBody) {
             
         }, 150);
         
-        console.log('✅ Modal content updated in real-time');
+        // console.log('✅ Modal content updated in real-time');
         
     } catch (error) {
         console.error('❌ Error rendering modal content:', error);
@@ -2923,7 +3016,7 @@ addRealTimeIndicator(modalBody) {
     // ✅ FALLBACK METHOD JIKA MODAL UTAMA TIDAK BEKERJA
     createFallbackModal(ticket, assignedAdmins, permissions) {
         try {
-            console.log('🔄 Creating fallback modal...');
+            // console.log('🔄 Creating fallback modal...');
             
             // Remove existing fallback modal if any
             const existingFallback = document.getElementById('fallbackTicketModal');
@@ -2964,7 +3057,7 @@ addRealTimeIndicator(modalBody) {
                 }
             };
             
-            console.log('✅ Fallback modal created');
+            // console.log('✅ Fallback modal created');
             
         } catch (error) {
             console.error('❌ Error creating fallback modal:', error);
@@ -3224,27 +3317,27 @@ showErrorModal(modalBody, message) {
     }
 
    closeTicketModal() {
-    console.log('🚪 Closing ticket modal with cleanup...');
+    // console.log('🚪 Closing ticket modal with cleanup...');
     
     // Unsubscribe real-time listener
     if (this.ticketModalUnsubscribe) {
         this.ticketModalUnsubscribe();
         this.ticketModalUnsubscribe = null;
-        console.log('✅ Real-time listener unsubscribed');
+        // console.log('✅ Real-time listener unsubscribed');
     }
     
     const modal = document.getElementById('ticketModal');
     if (modal) {
         modal.style.display = 'none';
         document.body.classList.remove('modal-open');
-        console.log('✅ Ticket modal closed');
+        // console.log('✅ Ticket modal closed');
     }
 }
 
 // ✅ FIX: updateTicketModal dengan simple approach
 async updateTicketModal(ticketId) {
     try {
-        console.log('✏️ Opening update modal for ticket:', ticketId);
+        // console.log('✏️ Opening update modal for ticket:', ticketId);
         
         const ticketDoc = await getDoc(doc(this.db, "tickets", ticketId));
         if (!ticketDoc.exists()) {
@@ -3270,7 +3363,7 @@ async updateTicketModal(ticketId) {
 // ✅ SIMPLE SOLUTION: Gunakan modal basic tanpa tab
 async showUpdateFormModalSimple(ticket) {
     try {
-        console.log('🔧 [SIMPLE] Creating simple update modal...');
+        // console.log('🔧 [SIMPLE] Creating simple update modal...');
         
         // Remove existing modal if any
         const existingModal = document.getElementById('updateTicketModal');
@@ -3431,7 +3524,7 @@ async showUpdateFormModalSimple(ticket) {
             this.handleTicketUpdateSimple(this.currentUpdatingTicketId);
         });
         
-        console.log('✅ Simple modal created successfully');
+        // console.log('✅ Simple modal created successfully');
         
         // Verify elements exist
         this.verifyModalElements();
@@ -3443,7 +3536,7 @@ async showUpdateFormModalSimple(ticket) {
 
 // ✅ Verify modal elements
 verifyModalElements() {
-    console.log('🔍 Verifying modal elements:');
+    // console.log('🔍 Verifying modal elements:');
     const elements = [
         'updateSubject', 'updatePriority', 'updateStatus', 'updateLocation',
         'updateUserName', 'updateUserEmail', 'updateUserDepartment', 'updateUserPhone',
@@ -3452,36 +3545,36 @@ verifyModalElements() {
     
     elements.forEach(id => {
         const element = document.getElementById(id);
-        console.log(`   ${id}: ${element ? '✅ EXISTS' : '❌ MISSING'}`);
+        // console.log(`   ${id}: ${element ? '✅ EXISTS' : '❌ MISSING'}`);
     });
 }
 
 // ✅ FIX: Enhanced showUpdateFormModal dengan DOM verification
 async showUpdateFormModal(ticket) {
     try {
-        console.log('🔧 [DEBUG] showUpdateFormModal called for ticket:', ticket.code);
+        // console.log('🔧 [DEBUG] showUpdateFormModal called for ticket:', ticket.code);
         
         let updateModal = document.getElementById('updateTicketModal');
         
         if (!updateModal) {
-            console.log('🔄 Creating update modal...');
+            // console.log('🔄 Creating update modal...');
             
             // Create modal element
             updateModal = document.createElement('div');
             updateModal.id = 'updateTicketModal';
             updateModal.className = 'modal';
             
-            console.log('📝 Modal element created, setting innerHTML...');
+            // console.log('📝 Modal element created, setting innerHTML...');
             
             // Set HTML content
             updateModal.innerHTML = this.getUpdateModalHTML(ticket);
             
-            console.log('📦 Appending modal to document body...');
+            // console.log('📦 Appending modal to document body...');
             
             // Append to body
             document.body.appendChild(updateModal);
             
-            console.log('✅ Modal created and appended to DOM');
+            // console.log('✅ Modal created and appended to DOM');
             
             // Verify modal exists in DOM
             const verifiedModal = document.getElementById('updateTicketModal');
@@ -3489,7 +3582,7 @@ async showUpdateFormModal(ticket) {
                 throw new Error('Modal failed to create in DOM');
             }
             
-            console.log('🔍 Modal verified in DOM:', verifiedModal);
+            // console.log('🔍 Modal verified in DOM:', verifiedModal);
             
             // Add form submit event
             const updateForm = document.getElementById('updateTicketForm');
@@ -3500,7 +3593,7 @@ async showUpdateFormModal(ticket) {
                         this.handleTicketUpdate(this.currentUpdatingTicketId);
                     }
                 });
-                console.log('✅ Form event listener added');
+                // console.log('✅ Form event listener added');
             } else {
                 console.error('❌ Update form not found');
             }
@@ -3508,23 +3601,23 @@ async showUpdateFormModal(ticket) {
             // Initialize tab switching
             this.initializeTabSwitching();
         } else {
-            console.log('ℹ️ Modal already exists, reusing...');
+            // console.log('ℹ️ Modal already exists, reusing...');
         }
         
         // Show modal
-        console.log('🎯 Showing modal...');
+        // console.log('🎯 Showing modal...');
         updateModal.style.display = 'flex';
         updateModal.classList.add('show');
         document.body.classList.add('modal-open');
         
-        console.log('🔍 [DEBUG] Starting to populate form data...');
+        // console.log('🔍 [DEBUG] Starting to populate form data...');
         
         // Populate form data dengan delay untuk memastikan DOM ready
         setTimeout(() => {
             this.populateFormDataSafely(ticket);
         }, 100);
         
-        console.log('✅ Update modal process completed');
+        // console.log('✅ Update modal process completed');
             
     } catch (error) {
         console.error('❌ Error showing update form:', error);
@@ -3756,7 +3849,7 @@ getUpdateModalHTML(ticket) {
 // ✅ FIX: Enhanced populateFormData dengan retry mechanism
 populateFormDataSafely(ticket) {
     try {
-        console.log('📝 Populating form data for ticket:', ticket.code);
+        // console.log('📝 Populating form data for ticket:', ticket.code);
         
         // List semua element yang perlu diisi
         const formElements = [
@@ -3779,7 +3872,7 @@ populateFormDataSafely(ticket) {
             { id: 'updateUserMessage', value: ticket.message || '', type: 'textarea' }
         ];
 
-        console.log('🔍 Checking and populating form elements:');
+        // console.log('🔍 Checking and populating form elements:');
         
         let successCount = 0;
         let failCount = 0;
@@ -3795,14 +3888,14 @@ populateFormDataSafely(ticket) {
             }
         });
 
-        console.log(`📊 Form population result: ${successCount} success, ${failCount} failed`);
+        // console.log(`📊 Form population result: ${successCount} success, ${failCount} failed`);
         
         if (failedElements.length > 0) {
             console.warn('⚠️ Failed to set these elements:', failedElements);
             
             // Retry failed elements after short delay
             setTimeout(() => {
-                console.log('🔄 Retrying failed elements...');
+                // console.log('🔄 Retrying failed elements...');
                 this.retryFailedElements(failedElements, ticket);
             }, 200);
         }
@@ -3819,7 +3912,7 @@ setElementValueWithRetry(elementId, value, elementType, retryCount = 0) {
         
         if (!element) {
             if (retryCount < 3) {
-                console.log(`🔄 Retrying ${elementId} (attempt ${retryCount + 1})...`);
+                // console.log(`🔄 Retrying ${elementId} (attempt ${retryCount + 1})...`);
                 setTimeout(() => {
                     this.setElementValueWithRetry(elementId, value, elementType, retryCount + 1);
                 }, 100 * (retryCount + 1));
@@ -3844,7 +3937,7 @@ setElementValueWithRetry(elementId, value, elementType, retryCount = 0) {
                 break;
         }
         
-        console.log(`   ✅ Set ${elementId} = "${value}"`);
+        // console.log(`   ✅ Set ${elementId} = "${value}"`);
         return true;
         
     } catch (error) {
@@ -3902,7 +3995,7 @@ setElementValueSafely(elementId, value) {
     try {
         const element = document.getElementById(elementId);
         if (!element) {
-            console.warn(`⚠️ Element not found: ${elementId}`);
+            // console.warn(`⚠️ Element not found: ${elementId}`);
             return false;
         }
         
@@ -3914,7 +4007,7 @@ setElementValueSafely(elementId, value) {
             element.value = value || '';
         }
         
-        console.log(`   ✅ Set ${elementId} = "${value}"`);
+        // console.log(`   ✅ Set ${elementId} = "${value}"`);
         return true;
         
     } catch (error) {
@@ -3926,12 +4019,12 @@ setElementValueSafely(elementId, value) {
 // ✅ FIX: Enhanced tab switching dengan error handling
 initializeTabSwitching() {
     try {
-        console.log('🔧 Initializing tab switching...');
+        // console.log('🔧 Initializing tab switching...');
         
         const tabBtns = document.querySelectorAll('.tab-btn');
         const tabContents = document.querySelectorAll('.tab-content');
         
-        console.log(`📊 Found ${tabBtns.length} tab buttons and ${tabContents.length} tab contents`);
+        // console.log(`📊 Found ${tabBtns.length} tab buttons and ${tabContents.length} tab contents`);
         
         if (tabBtns.length === 0 || tabContents.length === 0) {
             console.warn('⚠️ No tabs found for initialization');
@@ -3942,7 +4035,7 @@ initializeTabSwitching() {
             btn.addEventListener('click', () => {
                 const targetTab = btn.dataset.tab;
                 
-                console.log(`🎯 Tab clicked: ${targetTab}`);
+                // console.log(`🎯 Tab clicked: ${targetTab}`);
                 
                 // Remove active class from all tabs
                 tabBtns.forEach(b => b.classList.remove('active'));
@@ -3954,14 +4047,14 @@ initializeTabSwitching() {
                 const targetElement = document.getElementById(targetTab);
                 if (targetElement) {
                     targetElement.classList.add('active');
-                    console.log(`✅ Activated tab: ${targetTab}`);
+                    // console.log(`✅ Activated tab: ${targetTab}`);
                 } else {
                     console.error(`❌ Tab content not found: ${targetTab}`);
                 }
             });
         });
         
-        console.log('✅ Tab switching initialized successfully');
+        // console.log('✅ Tab switching initialized successfully');
         
     } catch (error) {
         console.error('❌ Error initializing tab switching:', error);
@@ -4011,12 +4104,12 @@ async handleTicketUpdateSimple(ticketId) {
             user_phone: document.getElementById('updateUserPhone').value
         };
 
-        console.log('📝 Update data:', updateData);
-        console.log('🛡️ Duration protection:', {
-            wasFinal: isCurrentlyFinalStatus,
-            changingToFinal: isChangingToFinalStatus,
-            updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
-        });
+        // console.log('📝 Update data:', updateData);
+        // console.log('🛡️ Duration protection:', {
+        //     wasFinal: isCurrentlyFinalStatus,
+        //     changingToFinal: isChangingToFinalStatus,
+        //     updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
+        // });
 
         const userId = currentData.user_id;
 
@@ -4034,7 +4127,7 @@ async handleTicketUpdateSimple(ticketId) {
             updated_at: new Date().toISOString()
         });
 
-        console.log('✅ User profile updated');
+        // console.log('✅ User profile updated');
 
         // ✅ UPDATE TICKET
         await updateDoc(ticketRef, updateData);
@@ -4148,15 +4241,15 @@ async handleTicketUpdate(ticketId) {
             return;
         }
 
-        console.log('📝 Update data collected:', {
-            ticket: ticketUpdateData,
-            user: userUpdateData,
-            durationProtection: {
-                wasFinal: isCurrentlyFinalStatus,
-                changingToFinal: isChangingToFinalStatus,
-                updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
-            }
-        });
+        // console.log('📝 Update data collected:', {
+        //     ticket: ticketUpdateData,
+        //     user: userUpdateData,
+        //     durationProtection: {
+        //         wasFinal: isCurrentlyFinalStatus,
+        //         changingToFinal: isChangingToFinalStatus,
+        //         updateLastUpdated: !(isCurrentlyFinalStatus && !isChangingToFinalStatus)
+        //     }
+        // });
 
         const userId = currentTicketData.user_id;
 
@@ -4165,14 +4258,14 @@ async handleTicketUpdate(ticketId) {
         }
 
         // ✅ UPDATE USER PROFILE DI FIRESTORE
-        console.log('👤 Updating user profile for:', userId);
+        // console.log('👤 Updating user profile for:', userId);
         const userRef = doc(this.db, "users", userId);
         await updateDoc(userRef, {
             ...userUpdateData,
             updated_at: new Date().toISOString()
         });
 
-        console.log('✅ User profile updated successfully');
+        // console.log('✅ User profile updated successfully');
 
         // ✅ UPDATE ALL TICKETS USER INI (untuk konsistensi data)
         await this.updateUserTicketsInFirestore(userId, userUpdateData);
@@ -4228,7 +4321,7 @@ async handleTicketUpdate(ticketId) {
             finalTicketUpdate.qa = 'In Progress';
         }
         
-        console.log('🎯 Final update data:', finalTicketUpdate);
+        // console.log('🎯 Final update data:', finalTicketUpdate);
 
         // Execute update ticket
         await updateDoc(ticketRef, finalTicketUpdate);
@@ -4308,7 +4401,7 @@ shouldUpdateLastUpdated(currentStatus, newStatus) {
 // ✅ NEW: Helper method untuk update semua tickets user
 async updateUserTicketsInFirestore(userId, userUpdates) {
     try {
-        console.log('🔄 Updating all tickets for user:', userId);
+        // console.log('🔄 Updating all tickets for user:', userId);
         
         const ticketsQuery = query(
             collection(this.db, "tickets"),
@@ -4333,7 +4426,7 @@ async updateUserTicketsInFirestore(userId, userUpdates) {
             updatedCount++;
         }
 
-        console.log(`✅ Updated ${updatedCount} tickets for user consistency`);
+        // console.log(`✅ Updated ${updatedCount} tickets for user consistency`);
         return updatedCount;
         
     } catch (error) {
@@ -4356,7 +4449,7 @@ async updateUserTicketsInFirestore(userId, userUpdates) {
   // ✅ ENHANCED EXPORT DATA PREPARATION YANG COMPATIBLE
 getDisplayedTicketsForExport() {
     try {
-        console.log('📊 Preparing export data for filtered tickets...');
+        // console.log('📊 Preparing export data for filtered tickets...');
         
         const exportTickets = this.filteredTickets.map(ticket => {
             // Format dates untuk export - SESUAI DENGAN FORMAT DI EXPORT.JS
@@ -4416,7 +4509,7 @@ getDisplayedTicketsForExport() {
             };
         });
         
-        console.log(`✅ Prepared ${exportTickets.length} tickets for export`);
+        // console.log(`✅ Prepared ${exportTickets.length} tickets for export`);
         return exportTickets;
         
     } catch (error) {
@@ -4437,15 +4530,15 @@ getUsedExportMethod() {
 // ✅ PERBAIKAN: Enhanced Export Compatibility Fix
 async fixExportCompatibility() {
     try {
-        console.log('🔧 Fixing export compatibility...');
+        // console.log('🔧 Fixing export compatibility...');
         
         // ✅ PERBAIKI MISSING FUNCTION: window.originalExportToExcelAppendSorted
         if (typeof window.originalExportToExcelAppendSorted === 'undefined') {
-            console.log('🔄 Creating missing function: originalExportToExcelAppendSorted');
+            // console.log('🔄 Creating missing function: originalExportToExcelAppendSorted');
             
             if (typeof window.exportToExcelAppendSorted === 'function') {
                 window.originalExportToExcelAppendSorted = window.exportToExcelAppendSorted;
-                console.log('✅ originalExportToExcelAppendSorted set to exportToExcelAppendSorted');
+                // console.log('✅ originalExportToExcelAppendSorted set to exportToExcelAppendSorted');
             } else {
                 window.originalExportToExcelAppendSorted = function(displayedTickets, filterInfo) {
                     console.warn('⚠️ originalExportToExcelAppendSorted called but not implemented');
@@ -4456,7 +4549,7 @@ async fixExportCompatibility() {
         
         // ✅ PERBAIKI MISSING FUNCTION: setExportFilterInfo
         if (typeof window.setExportFilterInfo === 'undefined') {
-            console.log('🔄 Creating missing function: setExportFilterInfo');
+            // console.log('🔄 Creating missing function: setExportFilterInfo');
             window.setExportFilterInfo = function(filterInfo) {
                 console.log('📊 setExportFilterInfo called:', filterInfo);
                 window.exportFilterInfo = filterInfo;
@@ -4465,9 +4558,9 @@ async fixExportCompatibility() {
         
         // ✅ PASTIKAN appendToExistingExcel ADA
         if (typeof window.appendToExistingExcel === 'undefined') {
-            console.log('🔄 Creating missing function: appendToExistingExcel');
+            // console.log('🔄 Creating missing function: appendToExistingExcel');
             window.appendToExistingExcel = async function(displayedTickets, filterInfo) {
-                console.log('📥 appendToExistingExcel called:', displayedTickets?.length, 'tickets');
+                // console.log('📥 appendToExistingExcel called:', displayedTickets?.length, 'tickets');
                 await Swal.fire({
                     title: 'Append Function Not Available',
                     text: 'The append to existing file feature is not available in this version.',
@@ -4480,7 +4573,7 @@ async fixExportCompatibility() {
             };
         }
         
-        console.log('✅ Export compatibility check completed');
+        // console.log('✅ Export compatibility check completed');
         
     } catch (error) {
         console.error('❌ Error fixing export compatibility:', error);
@@ -4490,7 +4583,7 @@ async fixExportCompatibility() {
 // ✅ ENHANCED FALLBACK EXPORT
 async fallbackExport(exportData) {
     try {
-        console.log('📄 Starting fallback CSV export...');
+        // console.log('📄 Starting fallback CSV export...');
         
         const headers = [
             'Ticket Code', 'Subject', 'User Name', 'User Email', 'Department', 
@@ -4531,7 +4624,7 @@ async fallbackExport(exportData) {
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
         
-        console.log('✅ Fallback CSV export completed');
+        // console.log('✅ Fallback CSV export completed');
         
     } catch (error) {
         console.error('❌ Fallback export error:', error);
@@ -4593,7 +4686,7 @@ getCurrentFilterInfo() {
             `${userInfo} - ${filterText}` : 
             `${userInfo} - All Tickets`;
             
-        console.log('📊 Current filter info:', finalFilterInfo);
+        // console.log('📊 Current filter info:', finalFilterInfo);
         return finalFilterInfo;
         
     } catch (error) {
