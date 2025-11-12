@@ -1,30 +1,19 @@
-// Import dependencies
 import {
-  getAuth, onAuthStateChanged, signOut,
-  createUserWithEmailAndPassword, signInWithEmailAndPassword
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import {
-  getFirestore, doc, getDoc, setDoc, updateDoc,
+  doc, getDoc, setDoc, updateDoc,
   collection, addDoc, getDocs, query, where, orderBy,
   serverTimestamp, onSnapshot
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { db } from '../utils/firebase-config.js';
 
 // Import instance
 import firebaseAuthService from '../services/firebase-auth-service.js';
-
-// Firebase configuration dari CONFIG
-const firebaseConfig = window.CONFIG.FIREBASE_CONFIG;
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
 
 class Dashboard {
   constructor() {
     this.currentUser = null;
     this.tickets = [];
     this.authService = firebaseAuthService;
-    this.db = getFirestore(app);
+    this.db = db;
     this.unsubscribeTickets = null;
     this.init();
   }
@@ -320,6 +309,11 @@ class Dashboard {
   async getAdminName(adminId) {
     if (!adminId) return { name: 'Admin', email: '' };
 
+    // Restrict cross-user reads for non-admins to comply with Firestore rules
+    if (!this.currentUser || this.currentUser.role !== 'admin') {
+      return { name: 'Admin', email: '' };
+    }
+
     try {
       const adminDoc = await getDoc(doc(this.db, "admins", adminId));
       if (adminDoc.exists()) {
@@ -330,7 +324,6 @@ class Dashboard {
         };
       }
 
-      // Fallback: cek di users collection
       const userDoc = await getDoc(doc(this.db, "users", adminId));
       if (userDoc.exists()) {
         const userData = userDoc.data();

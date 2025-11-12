@@ -353,6 +353,17 @@ class FirebaseAuthService {
         });
     }
 
+    async isCurrentUserAdmin() {
+        try {
+            const user = await this.getCurrentUser();
+            if (!user) return false;
+            const adminDoc = await getDoc(doc(db, 'admins', user.uid));
+            return adminDoc.exists() && adminDoc.data().is_active !== false;
+        } catch (e) {
+            return false;
+        }
+    }
+
     async getUserProfile(uid) {
         try {
             const userDoc = await getDoc(doc(db, 'users', uid));
@@ -384,8 +395,13 @@ class FirebaseAuthService {
 
             console.log('✅ User profile updated in Firestore');
 
-            // ✅ FIX: UPDATE ALL TICKETS YANG DIBUAT OLEH USER INI
-            await this.updateUserTicketsInFirestore(uid, validatedUpdates);
+            // ✅ Gate ticket sync to admins to avoid permission errors for users
+            const isAdmin = await this.isCurrentUserAdmin();
+            if (isAdmin) {
+                await this.updateUserTicketsInFirestore(uid, validatedUpdates);
+            } else {
+                console.log('ℹ️ Skipping ticket sync for non-admin user');
+            }
 
             // ✅ TRIGGER REAL-TIME UPDATE KE SEMUA LISTENER
             await this.triggerGlobalUserUpdate(uid, validatedUpdates);
