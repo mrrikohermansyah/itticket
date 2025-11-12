@@ -1884,9 +1884,9 @@ class AdminDashboard {
                 }
             } else {
                 // Create New File
-                if (typeof window.originalExportToExcelAppendSorted === 'function') {
+                if (typeof window.createNewFileWithTemplate === 'function') {
                     try {
-                        await window.originalExportToExcelAppendSorted(exportData, this.getCurrentFilterInfo());
+                        await window.createNewFileWithTemplate(exportData, this.getCurrentFilterInfo());
                         exportSuccess = true;
                     } catch (error) {
                         console.error('❌ New file export failed:', error);
@@ -1895,13 +1895,6 @@ class AdminDashboard {
                             text: 'Failed to create new file: ' + error.message,
                             icon: 'error'
                         });
-                    }
-                } else if (typeof window.exportToExcelAppendSorted === 'function') {
-                    try {
-                        await window.exportToExcelAppendSorted(exportData, this.getCurrentFilterInfo());
-                        exportSuccess = true;
-                    } catch (error) {
-                        console.error('❌ Export failed:', error);
                     }
                 }
             }

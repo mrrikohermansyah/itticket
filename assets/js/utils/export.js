@@ -190,13 +190,6 @@ window.setHeaderStyling = function(sheet) {
             console.log("📄 Creating NEW FILE WITH TEMPLATE:", displayedTickets.length, "tickets");
             await window.loadExcelJS();
 
-            await Swal.fire({
-                title: "Select Template File",
-                text: "Pilih file Excel sebagai template untuk membuat file baru",
-                icon: "info",
-                confirmButtonColor: "#217346",
-            });
-
             const templateFile = await window.loadFileInput();
             const templateFileName = templateFile.name;
             
@@ -319,13 +312,6 @@ window.setHeaderStyling = function(sheet) {
 
             console.log("📥 Starting APPEND TO EXISTING process:", displayedTickets.length, "tickets");
             await window.loadExcelJS();
-
-            await Swal.fire({
-                title: "Select Excel File to Update",
-                text: "Pilih file Excel yang sudah ada untuk menambahkan data baru",
-                icon: "info",
-                confirmButtonColor: "#28a745",
-            });
 
             const existingFile = await window.loadFileInput();
             const existingFileName = existingFile.name;

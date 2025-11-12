@@ -279,25 +279,8 @@
     </script>
 
 <script src="../../assets/js/utils/export.js"></script>
-<!-- Load admin.js sebagai module TERAKHIR -->
+<!-- Load admin.js sebagai module TERAKHIR (self-initializes) -->
 <script type="module" src="assets/js/admin.js"></script>
-<script>
-  // Global variable untuk admin dashboard instance
-  window.adminDashboard = null;
-
-  // Wait for DOM and modules to load
-  document.addEventListener('DOMContentLoaded', async function () {
-    try {
-      // Import admin dashboard
-      const AdminDashboard = (await import('./assets/js/admin.js')).default;
-      window.adminDashboard = new AdminDashboard();
-
-      // console.log('✅ Admin Dashboard initialized globally');
-    } catch (error) {
-      console.error('❌ Failed to initialize admin dashboard:', error);
-    }
-  });
-</script>
 </body>
 
 </html>
