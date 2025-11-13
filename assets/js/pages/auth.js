@@ -44,7 +44,7 @@ function initializeRegisterForm(form) {
 
             // VALIDASI: Cek apakah email admin
             if (isAdminEmail(formData.email)) {
-                throw new Error('Admin email detected. Please use user registration.');
+                throw new Error('Admin email detected. Please use admin login page.');
             }
 
             // Register user dengan Firebase
@@ -137,16 +137,21 @@ function initializeLoginForm(form) {
 // ✅ Gunakan ini untuk deteksi admin yang lebih baik
 function detectUserType(email) {
     const emailLower = email.toLowerCase();
+    const parts = emailLower.split('@');
+    const local = parts[0] || '';
 
-    // Cek berdasarkan domain atau pattern
-    if (emailLower.includes('admin') ||
-        emailLower.includes('administrator') ||
-        emailLower.includes('it.') ||
-        emailLower.endsWith('@meitech-ekabintan.com')) { // sesuaikan dengan domain Anda
+    if (local.startsWith('admin') ||
+        local.startsWith('administrator') ||
+        local.startsWith('it.') ||
+        local.startsWith('it-')) {
         return 'admin';
     }
 
     return 'user';
+}
+
+function isAdminEmail(email) {
+    return detectUserType(email) === 'admin';
 }
 
 // Validasi functions (TETAP SAMA)

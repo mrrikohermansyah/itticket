@@ -32,17 +32,23 @@ class Dashboard {
 
       console.log('✅ User authenticated in Firebase Auth:', user.uid);
 
-      // ✅ TEMPORARY: Skip Firestore checks dulu
-      this.currentUser = {
-        id: user.uid,
-        email: user.email,
-        full_name: user.email.split('@')[0], // Default name
-        role: 'user',
-        department: 'General',
-        location: 'Blue Office'
-      };
-
-      console.log('✅ Using temporary user data:', this.currentUser);
+      const profile = await this.authService.getUserProfile(user.uid);
+      if (profile) {
+        this.currentUser = {
+          id: user.uid,
+          email: user.email || profile.email || '',
+          ...profile
+        };
+      } else {
+        this.currentUser = {
+          id: user.uid,
+          email: user.email || '',
+          full_name: (user.email || '').split('@')[0] || 'User',
+          role: 'user',
+          department: '',
+          location: ''
+        };
+      }
 
       // ✅ Load UI tanpa Firestore checks
       this.loadUserInfo();

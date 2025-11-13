@@ -61,6 +61,7 @@ class AdminDashboard {
         this.unsubscribe = null;
         this.userUnsubscribe = null;
         this.ticketModalUnsubscribe = null;
+        this.ticketUserModalUnsubscribe = null;
 
         this.init();
     }
@@ -657,6 +658,7 @@ class AdminDashboard {
     setupRealTimeListeners() {
         this.setupTicketsRealTimeListener();
         this.setupUserDataListener();
+        this.setupAdminDataListener();
     }
 
     setupTicketsRealTimeListener() {
@@ -686,7 +688,7 @@ class AdminDashboard {
                         const userData = change.doc.data();
                         const userId = change.doc.id;
 
-                        if (change.type === "modified") {
+                        if (change.type === "modified" || change.type === "added") {
                             this.handleUserProfileUpdate(userId, userData);
                             hasUserUpdates = true;
                         }
@@ -706,6 +708,69 @@ class AdminDashboard {
 
         } catch (error) {
             console.error('❌ Error setting up user data listener:', error);
+        }
+    }
+
+    setupAdminDataListener() {
+        try {
+            const adminsQuery = query(collection(this.db, "admins"));
+
+            onSnapshot(adminsQuery, (snapshot) => {
+                let hasAdminUpdates = false;
+
+                snapshot.docChanges().forEach((change) => {
+                    const adminData = change.doc.data();
+                    const adminId = change.doc.id;
+
+                    if (change.type === "modified" || change.type === "added") {
+                        if (!window.adminCache) window.adminCache = {};
+                        window.adminCache[adminId] = {
+                            name: adminData.name || 'Unknown Admin',
+                            email: adminData.email || 'No Email'
+                        };
+
+                        this.updateAdminAssignmentsInRealTime(adminId, adminData);
+                        if (this.adminUser && this.adminUser.uid === adminId) {
+                            this.adminUser.name = adminData.name || this.adminUser.name;
+                            this.adminUser.email = adminData.email || this.adminUser.email;
+                            this.adminUser.role = adminData.role || this.adminUser.role;
+                            this.loadAdminInfo();
+                        }
+                        hasAdminUpdates = true;
+                    }
+                });
+
+                if (hasAdminUpdates) {
+                    this.renderTickets();
+                    this.updateStats && this.updateStats();
+                }
+            }, (error) => {
+                console.error('❌ Admin data listener error:', error);
+            });
+
+            console.log('✅ Admin data listener activated');
+
+        } catch (error) {
+            console.error('❌ Error setting up admin data listener:', error);
+        }
+    }
+
+    updateAdminAssignmentsInRealTime(adminId, adminData) {
+        try {
+            const affectedTickets = this.tickets.filter(t => t.assigned_to === adminId || t.action_by === adminId);
+            if (affectedTickets.length > 0) {
+                const name = adminData.name || (window.adminCache && window.adminCache[adminId]?.name) || '';
+                const email = adminData.email || (window.adminCache && window.adminCache[adminId]?.email) || '';
+                affectedTickets.forEach(ticket => {
+                    // No field mutation needed; display uses cache via getAssignedAdminDisplayInfo
+                    // Keep for potential legacy assigned_name compatibility
+                    if (ticket.assigned_to === adminId && !ticket.assigned_name) {
+                        ticket.assigned_name = name || email || ticket.assigned_name;
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error updating admin assignments in UI:', error);
         }
     }
 
@@ -1515,7 +1580,35 @@ class AdminDashboard {
 
                         const ticketData = docSnapshot.data();
                         const ticket = this.normalizeTicketData(ticketId, ticketData);
+                        if (ticket.user_id) {
+                            try {
+                                const userDoc = await getDoc(doc(this.db, "users", ticket.user_id));
+                                if (userDoc.exists()) {
+                                    const userProfile = userDoc.data();
+                                    ticket.user_name = userProfile.full_name || ticket.user_name;
+                                    ticket.user_email = userProfile.email || ticket.user_email;
+                                    ticket.user_department = userProfile.department || ticket.user_department;
+                                }
+                            } catch (e) {
+                                console.error('Error fetching user profile for modal:', e);
+                            }
+                        }
                         await this.renderRealTimeModalContent(ticket, modalBody);
+                        if (!this.ticketUserModalUnsubscribe && ticket.user_id) {
+                            const userRef = doc(this.db, "users", ticket.user_id);
+                            this.ticketUserModalUnsubscribe = onSnapshot(userRef, (userSnap) => {
+                                if (!userSnap.exists()) return;
+                                const user = userSnap.data();
+                                const nameEl = modalBody.querySelector('[data-field="user_name"]');
+                                const emailEl = modalBody.querySelector('[data-field="user_email"]');
+                                const deptEl = modalBody.querySelector('[data-field="user_department"]');
+                                if (nameEl) nameEl.textContent = this.escapeHtml(user.full_name || 'Unknown User');
+                                if (emailEl) emailEl.textContent = this.escapeHtml(user.email || '');
+                                if (deptEl) deptEl.textContent = this.escapeHtml(user.department || '');
+                            }, (err) => {
+                                console.error('User profile listener error:', err);
+                            });
+                        }
 
                     } catch (error) {
                         console.error('❌ Error processing real-time update:', error);
@@ -1585,6 +1678,11 @@ class AdminDashboard {
         if (this.ticketModalUnsubscribe) {
             this.ticketModalUnsubscribe();
             this.ticketModalUnsubscribe = null;
+        }
+
+        if (this.ticketUserModalUnsubscribe) {
+            this.ticketUserModalUnsubscribe();
+            this.ticketUserModalUnsubscribe = null;
         }
 
         const modal = document.getElementById('ticketModal');
@@ -2471,6 +2569,7 @@ class AdminDashboard {
                                         <option value="HR" ${ticket.user_department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
                                         <option value="HSE" ${ticket.user_department === 'HSE' ? 'selected' : ''}>HSE</option>
                                         <option value="IT" ${ticket.user_department === 'IT' ? 'selected' : ''}>IT</option>
+                                        <option value="PGA" ${ticket.user_department === 'PGA' ? 'selected' : ''}>PGA</option>
                                         <option value="Maintenance" ${ticket.user_department === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
                                         <option value="Management" ${ticket.user_department === 'Management' ? 'selected' : ''}>Management</option>
                                         <option value="Planner" ${ticket.user_department === 'Planner' ? 'selected' : ''}>Planner</option>

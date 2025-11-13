@@ -382,34 +382,32 @@ class FirebaseAuthService {
         try {
             console.log('🔄 USER PROFILE SYNC STARTED:', { uid, updates });
 
-            // Validasi data yang akan diupdate
-            const validatedUpdates = this.validateUserProfileUpdates(updates);
+            const validation = this.validateUserProfileUpdates(updates);
+            if (!validation.isValid) {
+                throw new Error(validation.errors.join(', '));
+            }
 
-            // Update di Firestore - user data
             const userRef = doc(db, 'users', uid);
             await updateDoc(userRef, {
-                ...validatedUpdates,
+                ...updates,
                 updated_at: new Date().toISOString(),
                 last_synced: new Date().toISOString()
             });
 
             console.log('✅ User profile updated in Firestore');
 
-            // ✅ Gate ticket sync to admins to avoid permission errors for users
-            const isAdmin = await this.isCurrentUserAdmin();
-            if (isAdmin) {
-                await this.updateUserTicketsInFirestore(uid, validatedUpdates);
-            } else {
-                console.log('ℹ️ Skipping ticket sync for non-admin user');
+            try {
+                await this.updateUserTicketsInFirestore(uid, updates);
+            } catch (syncError) {
+                console.warn('Ticket sync skipped:', syncError.message);
             }
 
-            // ✅ TRIGGER REAL-TIME UPDATE KE SEMUA LISTENER
-            await this.triggerGlobalUserUpdate(uid, validatedUpdates);
+            await this.triggerGlobalUserUpdate(uid, updates);
 
             return {
                 success: true,
                 message: 'Profile updated successfully! All related tickets have been updated.',
-                user: { uid, ...validatedUpdates }
+                user: { uid, ...updates }
             };
 
         } catch (error) {
