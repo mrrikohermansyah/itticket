@@ -744,17 +744,17 @@
 
 /* Realtime Notification Styles */
 .realtime-notification {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: white;
-    border-left: 4px solid #ef070a;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    padding: 16px;
-    z-index: 10000;
-    max-width: 350px;
-    animation: slideInRight 0.3s ease-out;
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: white;
+  border-left: 4px solid #ef070a;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 16px;
+  z-index: 10000;
+  max-width: 350px;
+  animation: slideInRight 0.3s ease-out;
 }
 
 .notification-content {
@@ -872,9 +872,51 @@
 .ticket-status.status-closed,
 .ticket-status.status-completed,
 .ticket-status.status-finish {
-    color: #10b981;
-    background: #f0fdf4;
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.25rem;
-    font-weight: 600;
+  color: #10b981;
+  background: #f0fdf4;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+/* Mobile responsiveness enhancements */
+.dashboard-header {
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+@media (max-width: 768px) {
+  .dashboard-body {
+    font-size: 0.95rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-logout,
+  .btn-profile {
+    min-height: 40px;
+    padding: 0.625rem 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-body {
+    font-size: 1rem;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-logout,
+  .btn-profile {
+    min-height: 44px;
+    padding: 0.75rem 1.125rem;
+    font-size: 0.95rem;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    font-size: 1rem;
+    min-height: 44px;
+  }
 }
