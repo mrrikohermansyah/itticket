@@ -921,7 +921,7 @@ class AdminDashboard {
                         <div>${userDisplay.name || 'Unknown'}</div>
                         <small class="text-muted">${userDisplay.email || 'No Email'}</small>
                     </td>
-                    <td>${ticket.user_department || 'N/A'}</td>
+                    <td>${userDisplay.department || 'N/A'}</td>
                     <td>${ticket.location || 'N/A'}</td>
                     <td>
                         <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
@@ -1040,7 +1040,7 @@ class AdminDashboard {
                     
                     <div class="ticket-user-info">
                         <div class="ticket-user">${userDisplay.name || 'Unknown'}</div>
-                        <div class="ticket-department">${ticket.user_department || 'N/A'}</div>
+                        <div class="ticket-department">${userDisplay.department || 'N/A'}</div>
                     </div>
                     
                     <div class="ticket-location">
@@ -1649,7 +1649,8 @@ class AdminDashboard {
         try {
             const assignedAdmins = await this.getAssignedAdminInfo(ticket);
             const permissions = this.checkPermissions(ticket);
-            const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions);
+            const userDisplay = await this.getUserDisplayInfo(ticket);
+            const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions, userDisplay);
 
             modalBody.style.opacity = '0.7';
             setTimeout(() => {
@@ -1705,7 +1706,7 @@ class AdminDashboard {
     }
 
     // ✅ METHOD UNTUK MODAL HTML YANG HILANG
-    getTicketModalHTML(ticket, assignedAdmins, permissions) {
+    getTicketModalHTML(ticket, assignedAdmins, permissions, userDisplay) {
         const lastUpdated = ticket.last_updated ?
             new Date(ticket.last_updated).toLocaleString('en-GB', {
                 day: 'numeric', month: 'short', year: 'numeric',
@@ -1786,15 +1787,15 @@ class AdminDashboard {
                 <h3><i class="fas fa-user"></i> User Information</h3>
                 <div class="ticket-row">
                     <div class="ticket-col"><strong>Name:</strong></div>
-                    <div class="ticket-col value" data-field="user_name">${this.escapeHtml(ticket.user_name)}</div>
+                    <div class="ticket-col value" data-field="user_name">${this.escapeHtml(userDisplay.name)}</div>
                 </div>
                 <div class="ticket-row">
                     <div class="ticket-col"><strong>Department:</strong></div>
-                    <div class="ticket-col value" data-field="user_department">${this.escapeHtml(ticket.user_department)}</div>
+                    <div class="ticket-col value" data-field="user_department">${this.escapeHtml(userDisplay.department || 'N/A')}</div>
                 </div>
                 <div class="ticket-row">
                     <div class="ticket-col"><strong>Email:</strong></div>
-                    <div class="ticket-col value" data-field="user_email">${this.escapeHtml(ticket.user_email)}</div>
+                    <div class="ticket-col value" data-field="user_email">${this.escapeHtml(userDisplay.email || '')}</div>
                 </div>
             </div>
 
@@ -2429,22 +2430,23 @@ class AdminDashboard {
         try {
             const nameFallback = ticket.user_name || ticket.name || 'Unknown';
             const emailFallback = ticket.user_email || '';
+            const deptFallback = ticket.user_department || 'N/A';
             if (ticket.user_id) {
                 if (window.userCache && window.userCache[ticket.user_id]) {
                     const u = window.userCache[ticket.user_id];
-                    return { name: u.full_name || nameFallback, email: u.email || emailFallback };
+                    return { name: u.full_name || nameFallback, email: u.email || emailFallback, department: u.department || deptFallback };
                 }
                 const userDoc = await getDoc(doc(this.db, "users", ticket.user_id));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     if (!window.userCache) window.userCache = {};
                     window.userCache[ticket.user_id] = userData;
-                    return { name: userData.full_name || nameFallback, email: userData.email || emailFallback };
+                    return { name: userData.full_name || nameFallback, email: userData.email || emailFallback, department: userData.department || deptFallback };
                 }
             }
-            return { name: nameFallback, email: emailFallback };
+            return { name: nameFallback, email: emailFallback, department: deptFallback };
         } catch (e) {
-            return { name: ticket.user_name || ticket.name || 'Unknown', email: ticket.user_email || '' };
+            return { name: ticket.user_name || ticket.name || 'Unknown', email: ticket.user_email || '', department: ticket.user_department || 'N/A' };
         }
     }
 
