@@ -538,7 +538,7 @@ window.setHeaderStyling = function(sheet) {
                 deviceCode,
                 ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
                 ticket.note || "-",
-                ticket.name || ticket.user_name || "-",
+                (ticket.full_name || ticket.user_name || ticket.name || "-"),
                 durationText,
                 kendaliMutu,
             ];
@@ -653,43 +653,55 @@ window.setHeaderStyling = function(sheet) {
 
     window.calculateDurationForExport = function(ticket) {
         try {
-            let startDate = null;
-            const createdDateFields = [
-                ticket.created_at, ticket.createdAt, ticket.timestamp, ticket.date_created
-            ];
-            
-            for (const field of createdDateFields) {
-                startDate = window.parseUniversalTimestamp(field);
-                if (startDate && !isNaN(startDate.getTime())) break;
-            }
-            
-            if (!startDate || isNaN(startDate.getTime())) return "0 Minutes";
-
             const status = ticket.status_ticket || ticket.status || "Open";
-            let endDate = null;
-
-            if (status === "Resolved" || status === "Closed") {
-                const endDateFields = [
-                    ticket.last_updated, ticket.updatedAt, ticket.resolved_at, ticket.closed_at
-                ];
-                
-                for (const field of endDateFields) {
-                    endDate = window.parseUniversalTimestamp(field);
-                    if (endDate && !isNaN(endDate.getTime())) break;
-                }
-                
-                if (!endDate || isNaN(endDate.getTime())) {
-                    endDate = new Date();
-                }
-            } else {
+            if (!(status === "Resolved" || status === "Closed" || status === "Finished" || status === "Completed")) {
                 return "0 Minutes";
             }
 
-            if (endDate < startDate) endDate = new Date();
+            let endDate = null;
+            const updateEntries = Array.isArray(ticket.updates) ? ticket.updates : [];
+            for (let i = updateEntries.length - 1; i >= 0; i--) {
+                const u = updateEntries[i];
+                const s = (u && u.status) ? String(u.status).trim() : '';
+                if (s === 'Resolved' || s === 'Closed' || s === 'Finished' || s === 'Completed') {
+                    const ts = window.parseUniversalTimestamp(u.timestamp);
+                    if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
+                }
+            }
+            if (!endDate) {
+                const endCandidates = [ticket.resolved_at, ticket.closed_at, ticket.last_updated, ticket.updatedAt];
+                for (const c of endCandidates) {
+                    const ts = window.parseUniversalTimestamp(c);
+                    if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
+                }
+            }
+            if (!endDate) endDate = new Date();
 
+            let startDate = null;
+            const reopenTs = window.parseUniversalTimestamp(ticket.reopen_at);
+            if (reopenTs && !isNaN(reopenTs.getTime()) && reopenTs <= endDate) {
+                startDate = reopenTs;
+            } else if (updateEntries.length > 0) {
+                for (let i = updateEntries.length - 1; i >= 0; i--) {
+                    const u = updateEntries[i];
+                    const s = (u && u.status) ? String(u.status).trim() : '';
+                    const ts = window.parseUniversalTimestamp(u.timestamp);
+                    if ((s === 'Open' || s === 'Reopen') && ts && !isNaN(ts.getTime()) && ts <= endDate) {
+                        startDate = ts; break;
+                    }
+                }
+            }
+            if (!startDate) {
+                const createdCandidates = [ticket.created_at, ticket.createdAt, ticket.timestamp, ticket.date_created];
+                for (const c of createdCandidates) {
+                    const ts = window.parseUniversalTimestamp(c);
+                    if (ts && !isNaN(ts.getTime())) { startDate = ts; break; }
+                }
+            }
+            if (!startDate) return "0 Minutes";
+            if (endDate < startDate) endDate = new Date();
             const diffMs = endDate - startDate;
             const diffMinutes = Math.floor(diffMs / (1000 * 60));
-            
             return diffMinutes === 1 ? "1 Minute" : `${diffMinutes} Minutes`;
 
         } catch (error) {
@@ -729,6 +741,13 @@ window.setHeaderStyling = function(sheet) {
         if (lowerDevice.includes('backup') || lowerDevice.includes('data') || lowerDevice.includes('drone')) return "DR";
         
         return "OT";
+    };
+
+    window.toProperCase = function(s) {
+        if (!s) return "-";
+        const v = String(s).trim();
+        if (!v || v === "-") return "-";
+        return v.toLowerCase().split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : "").join(" ");
     };
 
     // ==================== ✅ FILE HANDLING FUNCTIONS ====================

@@ -909,6 +909,7 @@ class AdminDashboard {
         const rowPromises = this.filteredTickets.map(async (ticket) => {
             const permissions = this.checkPermissions(ticket);
             const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
+            const userDisplay = await this.getUserDisplayInfo(ticket);
 
             let actionButtons = this.generateActionButtons(ticket, permissions);
 
@@ -917,8 +918,8 @@ class AdminDashboard {
                     <td><strong>${ticket.code || 'N/A'}</strong></td>
                     <td>${ticket.subject || 'No Subject'}</td>
                     <td>
-                        <div>${ticket.user_name || 'Unknown'}</div>
-                        <small class="text-muted">${ticket.user_email || 'No Email'}</small>
+                        <div>${userDisplay.name || 'Unknown'}</div>
+                        <small class="text-muted">${userDisplay.email || 'No Email'}</small>
                     </td>
                     <td>${ticket.user_department || 'N/A'}</td>
                     <td>${ticket.location || 'N/A'}</td>
@@ -1021,6 +1022,7 @@ class AdminDashboard {
         const cardPromises = this.filteredTickets.map(async (ticket) => {
             const permissions = this.checkPermissions(ticket);
             const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
+            const userDisplay = await this.getUserDisplayInfo(ticket);
 
             let actionButtons = this.generateCardActionButtons(ticket, permissions);
 
@@ -1037,7 +1039,7 @@ class AdminDashboard {
                     <div class="ticket-title">${ticket.subject || 'No Subject'}</div>
                     
                     <div class="ticket-user-info">
-                        <div class="ticket-user">${ticket.user_name || 'Unknown'}</div>
+                        <div class="ticket-user">${userDisplay.name || 'Unknown'}</div>
                         <div class="ticket-department">${ticket.user_department || 'N/A'}</div>
                     </div>
                     
@@ -1281,6 +1283,15 @@ class AdminDashboard {
             updateData.assigned_name = this.adminUser.name || this.adminUser.email;
         }
 
+        if (newStatus === 'Open') {
+            const finalStatuses = ['Resolved', 'Closed', 'Completed', 'Finished'];
+            if (finalStatuses.includes(ticket.status)) {
+                updateData.reopen_at = serverTimestamp();
+            } else {
+                updateData.reopen_at = serverTimestamp();
+            }
+        }
+
         // Add to updates array
         const updateNote = {
             status: newStatus,
@@ -1482,6 +1493,7 @@ class AdminDashboard {
                 status: newStatus,
                 note: note,
                 last_updated: serverTimestamp(),
+                resolved_at: serverTimestamp(),
                 qa: 'Finish'
             };
 
@@ -2405,6 +2417,29 @@ class AdminDashboard {
         } catch (error) {
             console.error('Error getting admin display info:', error);
             return 'Error loading admin info';
+        }
+    }
+
+    async getUserDisplayInfo(ticket) {
+        try {
+            const nameFallback = ticket.user_name || ticket.name || 'Unknown';
+            const emailFallback = ticket.user_email || '';
+            if (ticket.user_id) {
+                if (window.userCache && window.userCache[ticket.user_id]) {
+                    const u = window.userCache[ticket.user_id];
+                    return { name: u.full_name || nameFallback, email: u.email || emailFallback };
+                }
+                const userDoc = await getDoc(doc(this.db, "users", ticket.user_id));
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    if (!window.userCache) window.userCache = {};
+                    window.userCache[ticket.user_id] = userData;
+                    return { name: userData.full_name || nameFallback, email: userData.email || emailFallback };
+                }
+            }
+            return { name: nameFallback, email: emailFallback };
+        } catch (e) {
+            return { name: ticket.user_name || ticket.name || 'Unknown', email: ticket.user_email || '' };
         }
     }
 

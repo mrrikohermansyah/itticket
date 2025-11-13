@@ -57,122 +57,55 @@ function parseUniversalTimestamp(timestamp) {
 // ==================== 🛠️ FIXED Duration Calculation (ALWAYS IN MINUTES) ====================
 function calculateDurationForExport(ticket) {
   try {
-    console.log("🛠️ Calculating duration for ticket:", ticket.id, ticket.code);
-
-    // Helper function to parse any timestamp format dengan prioritas yang benar
-    function parseTimestamp(timestamp) {
-      if (!timestamp) return null;
-      
-      try {
-        // 🎯 PRIORITAS 1: Firebase Timestamp object dengan toDate()
-        if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-          return timestamp.toDate();
-        }
-        
-        // 🎯 PRIORITAS 2: Firebase Timestamp object dengan seconds/nanoseconds
-        if (timestamp.seconds !== undefined) {
-          return new Date(timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000);
-        }
-        
-        // 🎯 PRIORITAS 3: ISO string
-        if (typeof timestamp === 'string') {
-          return new Date(timestamp);
-        }
-        
-        // 🎯 PRIORITAS 4: Regular Date object
-        const date = new Date(timestamp);
-        if (!isNaN(date.getTime())) {
-          return date;
-        }
-        
-        return null;
-      } catch (error) {
-        console.warn("🛠️ Error parsing timestamp:", timestamp, error);
-        return null;
-      }
-    }
-
-    // 🎯 CARI START DATE DENGAN BERBAGAI KEMUNGKINAN FIELD NAME
-    let startDate = null;
-    
-    // Priority order untuk created date
-    const createdDateFields = [
-      ticket.created_at,    // Format dari admin dashboard
-      ticket.createdAt,     // Format dari export data  
-      ticket.timestamp,     // Fallback
-      ticket.date_created   // Fallback lain
-    ];
-    
-    for (const field of createdDateFields) {
-      startDate = parseTimestamp(field);
-      if (startDate && !isNaN(startDate.getTime())) {
-        console.log(`🛠️ Found start date from field: ${field}`, startDate);
-        break;
-      }
-    }
-    
-    if (!startDate || isNaN(startDate.getTime())) {
-      console.warn("🛠️ Invalid start date for ticket:", ticket.id, "Available fields:", {
-        created_at: ticket.created_at,
-        createdAt: ticket.createdAt,
-        timestamp: ticket.timestamp,
-        date_created: ticket.date_created
-      });
-      return "0 Minutes";
-    }
-
-    // 🎯 CARI END DATE BERDASARKAN STATUS
     const status = ticket.status_ticket || ticket.status || "Open";
-    let endDate = null;
-
-    if (status === "Resolved" || status === "Closed") {
-      // Priority order untuk end date
-      const endDateFields = [
-        ticket.last_updated,  // Format dari admin dashboard
-        ticket.updatedAt,     // Format dari export data
-        ticket.resolved_at,   // Field khusus resolved
-        ticket.closed_at      // Field khusus closed
-      ];
-      
-      for (const field of endDateFields) {
-        endDate = parseTimestamp(field);
-        if (endDate && !isNaN(endDate.getTime())) {
-          console.log(`🛠️ Found end date from field: ${field}`, endDate);
-          break;
-        }
-      }
-      
-      // Jika tidak ditemukan, gunakan current time
-      if (!endDate || isNaN(endDate.getTime())) {
-        console.warn("🛠️ No valid end date found, using current time");
-        endDate = new Date();
-      }
-    } else {
-      // Untuk non-resolved tickets, duration adalah 0
-      console.log("🛠️ Ticket not resolved, duration = 0");
+    if (!(status === "Resolved" || status === "Closed" || status === "Finished" || status === "Completed")) {
       return "0 Minutes";
     }
 
-    // 🎯 VALIDASI: Pastikan endDate tidak sebelum startDate
-    if (endDate < startDate) {
-      console.warn("🛠️ End date is before start date, using current time");
-      endDate = new Date();
+    let endDate = null;
+    const updateEntries = Array.isArray(ticket.updates) ? ticket.updates : [];
+    for (let i = updateEntries.length - 1; i >= 0; i--) {
+      const u = updateEntries[i];
+      const s = (u && u.status) ? String(u.status).trim() : '';
+      if (s === 'Resolved' || s === 'Closed' || s === 'Finished' || s === 'Completed') {
+        const ts = parseUniversalTimestamp(u.timestamp);
+        if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
+      }
     }
+    if (!endDate) {
+      const endCandidates = [ticket.resolved_at, ticket.closed_at, ticket.last_updated, ticket.updatedAt];
+      for (const c of endCandidates) {
+        const ts = parseUniversalTimestamp(c);
+        if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
+      }
+    }
+    if (!endDate) endDate = new Date();
 
-    // 🎯 HITUNG DURASI DALAM MENIT
+    let startDate = null;
+    const reopenTs = parseUniversalTimestamp(ticket.reopen_at);
+    if (reopenTs && !isNaN(reopenTs.getTime()) && reopenTs <= endDate) {
+      startDate = reopenTs;
+    } else if (updateEntries.length > 0) {
+      for (let i = updateEntries.length - 1; i >= 0; i--) {
+        const u = updateEntries[i];
+        const s = (u && u.status) ? String(u.status).trim() : '';
+        const ts = parseUniversalTimestamp(u.timestamp);
+        if ((s === 'Open' || s === 'Reopen') && ts && !isNaN(ts.getTime()) && ts <= endDate) {
+          startDate = ts; break;
+        }
+      }
+    }
+    if (!startDate) {
+      const createdCandidates = [ticket.created_at, ticket.createdAt, ticket.timestamp, ticket.date_created];
+      for (const c of createdCandidates) {
+        const ts = parseUniversalTimestamp(c);
+        if (ts && !isNaN(ts.getTime())) { startDate = ts; break; }
+      }
+    }
+    if (!startDate) return "0 Minutes";
+    if (endDate < startDate) endDate = new Date();
     const diffMs = endDate - startDate;
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
-    
-    console.log("🛠️ Duration calculation result:", {
-      ticketId: ticket.id,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
-      diffMs: diffMs,
-      diffMinutes: diffMinutes,
-      status: status
-    });
-
-    // 🎯 FORMAT DURASI: SELALU DALAM MENIT
     return diffMinutes === 1 ? "1 Minute" : `${diffMinutes} Minutes`;
 
   } catch (error) {
@@ -242,6 +175,13 @@ function getDeviceCode(deviceType) {
     }
     
     return "OT";
+}
+
+function toProperCase(s) {
+  if (!s) return "-";
+  const v = String(s).trim();
+  if (!v || v === "-") return "-";
+  return v.toLowerCase().split(/\s+/).map(w => w ? w.charAt(0).toUpperCase() + w.slice(1) : "").join(" ");
 }
 
 // ==================== ?? Get Current Admin User ====================
@@ -579,7 +519,7 @@ async function exportToExcel(displayedTickets, filterInfo = "My Assigned Tickets
         deviceCode,
         ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
         ticket.note || "-",
-        ticket.name || ticket.user_name || "-",
+        (ticket.full_name || ticket.user_name || ticket.name || "-"),
         durationText,
         kendaliMutu,
       ];
