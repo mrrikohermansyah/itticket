@@ -1766,6 +1766,12 @@ class AdminDashboard {
                     </div>
                 </div>
                 <div class="ticket-row">
+                    <div class="ticket-col"><strong>Location:</strong></div>
+                    <div class="ticket-col value" data-field="location">
+                        ${this.escapeHtml(ticket.location || 'N/A')}
+                    </div>
+                </div>
+                <div class="ticket-row">
                     <div class="ticket-col"><strong>Created:</strong></div>
                     <div class="ticket-col value">
                         ${ticket.created_at ? new Date(ticket.created_at).toLocaleString('en-GB', {
@@ -2431,22 +2437,23 @@ class AdminDashboard {
             const nameFallback = ticket.user_name || ticket.name || 'Unknown';
             const emailFallback = ticket.user_email || '';
             const deptFallback = ticket.user_department || 'N/A';
+            const phoneFallback = ticket.user_phone || '';
             if (ticket.user_id) {
                 if (window.userCache && window.userCache[ticket.user_id]) {
                     const u = window.userCache[ticket.user_id];
-                    return { name: u.full_name || nameFallback, email: u.email || emailFallback, department: u.department || deptFallback };
+                    return { name: u.full_name || nameFallback, email: u.email || emailFallback, department: u.department || deptFallback, phone: u.phone || phoneFallback };
                 }
                 const userDoc = await getDoc(doc(this.db, "users", ticket.user_id));
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     if (!window.userCache) window.userCache = {};
                     window.userCache[ticket.user_id] = userData;
-                    return { name: userData.full_name || nameFallback, email: userData.email || emailFallback, department: userData.department || deptFallback };
+                    return { name: userData.full_name || nameFallback, email: userData.email || emailFallback, department: userData.department || deptFallback, phone: userData.phone || phoneFallback };
                 }
             }
-            return { name: nameFallback, email: emailFallback, department: deptFallback };
+            return { name: nameFallback, email: emailFallback, department: deptFallback, phone: phoneFallback };
         } catch (e) {
-            return { name: ticket.user_name || ticket.name || 'Unknown', email: ticket.user_email || '', department: ticket.user_department || 'N/A' };
+            return { name: ticket.user_name || ticket.name || 'Unknown', email: ticket.user_email || '', department: ticket.user_department || 'N/A', phone: ticket.user_phone || '' };
         }
     }
 
@@ -2459,9 +2466,11 @@ class AdminDashboard {
             }
 
             const ticket = this.normalizeTicketData(ticketId, ticketDoc.data());
+            const userDisplay = await this.getUserDisplayInfo(ticket);
+            const permissions = this.checkPermissions(ticket);
             this.currentUpdatingTicketId = ticketId;
 
-            await this.showUpdateFormModalSimple(ticket);
+            await this.showUpdateFormModalSimple(ticket, userDisplay, permissions);
 
         } catch (error) {
             console.error('❌ Error opening update modal:', error);
@@ -2470,8 +2479,9 @@ class AdminDashboard {
     }
 
     // ✅ METHOD UNTUK SHOW UPDATE FORM MODAL SIMPLE YANG HILANG
-    async showUpdateFormModalSimple(ticket) {
+    async showUpdateFormModalSimple(ticket, userDisplay, permissions) {
         try {
+            const isSuperAdmin = permissions && permissions.isSuperAdmin;
             // Remove existing modal if any
             const existingModal = document.getElementById('updateTicketModal');
             if (existingModal) {
@@ -2588,45 +2598,45 @@ class AdminDashboard {
                             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
                                 <div class="form-group">
                                     <label for="updateUserName">User Name *</label>
-                                    <input type="text" id="updateUserName" class="form-control" value="${this.escapeHtml(ticket.user_name)}" required>
+                                    <input type="text" id="updateUserName" class="form-control" value="${this.escapeHtml(userDisplay.name)}" ${isSuperAdmin ? '' : 'disabled'} required>
                                 </div>
                                 
                                 <div class="form-group">
                                     <label for="updateUserEmail">User Email *</label>
-                                    <input type="email" id="updateUserEmail" class="form-control" value="${this.escapeHtml(ticket.user_email)}" required>
+                                    <input type="email" id="updateUserEmail" class="form-control" value="${this.escapeHtml(userDisplay.email || '')}" ${isSuperAdmin ? '' : 'disabled'} required>
                                 </div>
                                 
                                 <div class="form-group">
                                     <label for="updateUserDepartment">Department *</label>
-                                    <select id="updateUserDepartment" class="form-control" required>
+                                    <select id="updateUserDepartment" class="form-control" ${isSuperAdmin ? '' : 'disabled'} required>
                                         <option value="">Select Department</option>
-                                        <option value="Admin" ${ticket.user_department === 'Admin' ? 'selected' : ''}>Admin</option>
-                                        <option value="Civil" ${ticket.user_department === 'Civil' ? 'selected' : ''}>Civil</option>
-                                        <option value="Clinic" ${ticket.user_department === 'Clinic' ? 'selected' : ''}>Clinic</option>
-                                        <option value="Completion" ${ticket.user_department === 'Completion' ? 'selected' : ''}>Completion</option>
-                                        <option value="DC" ${ticket.user_department === 'DC' ? 'selected' : ''}>Dimentional Control (DC)</option>
-                                        <option value="Document Control" ${ticket.user_department === 'Document Control' ? 'selected' : ''}>Document Control</option>
-                                        <option value="Engineer" ${ticket.user_department === 'Engineer' ? 'selected' : ''}>Engineering</option>
-                                        <option value="Finance" ${ticket.user_department === 'Finance' ? 'selected' : ''}>Finance</option>
-                                        <option value="HR" ${ticket.user_department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
-                                        <option value="HSE" ${ticket.user_department === 'HSE' ? 'selected' : ''}>HSE</option>
-                                        <option value="IT" ${ticket.user_department === 'IT' ? 'selected' : ''}>IT</option>
-                                        <option value="PGA" ${ticket.user_department === 'PGA' ? 'selected' : ''}>PGA</option>
-                                        <option value="Maintenance" ${ticket.user_department === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
-                                        <option value="Management" ${ticket.user_department === 'Management' ? 'selected' : ''}>Management</option>
-                                        <option value="Planner" ${ticket.user_department === 'Planner' ? 'selected' : ''}>Planner</option>
-                                        <option value="Procurement" ${ticket.user_department === 'Procurement' ? 'selected' : ''}>Procurement</option>
-                                        <option value="QC" ${ticket.user_department === 'QC' ? 'selected' : ''}>Quality Control (QC)</option>
-                                        <option value="Vendor" ${ticket.user_department === 'Vendor' ? 'selected' : ''}>Vendor</option>
-                                        <option value="Warehouse" ${ticket.user_department === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
-                                        <option value="Lainlain" ${ticket.user_department === 'Lainlain' ? 'selected' : ''}>Other Department</option>
+                                        <option value="Admin" ${userDisplay.department === 'Admin' ? 'selected' : ''}>Admin</option>
+                                        <option value="Civil" ${userDisplay.department === 'Civil' ? 'selected' : ''}>Civil</option>
+                                        <option value="Clinic" ${userDisplay.department === 'Clinic' ? 'selected' : ''}>Clinic</option>
+                                        <option value="Completion" ${userDisplay.department === 'Completion' ? 'selected' : ''}>Completion</option>
+                                        <option value="DC" ${userDisplay.department === 'DC' ? 'selected' : ''}>Dimentional Control (DC)</option>
+                                        <option value="Document Control" ${userDisplay.department === 'Document Control' ? 'selected' : ''}>Document Control</option>
+                                        <option value="Engineer" ${userDisplay.department === 'Engineer' ? 'selected' : ''}>Engineering</option>
+                                        <option value="Finance" ${userDisplay.department === 'Finance' ? 'selected' : ''}>Finance</option>
+                                        <option value="HR" ${userDisplay.department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
+                                        <option value="HSE" ${userDisplay.department === 'HSE' ? 'selected' : ''}>HSE</option>
+                                        <option value="IT" ${userDisplay.department === 'IT' ? 'selected' : ''}>IT</option>
+                                        <option value="PGA" ${userDisplay.department === 'PGA' ? 'selected' : ''}>PGA</option>
+                                        <option value="Maintenance" ${userDisplay.department === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
+                                        <option value="Management" ${userDisplay.department === 'Management' ? 'selected' : ''}>Management</option>
+                                        <option value="Planner" ${userDisplay.department === 'Planner' ? 'selected' : ''}>Planner</option>
+                                        <option value="Procurement" ${userDisplay.department === 'Procurement' ? 'selected' : ''}>Procurement</option>
+                                        <option value="QC" ${userDisplay.department === 'QC' ? 'selected' : ''}>Quality Control (QC)</option>
+                                        <option value="Vendor" ${userDisplay.department === 'Vendor' ? 'selected' : ''}>Vendor</option>
+                                        <option value="Warehouse" ${userDisplay.department === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
+                                        <option value="Lainlain" ${userDisplay.department === 'Lainlain' ? 'selected' : ''}>Other Department</option>
                                     </select>
                                 </div>
 
                                 <div class="form-group">
                                     <label for="updateUserPhone">Phone</label>
-                                    <input type="text" id="updateUserPhone" class="form-control" value="${this.escapeHtml(ticket.user_phone || '')}" placeholder="Phone number">
-                                </div>
+                                    <input type="text" id="updateUserPhone" class="form-control" value="${this.escapeHtml(userDisplay.phone || ticket.user_phone || '')}" ${isSuperAdmin ? '' : 'disabled'} placeholder="Phone number">
+            </div>
                             </div>
                         </div>
 
@@ -2746,21 +2756,32 @@ class AdminDashboard {
                 user_phone: this.getElementValueSafely('updateUserPhone')
             };
 
+            const isSuperAdmin = this.adminUser && this.adminUser.role === 'Super Admin';
+
+            if (!isSuperAdmin) {
+                delete updateData.user_name;
+                delete updateData.user_email;
+                delete updateData.user_department;
+                delete updateData.user_phone;
+            }
+
             const userId = currentData.user_id;
 
             if (!userId) {
                 throw new Error('User ID not found in ticket data');
             }
 
-            // Update user profile
-            const userRef = doc(this.db, "users", userId);
-            await updateDoc(userRef, {
-                full_name: updateData.user_name,
-                email: updateData.user_email,
-                department: updateData.user_department,
-                phone: updateData.user_phone,
-                updated_at: new Date().toISOString()
-            });
+            // Update user profile (only by Super Admin)
+            if (isSuperAdmin) {
+                const userRef = doc(this.db, "users", userId);
+                await updateDoc(userRef, {
+                    full_name: updateData.user_name,
+                    email: updateData.user_email,
+                    department: updateData.user_department,
+                    phone: updateData.user_phone,
+                    updated_at: new Date().toISOString()
+                });
+            }
 
             // Update ticket
             await updateDoc(ticketRef, updateData);
