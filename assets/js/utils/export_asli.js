@@ -519,7 +519,8 @@ async function exportToExcel(displayedTickets, filterInfo = "My Assigned Tickets
         deviceCode,
         ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
         ticket.note || "-",
-        (ticket.full_name || ticket.user_name || ticket.name || "-"),
+        ((ticket.user_id && window.userCache && window.userCache[ticket.user_id] && window.userCache[ticket.user_id].full_name)
+          || ticket.full_name || ticket.user_name || ticket.name || "-"),
         durationText,
         kendaliMutu,
       ];

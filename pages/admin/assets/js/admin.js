@@ -2153,13 +2153,18 @@ class AdminDashboard {
                     }
                 }
 
+                const cachedUser = (ticket.user_id && window.userCache) ? window.userCache[ticket.user_id] : null;
+                const resolvedFullName = (cachedUser && cachedUser.full_name) || ticket.user_name || 'Unknown User';
+
                 return {
                     id: ticket.id,
+                    user_id: ticket.user_id || '',
                     code: ticket.code || 'UNKNOWN',
                     subject: ticket.subject || 'No Subject',
-                    name: ticket.user_name || 'Unknown User',
+                    name: resolvedFullName,
+                    full_name: resolvedFullName,
                     user_name: ticket.user_name || 'Unknown User',
-                    user_email: ticket.user_email || '',
+                    user_email: (cachedUser && cachedUser.email) || ticket.user_email || '',
                     department: ticket.user_department || '',
                     user_department: ticket.user_department || '',
                     location: ticket.location || '',
