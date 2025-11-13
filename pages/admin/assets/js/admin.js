@@ -527,24 +527,40 @@ class AdminDashboard {
     }
 
     handleClearDateClick() {
-        console.log('🗑️ Clear date filter clicked');
+        console.log('🗑️ Reset filters clicked');
 
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
+        const todayBtn = document.getElementById('todayBtn');
+        const statusFilter = document.getElementById('statusFilter');
+        const priorityFilter = document.getElementById('priorityFilter');
 
-        if (startDateInput && endDateInput) {
-            startDateInput.value = '';
-            endDateInput.value = '';
+        // Clear date inputs
+        if (startDateInput) startDateInput.value = '';
+        if (endDateInput) endDateInput.value = '';
 
-            this.currentFilters.date = {
+        // Remove any today active indicator
+        if (todayBtn && todayBtn.classList) {
+            todayBtn.classList.remove('active');
+        }
+
+        // Reset selects to 'all' if available
+        if (statusFilter) statusFilter.value = 'all';
+        if (priorityFilter) priorityFilter.value = 'all';
+
+        // Reset internal filter state
+        this.currentFilters = {
+            status: 'all',
+            priority: 'all',
+            date: {
                 startDate: null,
                 endDate: null,
                 isActive: false
-            };
+            }
+        };
 
-            this.applyAllFilters();
-            this.showNotification('Date Filter', 'info', 'Date filter cleared');
-        }
+        this.applyAllFilters();
+        this.showNotification('Filters', 'info', 'All filters have been reset');
     }
 
     filterTickets() {
