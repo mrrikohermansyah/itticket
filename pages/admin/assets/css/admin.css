@@ -1441,32 +1441,56 @@ textarea.form-control {
   .date-filter-group {
     flex-wrap: wrap;
     justify-content: center;
+    width: 100%;
+    gap: 8px;
   }
 
   .date-inputs {
     order: 1;
     width: 100%;
     justify-content: center;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
-  .btn-today {
-    order: 2;
+  .date-input {
+    min-width: 0;
+    flex: 1;
   }
 
+  .btn-today,
   .btn-clear-date {
-    order: 3;
+    order: 2;
   }
 }
 
 @media (max-width: 480px) {
+  .date-filter-group {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    width: 100%;
+  }
+
   .date-inputs {
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .date-input {
+    width: 100%;
+    font-size: 13px;
+    padding: 8px 10px;
   }
 
   .date-separator {
     display: none;
+  }
+
+  .btn-today,
+  .btn-clear-date {
+    width: 100%;
+    justify-content: center;
   }
 }
 
