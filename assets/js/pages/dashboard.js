@@ -50,11 +50,8 @@ class Dashboard {
         };
       }
 
-      // ✅ Load UI tanpa Firestore checks
       this.loadUserInfo();
       this.initializeEventListeners();
-
-      // ✅ Setup tickets listener (optional)
       await this.setupRealtimeTickets();
 
       console.log('✅ Dashboard initialized successfully');
@@ -87,10 +84,24 @@ class Dashboard {
         this.unsubscribeTickets();
       }
 
-      // ✅ Coba get data dulu untuk test permissions
       try {
         const testSnapshot = await getDocs(q);
-        console.log('✅ Firestore access OK, tickets found:', testSnapshot.size);
+        const initialTickets = [];
+        testSnapshot.forEach((docSnap) => {
+          const t = this.normalizeTicketData(docSnap.id, docSnap.data());
+          initialTickets.push(t);
+        });
+        this.tickets = initialTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        this.renderTickets();
+        this.updateStats();
+        const mainEl = document.getElementById('dashboardMain');
+        if (mainEl) {
+          mainEl.style.visibility = 'visible';
+          mainEl.classList.add('enter-animate');
+          mainEl.addEventListener('animationend', () => {
+            mainEl.classList.remove('enter-animate');
+          }, { once: true });
+        }
       } catch (testError) {
         console.error('❌ Firestore access denied:', testError);
         this.showFirestoreError();
@@ -100,12 +111,10 @@ class Dashboard {
       // ✅ Setup realtime listener dengan error handling
       this.unsubscribeTickets = onSnapshot(q,
         (snapshot) => {
-          // Success callback
           console.log('🔄 Realtime update received for tickets');
           this.processTicketsSnapshot(snapshot);
         },
         (error) => {
-          // Error callback
           console.error('❌ Realtime listener error:', error);
           this.showFirestoreError();
         }

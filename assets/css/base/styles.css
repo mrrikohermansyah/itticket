@@ -110,3 +110,17 @@ textarea:focus-visible {
     transition-duration: 0.01ms !important;
   }
 }
+.page-enter-animate {
+  animation: pageFadeIn 260ms ease-out;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

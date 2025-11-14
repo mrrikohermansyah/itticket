@@ -920,3 +920,11 @@
     min-height: 44px;
   }
 }
+@keyframes dashboardFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dashboard-main.enter-animate {
+  animation: dashboardFadeIn 260ms ease-out;
+}

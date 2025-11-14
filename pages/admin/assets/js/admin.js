@@ -93,6 +93,15 @@ class AdminDashboard {
 
             console.log('✅ Admin Dashboard ready');
 
+            const mainEl = document.querySelector('.admin-main');
+            if (mainEl) {
+                mainEl.style.visibility = 'visible';
+                mainEl.classList.add('page-enter-animate');
+                mainEl.addEventListener('animationend', function () {
+                    mainEl.classList.remove('page-enter-animate');
+                }, { once: true });
+            }
+
         } catch (error) {
             console.error('❌ Admin Dashboard init error:', error);
             this.showNotification('Initialization Error', 'error', error.message);

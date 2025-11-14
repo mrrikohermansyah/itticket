@@ -3,6 +3,7 @@ import {
     doc, 
     setDoc,
     getDocs,
+    getDoc,
     collection
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -18,6 +19,9 @@ class FirstAdminSetup {
         console.log('🚀 FirstAdminSetup constructor called');
         this.isSubmitting = false;
         this.form = null;
+        this.firebaseInitialized = false;
+        this.db = null;
+        this.isAccessGranted = false;
         this.init();
     }
 
@@ -62,8 +66,10 @@ class FirstAdminSetup {
             
             this.messageContainer = document.getElementById('message');
 
-            this.enableAllFormElements();
+            this.lockFormElements();
             await this.initializeFirebase();
+            await this.requireAccessPassword();
+            this.enableAllFormElements();
             this.setupFormListener();
             
             console.log('✅ FirstAdminSetup initialized successfully');
@@ -72,6 +78,16 @@ class FirstAdminSetup {
             console.error('❌ Initialization failed:', error);
             this.showErrorAlert('System initialization failed', error.message);
         }
+    }
+
+    lockFormElements() {
+        if (!this.form) return;
+        const allFormElements = this.form.querySelectorAll('input, select, textarea, button');
+        allFormElements.forEach(element => {
+            element.disabled = true;
+            element.readOnly = true;
+        });
+        console.log('🔒 Form elements locked');
     }
 
     enableAllFormElements() {
@@ -104,6 +120,151 @@ class FirstAdminSetup {
         this.firebaseInitialized = true;
         
         console.log('✅ Firebase initialized');
+    }
+
+    async requireAccessPassword() {
+        try {
+            if (!this.firebaseInitialized || !this.db) {
+                throw new Error('Database not initialized');
+            }
+
+            const settingsDocRef = doc(this.db, 'secure_settings', 'access_gates');
+            const settingsSnap = await getDoc(settingsDocRef);
+
+            if (!settingsSnap.exists()) {
+                await Swal.fire({
+                    title: 'Access Restricted',
+                    text: 'Access password is not configured. Please contact the system administrator.',
+                    icon: 'error',
+                    confirmButtonColor: '#ef070a'
+                });
+                window.location.href = 'login.html';
+                return;
+            }
+
+            const data = settingsSnap.data();
+            const expectedHash = data?.create_first_admin_sha256;
+
+            if (!expectedHash || typeof expectedHash !== 'string') {
+                await Swal.fire({
+                    title: 'Access Restricted',
+                    text: 'Access password is misconfigured. Please contact the system administrator.',
+                    icon: 'error',
+                    confirmButtonColor: '#ef070a'
+                });
+                window.location.href = 'login.html';
+                return;
+            }
+
+            let granted = false;
+            const attemptsKey = 'first_admin_pin_attempts';
+            const lockKey = 'first_admin_pin_lock_until';
+            const now = Date.now();
+            const lockUntil = parseInt(localStorage.getItem(lockKey) || '0', 10);
+            if (lockUntil && now < lockUntil) {
+                const remaining = Math.max(0, Math.ceil((lockUntil - now) / 1000));
+                await Swal.fire({
+                    title: 'Too Many Attempts',
+                    text: `Please wait ${remaining}s before trying again.`,
+                    icon: 'warning',
+                    confirmButtonColor: '#ef070a'
+                });
+                window.location.href = 'login.html';
+                return;
+            }
+            let attempts = parseInt(localStorage.getItem(attemptsKey) || '0', 10);
+            while (!granted) {
+                const result = await Swal.fire({
+                    title: 'Masukkan PIN Akses',
+                    input: 'password',
+                    inputAttributes: {
+                        autocapitalize: 'off',
+                        autocorrect: 'off',
+                        autocomplete: 'off',
+                        inputmode: 'numeric'
+                    },
+                    inputPlaceholder: 'PIN 4 digit',
+                    confirmButtonText: 'Access',
+                    confirmButtonColor: '#ef070a',
+                    showCancelButton: true,
+                    cancelButtonText: 'Cancel',
+                    allowOutsideClick: false,
+                    allowEscapeKey: false
+                });
+
+                if (!result.isConfirmed) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+
+                const passwordInput = (result.value || '').trim();
+                if (!passwordInput || !/^\d{4}$/.test(passwordInput)) {
+                    await Swal.fire({
+                        title: 'PIN Tidak Valid',
+                        text: 'Masukkan PIN 4 digit.',
+                        icon: 'warning',
+                        confirmButtonColor: '#ef070a'
+                    });
+                    continue;
+                }
+
+                const hash = await this.hashSHA256(passwordInput);
+                if (hash === expectedHash) {
+                    granted = true;
+                    this.isAccessGranted = true;
+                    localStorage.removeItem(attemptsKey);
+                    localStorage.removeItem(lockKey);
+                    await Swal.fire({
+                        title: 'Access Granted',
+                        icon: 'success',
+                        confirmButtonColor: '#10b981',
+                        timer: 1200,
+                        showConfirmButton: false
+                    });
+                } else {
+                    attempts += 1;
+                    localStorage.setItem(attemptsKey, String(attempts));
+                    if (attempts >= 5) {
+                        const lockUntilTime = Date.now() + 60 * 1000;
+                        localStorage.setItem(lockKey, String(lockUntilTime));
+                        await Swal.fire({
+                            title: 'Too Many Attempts',
+                            text: 'Try again in 60 seconds.',
+                            icon: 'error',
+                            confirmButtonColor: '#ef070a'
+                        });
+                        window.location.href = 'login.html';
+                        return;
+                    } else {
+                        await Swal.fire({
+                            title: 'PIN Salah',
+                            text: `Percobaan ke-${attempts}.`,
+                            icon: 'error',
+                            confirmButtonColor: '#ef070a'
+                        });
+                    }
+                }
+            }
+
+        } catch (error) {
+            console.error('❌ Access gate error:', error);
+            await Swal.fire({
+                title: 'Access Error',
+                text: error.message || 'Failed to validate access password.',
+                icon: 'error',
+                confirmButtonColor: '#ef070a'
+            });
+            window.location.href = 'login.html';
+        }
+    }
+
+    async hashSHA256(text) {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        return hashHex;
     }
 
     setupFormListener() {

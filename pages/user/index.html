@@ -39,6 +39,7 @@
     <title>IT Support Ticketing System</title>
 
     <!-- Styles -->
+    <link rel="stylesheet" href="../../assets/css/base/styles.css" />
     <link rel="stylesheet" href="css/styles.css" />
     <link rel="stylesheet" href="css/dropdown.css" />
     <link rel="stylesheet" href="css/logout.css" />
@@ -64,7 +65,7 @@
   </head>
 
   <body>
-    <main class="container">
+    <main class="container" style="visibility:hidden">
       <!-- Header dengan tombol logout -->
       <header class="header">
         <div class="logo-container">
@@ -446,6 +447,15 @@
         adminBubble.addEventListener("blur", function () {
           collapseBubble();
         });
+
+        const mainEl = document.querySelector('main.container');
+        if (mainEl) {
+          mainEl.style.visibility = 'visible';
+          mainEl.classList.add('page-enter-animate');
+          mainEl.addEventListener('animationend', function () {
+            mainEl.classList.remove('page-enter-animate');
+          }, { once: true });
+        }
       });
     </script>
   </body>
