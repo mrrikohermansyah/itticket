@@ -219,11 +219,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     // Redirect based on user type
                     setTimeout(() => {
                         if (result.userType === 'admin') {
-                            window.location.href = '../admin/dashboard.html';
+                            window.location.href = '../admin/index.html';
                         } else {
                             window.location.href = '../user/dashboard.html';
                         }
-                    }, 1000);
+                    }, 400);
                 }
             } catch (error) {
                 // Error already handled in login method
