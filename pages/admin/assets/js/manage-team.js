@@ -61,6 +61,7 @@ async init() {
     await this.testServiceMethods();
     
     this.initializeEventListeners();
+    this.toggleAddFormVisibility();
     await this.loadTeamData();
 }
 
