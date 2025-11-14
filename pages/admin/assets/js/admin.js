@@ -1589,6 +1589,16 @@ class AdminDashboard {
             modal.style.display = 'flex';
             document.body.classList.add('modal-open');
 
+            if (!modal.dataset.backdropAttached) {
+                modal.addEventListener('click', (e) => {
+                    const isBackdrop = e.target === modal || !e.target.closest('.modal-content');
+                    if (isBackdrop) {
+                        this.closeTicketModal();
+                    }
+                });
+                modal.dataset.backdropAttached = 'true';
+            }
+
             // Setup real-time listener
             this.setupTicketRealTimeListener(ticketId, modalBody);
 
@@ -1897,6 +1907,11 @@ class AdminDashboard {
                     ${ticket.status === 'In Progress' && permissions.canResolve ? `
                         <button class="btn-action btn-resolve" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Resolved')">
                             <i class="fas fa-check"></i> Resolve
+                        </button>
+                    ` : ''}
+                    ${ticket.status === 'Resolved' && permissions.canReopen ? `
+                        <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'Open')">
+                            <i class="fas fa-redo"></i> Reopen
                         </button>
                     ` : ''}
                     ${permissions.canDelete ? `
@@ -2520,7 +2535,7 @@ class AdminDashboard {
             updateModal.style.display = 'flex';
 
             const modalHTML = `
-            <div class="modal-content" style="max-width: 700px;">
+            <div class="modal-content large" style="max-width: 700px;">
                 <div class="modal-header">
                     <h3><i class="fas fa-edit"></i> Update Ticket: ${ticket.code}</h3>
                     <button type="button" class="close-btn" onclick="adminDashboard.closeUpdateModal()">
@@ -2683,6 +2698,13 @@ class AdminDashboard {
             updateModal.innerHTML = modalHTML;
             document.body.appendChild(updateModal);
             document.body.classList.add('modal-open');
+
+            updateModal.addEventListener('click', (e) => {
+                const isBackdrop = e.target === updateModal || !e.target.closest('.modal-content');
+                if (isBackdrop) {
+                    this.closeUpdateModal();
+                }
+            });
 
             // Add form submit event
             const updateForm = document.getElementById('updateTicketForm');

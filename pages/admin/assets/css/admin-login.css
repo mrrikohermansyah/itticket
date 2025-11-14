@@ -21,6 +21,7 @@
     border: 1px solid var(--gray-200);
     position: relative;
     overflow: hidden;
+    animation: fadeInUp 0.4s ease-out;
 }
 
 .login-container::before {
@@ -36,6 +37,9 @@
 .login-header {
     text-align: center;
     margin-bottom: 2.5rem;
+    animation: fadeInUp 0.4s ease-out;
+    animation-delay: 0.05s;
+    animation-fill-mode: both;
 }
 
 .login-logo {
@@ -62,6 +66,9 @@
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
+    animation: fadeInUp 0.4s ease-out;
+    animation-delay: 0.1s;
+    animation-fill-mode: both;
 }
 
 .form-group {
@@ -99,7 +106,7 @@
 }
 
 .btn-login {
-    background: var(--primary);
+    background: #3a36e0;
     color: var(--white);
     border: none;
     padding: 1rem 1.5rem;
@@ -121,6 +128,24 @@
     background: #d40609;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(239, 7, 10, 0.3);
+}
+
+.btn-login::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+}
+
+.btn-login:hover::after {
+    width: 300px;
+    height: 300px;
 }
 
 .btn-login:active {
@@ -193,6 +218,9 @@
     margin-top: 2rem;
     padding-top: 2rem;
     border-top: 1px solid var(--gray-200);
+    animation: fadeInUp 0.4s ease-out;
+    animation-delay: 0.15s;
+    animation-fill-mode: both;
 }
 
 .login-footer p {
@@ -320,5 +348,16 @@
     .btn-login {
         background: var(--black) !important;
         color: var(--white) !important;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }
