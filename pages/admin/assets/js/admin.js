@@ -2590,9 +2590,6 @@ class AdminDashboard {
                                     <option value="Store 4" ${ticket.location === 'Store4' ? 'selected' : ''}>Store 4</option>
                                     <option value="Store 5" ${ticket.location === 'Store5' ? 'selected' : ''}>Store 5</option>
                                     <option value="Store 6" ${ticket.location === 'Store6' ? 'selected' : ''}>Store 6</option>
-                                    <option value="Store 7" ${ticket.location === 'Store7' ? 'selected' : ''}>Store 7</option>
-                                    <option value="Store 8" ${ticket.location === 'Store8' ? 'selected' : ''}>Store 8</option>
-                                    <option value="Store 9" ${ticket.location === 'Store9' ? 'selected' : ''}>Store 9</option>
                                     <option value="Warehouse" ${ticket.location === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
                                     <option value="White Office" ${ticket.location === 'White Office' ? 'selected' : ''}>White Office</option>
                                     <option value="White Office 2nd Fl" ${ticket.location === 'White Office 2nd Fl' ? 'selected' : ''}>White Office 2nd Floor</option>
