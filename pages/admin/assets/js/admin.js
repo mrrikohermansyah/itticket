@@ -19,6 +19,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js";
 
 // Import auth service
 import firebaseAuthService from '../../../../assets/js/services/firebase-auth-service.js';
@@ -38,6 +39,75 @@ const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+const siteKey = window.CONFIG?.RECAPTCHA_V3_SITE_KEY;
+if (siteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled: true
+  });
+}
+
+window.normalizeTicketCodes = async function() {
+  try {
+    const snap = await getDocs(collection(db, 'tickets'));
+    const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+    let updated = 0;
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      if (typeof data.code === 'string' && (data.code.startsWith('TKT-') || data.code.indexOf('-') === -1 || data.code.length <= 3)) {
+        const dept = data.user_department || data.department || 'Lainlain';
+        const device = data.device || 'Others';
+        const location = data.location || 'Lainlain';
+        const ts = (data.created_at?.toDate ? data.created_at.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()));
+        const newCode = gen ? gen(dept, device, location, docSnap.id, ts) : `${dept}-${location}-${device}`;
+        await updateDoc(doc(db, 'tickets', docSnap.id), { code: newCode });
+        updated++;
+      }
+    }
+    console.log(`✅ Normalized ${updated} tickets`);
+    return updated;
+  } catch (e) {
+    console.error('❌ Failed to normalize tickets:', e);
+    throw e;
+  }
+};
+
+window.normalizeTicketStatusAndCode = async function () {
+  try {
+    const snap = await getDocs(collection(db, 'tickets'));
+    const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+    let updated = 0;
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+
+      const dept = data.user_department || data.department || 'Lainlain';
+      const device = data.device || 'Others';
+      const location = data.location || 'Lainlain';
+      const ts = (data.created_at?.toDate ? data.created_at.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()));
+
+      const needsCodeFix = typeof data.code === 'string' && (data.code.startsWith('TKT-') || data.code.indexOf('-') === -1 || data.code.length <= 3);
+      const newCode = needsCodeFix && gen ? gen(dept, device, location, docSnap.id, ts) : (needsCodeFix ? `${dept}-${location}-${device}` : data.code);
+
+      let newStatus = data.status || data.status_ticket || (data.qa === 'Finish' ? 'Resolved' : (data.qa || 'Open'));
+      if (newStatus === 'Closed') newStatus = 'Resolved';
+
+      const updatePayload = {};
+      if (needsCodeFix) updatePayload.code = newCode;
+      if (newStatus && newStatus !== data.status) updatePayload.status = newStatus;
+
+      if (Object.keys(updatePayload).length > 0) {
+        await updateDoc(doc(db, 'tickets', docSnap.id), updatePayload);
+        updated++;
+      }
+    }
+    console.log(`✅ Normalized status/code for ${updated} tickets`);
+    return updated;
+  } catch (e) {
+    console.error('❌ Failed to normalize status/code:', e);
+    throw e;
+  }
+};
 
 // Admin Dashboard dengan Permission System
 class AdminDashboard {
@@ -114,6 +184,7 @@ class AdminDashboard {
         this.handleLogout = this.handleLogout.bind(this);
         this.handleDateChange = this.handleDateChange.bind(this);
         this.handleTodayClick = this.handleTodayClick.bind(this);
+        this.handleThisMonthClick = this.handleThisMonthClick.bind(this);
         this.handleClearDateClick = this.handleClearDateClick.bind(this);
         this.applyAllFilters = this.applyAllFilters.bind(this);
         this.filterTickets = this.filterTickets.bind(this);
@@ -268,6 +339,11 @@ class AdminDashboard {
         return this.isAssignedToCurrentAdmin(ticket);
     }
 
+    canReleaseTicket(ticket) {
+        if (this.adminUser.role === 'Super Admin') return true;
+        return this.isAssignedToCurrentAdmin(ticket) && ticket.status !== 'Resolved';
+    }
+
     isAssignedToCurrentAdmin(ticket) {
         // Check by UID
         if (ticket.action_by === this.adminUser.uid || ticket.assigned_to === this.adminUser.uid) {
@@ -298,6 +374,7 @@ class AdminDashboard {
             canUpdate: this.canUpdateTicket(ticket),
             canStart: this.canStartTicket(ticket),
             canResolve: this.canResolveTicket(ticket),
+            canRelease: this.canReleaseTicket(ticket),
             isSuperAdmin: this.adminUser.role === 'Super Admin',
             isTicketOwner: isTicketOwner
         };
@@ -380,6 +457,7 @@ class AdminDashboard {
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
         const todayBtn = document.getElementById('todayBtn');
+        const thisMonthBtn = document.getElementById('thisMonthBtn');
         const clearDateBtn = document.getElementById('clearDateBtn');
 
         if (startDateInput && endDateInput) {
@@ -388,6 +466,7 @@ class AdminDashboard {
         }
 
         if (todayBtn) todayBtn.addEventListener('click', this.handleTodayClick);
+        if (thisMonthBtn) thisMonthBtn.addEventListener('click', this.handleThisMonthClick);
         if (clearDateBtn) clearDateBtn.addEventListener('click', this.handleClearDateClick);
 
         console.log('✅ Date filter initialized');
@@ -535,6 +614,36 @@ class AdminDashboard {
         }
     }
 
+    handleThisMonthClick() {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+
+        if (startDateInput && endDateInput) {
+            const toISODate = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+            startDateInput.value = toISODate(start);
+            endDateInput.value = toISODate(end);
+
+            const startOfMonth = new Date(start);
+            startOfMonth.setHours(0, 0, 0, 0);
+
+            const endOfMonth = new Date(end);
+            endOfMonth.setHours(23, 59, 59, 999);
+
+            this.currentFilters.date = {
+                startDate: startOfMonth,
+                endDate: endOfMonth,
+                isActive: true
+            };
+
+            this.applyAllFilters();
+            this.showNotification('Date Filter', 'info', 'Showing tickets for this month');
+        }
+    }
+
     handleClearDateClick() {
         console.log('🗑️ Reset filters clicked');
 
@@ -582,10 +691,7 @@ class AdminDashboard {
         try {
             console.log('🔄 Loading tickets...');
 
-            const q = query(
-                collection(this.db, "tickets"),
-                orderBy("created_at", "desc")
-            );
+            const q = query(collection(this.db, "tickets"));
 
             const querySnapshot = await getDocs(q);
             const allTickets = [];
@@ -598,6 +704,12 @@ class AdminDashboard {
                 } catch (error) {
                     console.error(`❌ Error processing ticket ${doc.id}:`, error);
                 }
+            });
+
+            allTickets.sort((a, b) => {
+                const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return db - da;
             });
 
             this.tickets = allTickets;
@@ -617,13 +729,25 @@ class AdminDashboard {
 
     normalizeTicketData(id, data) {
         try {
-            const created_at = data.created_at?.toDate ?
-                data.created_at.toDate().toISOString() :
-                (data.created_at || new Date().toISOString());
+            const created_at = data.created_at?.toDate
+                ? data.created_at.toDate().toISOString()
+                : (data.created_at
+                    ? data.created_at
+                    : (data.createdAt?.toDate
+                        ? data.createdAt.toDate().toISOString()
+                        : (data.createdAt || new Date().toISOString())
+                      )
+                  );
 
-            const last_updated = data.last_updated?.toDate ?
-                data.last_updated.toDate().toISOString() :
-                (data.last_updated || new Date().toISOString());
+            const last_updated = data.last_updated?.toDate
+                ? data.last_updated.toDate().toISOString()
+                : (data.last_updated
+                    ? data.last_updated
+                    : (data.updatedAt?.toDate
+                        ? data.updatedAt.toDate().toISOString()
+                        : (data.updatedAt || new Date().toISOString())
+                      )
+                  );
 
             return {
                 id: id || '',
@@ -637,7 +761,7 @@ class AdminDashboard {
                 device: data.device || '',
                 message: data.message || '',
                 priority: data.priority || 'Medium',
-                status: data.status || data.qa || 'Open',
+                status: data.status || data.status_ticket || (data.qa === 'Finish' ? 'Resolved' : (data.qa || 'Open')),
                 created_at: created_at,
                 last_updated: last_updated,
                 action_by: data.action_by || '',
@@ -994,6 +1118,14 @@ class AdminDashboard {
             `;
         }
 
+        if ((permissions.isTicketOwner || permissions.isSuperAdmin) && permissions.canRelease) {
+            actionButtons += `
+                <button class="btn-action btn-release" data-action="release" title="Release this ticket">
+                    <i class="fas fa-undo"></i> Release
+                </button>
+            `;
+        }
+
         // Action buttons based on status
         if (ticket.status === 'Open') {
             if (permissions.canStart) {
@@ -1123,6 +1255,14 @@ class AdminDashboard {
             `;
         }
 
+        if ((permissions.isTicketOwner || permissions.isSuperAdmin) && permissions.canRelease) {
+            actionButtons += `
+                <button class="btn-card-action btn-release" onclick="adminDashboard.releaseTicket('${ticket.id}')" title="Release this ticket">
+                    <i class="fas fa-undo"></i> Release
+                </button>
+            `;
+        }
+
         if (ticket.status === 'Open' && permissions.canStart) {
             actionButtons += `
                 <button class="btn-card-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')" title="Start Working on this ticket">
@@ -1218,6 +1358,13 @@ class AdminDashboard {
                     this.takeTicket(ticketId);
                 } else {
                     this.showPermissionError('take this ticket');
+                }
+                break;
+            case 'release':
+                if (permissions.canRelease) {
+                    this.releaseTicket(ticketId);
+                } else {
+                    this.showPermissionError('release this ticket');
                 }
                 break;
             default:
@@ -1391,6 +1538,40 @@ class AdminDashboard {
         } catch (error) {
             console.error('❌ Error taking ticket:', error);
             this.showNotification('Take Error', 'error', 'Failed to take ticket');
+        }
+    }
+
+    async releaseTicket(ticketId) {
+        try {
+            const ticketRef = doc(this.db, "tickets", ticketId);
+            const ticketDoc = await getDoc(ticketRef);
+            if (!ticketDoc.exists()) throw new Error('Ticket not found');
+            const data = ticketDoc.data();
+
+            const updateData = {
+                action_by: '',
+                assigned_to: '',
+                assigned_name: '',
+                status: 'Open',
+                last_updated: serverTimestamp()
+            };
+
+            const updateNote = {
+                status: 'Open',
+                notes: `Ticket released by ${this.adminUser.name || this.adminUser.email}`,
+                timestamp: new Date().toISOString(),
+                updatedBy: this.adminUser.name || this.adminUser.email
+            };
+
+            const currentUpdates = Array.isArray(data.updates) ? data.updates : [];
+            updateData.updates = [...currentUpdates, updateNote];
+
+            await updateDoc(ticketRef, updateData);
+            this.showNotification('Ticket Released', 'success', 'Ticket is now available for other admins');
+            await this.loadTickets();
+        } catch (error) {
+            console.error('❌ Error releasing ticket:', error);
+            this.showNotification('Release Error', 'error', 'Failed to release ticket');
         }
     }
 

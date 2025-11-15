@@ -14,8 +14,8 @@ const FIREBASE_CONFIG = {
 };
 
 // ==================== 🔹 Ticket ID Generator ====================
-window.generateTicketId = function (department, deviceType, location = "", firestoreId = "") {
-  const timestamp = new Date();
+window.generateTicketId = function (department, deviceType, location = "", firestoreId = "", overrideDate) {
+  const timestamp = overrideDate instanceof Date ? overrideDate : new Date();
   const dateStr = timestamp.toISOString().slice(2, 10).replace(/-/g, ""); // YYMMDD
   
   // ✅ AMBIL 3 KARAKTER TERAKHIR DARI FIRESTORE ID
@@ -67,8 +67,9 @@ window.generateTicketId = function (department, deviceType, location = "", fires
     Workshop10: "WS10",
     Workshop11: "WS11",
     Workshop12: "WS12",
-    Security: "SEC",
-    Clinic: "CLN",
+      Yard: "YRD",
+      Security: "SEC",
+      Clinic: "CLN",
     "Control Room": "CTL",
     "Dark Room": "DRK",
     HRD: "HRD",
@@ -142,8 +143,9 @@ if (typeof module !== "undefined" && module.exports) {
 } else {
   // Untuk browser
   window.CONFIG = {
-    FIREBASE_CONFIG: FIREBASE_CONFIG, 
-     DEVICE_TYPE_MAPPING: DEVICE_TYPE_MAPPING,
+    FIREBASE_CONFIG: FIREBASE_CONFIG,
+    RECAPTCHA_V3_SITE_KEY: '6LcNHw0sAAAAAKGoJvBfV94ho54CpuvmWvRpDArx',
+    DEVICE_TYPE_MAPPING: DEVICE_TYPE_MAPPING,
     IT_STAFF: IT_STAFF,
     ADMIN_EMAILS: ADMIN_EMAILS,
     ADMIN_NAME_MAPPING: ADMIN_NAME_MAPPING

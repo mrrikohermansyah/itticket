@@ -4,8 +4,10 @@ import {
   getFirestore,
   collection,
   addDoc,
+  updateDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check.js";
 
 // ==================== 🔹 Firebase Config ====================
 const firebaseConfig = {
@@ -27,6 +29,14 @@ const GAS_CONFIG = {
 // ==================== 🔹 Init Firebase & Firestore ====================
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+
+const siteKey = window.CONFIG?.RECAPTCHA_V3_SITE_KEY;
+if (siteKey) {
+  initializeAppCheck(app, {
+    provider: new ReCaptchaV3Provider(siteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 
 // ==================== 🔹 DOM Element ====================
 const form = document.getElementById("ticketForm");
@@ -429,13 +439,12 @@ function generateConsistentRandomCode(ticket) {
 async function handleFormSubmitSuccess(response) {
   if (response.status === "success") {
     // 🔥 SIMPAN TICKET ID KE FIRESTORE
-    const firebaseId = await saveTicketIdToFirestore(
+    const saved = await saveTicketIdToFirestore(
       response.ticketId,
       formData
     );
 
-    // Enhanced success message based on platform
-    await showSuccessMessage(response.ticketId, firebaseId);
+    await showSuccessMessage(saved.code, saved.id);
   } else {
     throw new Error(response.message || "Unknown error from Google Script");
   }
@@ -455,7 +464,6 @@ async function saveTicketIdToFirestore(ticketId, formData) {
       priority: formData.priority,
       subject: formData.subject,
       message: formData.message,
-      code: formData.code,
       status_ticket: "Open",
       ticketId: ticketId,
       user_agent: formData.user_agent,
@@ -467,13 +475,15 @@ async function saveTicketIdToFirestore(ticketId, formData) {
       note: "",
     });
 
-    console.log(
-      "✅ Ticket saved with Firebase ID:",
-      docRef.id,
-      "Ticket ID:",
-      ticketId
-    );
-    return docRef.id;
+    const generator = window.generateTicketId;
+    const ticketCode = generator
+      ? generator(formData.department, formData.device, formData.location, docRef.id)
+      : generateSimpleTicketId(formData);
+
+    await updateDoc(docRef, { code: ticketCode });
+
+    console.log("✅ Ticket saved with Firebase ID:", docRef.id, "Code:", ticketCode);
+    return { id: docRef.id, code: ticketCode };
   } catch (error) {
     console.error("❌ Error saving ticket to Firestore:", error);
     throw error;

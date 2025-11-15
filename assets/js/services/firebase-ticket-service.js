@@ -12,6 +12,7 @@ import {
     Timestamp
 } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { db } from '../utils/firebase-config.js';
+import '../utils/config.js';
 
 class FirebaseTicketService {
     
@@ -26,13 +27,12 @@ class FirebaseTicketService {
                 updated_at: Timestamp.now()
             });
             
-            // Generate ticket code dengan ID dari Firestore
-            const ticketCode = `TKT-${ticketRef.id.slice(-8).toUpperCase()}`;
-            
-            // Update ticket dengan code
-            await updateDoc(ticketRef, {
-                code: ticketCode
-            });
+            const dept = ticketData.user_department || ticketData.department || 'Lainlain';
+            const device = ticketData.device || 'Others';
+            const location = ticketData.location || 'Lainlain';
+            const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+            const ticketCode = gen ? gen(dept, device, location, ticketRef.id) : `${dept}-${location}-${device}`;
+            await updateDoc(ticketRef, { code: ticketCode });
             
             return {
                 success: true,
@@ -297,6 +297,64 @@ class FirebaseTicketService {
             
         } catch (error) {
             throw new Error('Failed to get ticket statistics: ' + error.message);
+        }
+    }
+    async normalizeTicketCodes() {
+        try {
+            const snapshot = await getDocs(query(collection(db, 'tickets')));
+            for (const docSnap of snapshot.docs) {
+                const data = docSnap.data();
+                if (typeof data.code === 'string' && (data.code.startsWith('TKT-') || data.code.indexOf('-') === -1 || data.code.length <= 3)) {
+                    const dept = data.user_department || data.department || 'Lainlain';
+                    const device = data.device || 'Others';
+                    const location = data.location || 'Lainlain';
+                    const ts = (data.created_at?.toDate ? data.created_at.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()));
+                    const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+                    const newCode = gen ? gen(dept, device, location, docSnap.id, ts) : `${dept}-${location}-${device}`;
+                    await updateDoc(doc(db, 'tickets', docSnap.id), { code: newCode });
+                }
+            }
+            return true;
+        } catch (e) {
+            throw new Error('Failed to normalize ticket codes: ' + e.message);
+        }
+    }
+
+    async normalizeTicketStatusAndCode() {
+        try {
+            const snapshot = await getDocs(query(collection(db, 'tickets')));
+            for (const docSnap of snapshot.docs) {
+                const data = docSnap.data();
+
+                const dept = data.user_department || data.department || 'Lainlain';
+                const device = data.device || 'Others';
+                const location = data.location || 'Lainlain';
+                const ts = (data.created_at?.toDate ? data.created_at.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()));
+
+                const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+                const needsCodeFix = typeof data.code === 'string' && (data.code.startsWith('TKT-') || data.code.indexOf('-') === -1 || data.code.length <= 3);
+                const newCode = needsCodeFix && gen ? gen(dept, device, location, docSnap.id, ts) : (needsCodeFix ? `${dept}-${location}-${device}` : data.code);
+
+                let newStatus = data.status || data.status_ticket || (data.qa === 'Finish' ? 'Resolved' : (data.qa || 'Open'));
+                if (newStatus === 'Closed') newStatus = 'Resolved';
+
+                const updatePayload = {};
+                if (needsCodeFix) updatePayload.code = newCode;
+                if (newStatus && newStatus !== data.status) updatePayload.status = newStatus;
+
+                const hasCreatedAt = !!data.created_at;
+                const hasUpdatedAt = !!data.updated_at || !!data.last_updated;
+                if (!hasCreatedAt && ts) updatePayload.created_at = Timestamp.fromDate(ts);
+                const upd = (data.last_updated?.toDate ? data.last_updated.toDate() : (data.updatedAt?.toDate ? data.updatedAt.toDate() : null));
+                if (!hasUpdatedAt && upd) updatePayload.updated_at = Timestamp.fromDate(upd);
+
+                if (Object.keys(updatePayload).length > 0) {
+                    await updateDoc(doc(db, 'tickets', docSnap.id), updatePayload);
+                }
+            }
+            return true;
+        } catch (e) {
+            throw new Error('Failed to normalize ticket status and code: ' + e.message);
         }
     }
 }
