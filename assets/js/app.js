@@ -31,11 +31,24 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const siteKey = window.CONFIG?.RECAPTCHA_V3_SITE_KEY;
-if (siteKey) {
-  initializeAppCheck(app, {
-    provider: new ReCaptchaV3Provider(siteKey),
-    isTokenAutoRefreshEnabled: true,
-  });
+const enableAppCheck = !!window.CONFIG?.APPCHECK_ENABLED;
+const debugAppCheck = !!window.CONFIG?.APPCHECK_DEBUG;
+
+if (enableAppCheck && siteKey) {
+  if (debugAppCheck) {
+    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  }
+  try {
+    initializeAppCheck(app, {
+      provider: new ReCaptchaV3Provider(siteKey),
+      isTokenAutoRefreshEnabled: true,
+    });
+    console.log('✅ App Check initialized');
+  } catch (e) {
+    console.warn('⚠️ App Check init failed:', e && e.message ? e.message : e);
+  }
+} else {
+  console.log('ℹ️ App Check disabled');
 }
 
 // ==================== 🔹 DOM Element ====================
