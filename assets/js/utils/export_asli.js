@@ -57,49 +57,69 @@ function parseUniversalTimestamp(timestamp) {
 // ==================== 🛠️ FIXED Duration Calculation (ALWAYS IN MINUTES) ====================
 function calculateDurationForExport(ticket) {
   try {
-    const status = ticket.status_ticket || ticket.status || "Open";
-    if (!(status === "Resolved" || status === "Closed" || status === "Finished" || status === "Completed")) {
+    const rawStatus = ticket.status_ticket || ticket.status || "";
+    const status = String(rawStatus).trim().toLowerCase();
+    const finals = ['resolved', 'closed', 'finished', 'completed'];
+    if (!finals.includes(status)) {
       return "0 Minutes";
     }
 
     let endDate = null;
     const updateEntries = Array.isArray(ticket.updates) ? ticket.updates : [];
+
+    const resolvedTs = parseUniversalTimestamp(ticket.resolved_at);
+    if (resolvedTs && !isNaN(resolvedTs.getTime())) {
+      endDate = resolvedTs;
+    } else {
     for (let i = updateEntries.length - 1; i >= 0; i--) {
       const u = updateEntries[i];
       const s = (u && u.status) ? String(u.status).trim() : '';
-      if (s === 'Resolved' || s === 'Closed' || s === 'Finished' || s === 'Completed') {
+      const sl = s.toLowerCase();
+      if (finals.includes(sl)) {
         const ts = parseUniversalTimestamp(u.timestamp);
         if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
       }
     }
-    if (!endDate) {
-      const endCandidates = [ticket.resolved_at, ticket.closed_at, ticket.last_updated, ticket.updatedAt];
-      for (const c of endCandidates) {
-        const ts = parseUniversalTimestamp(c);
-        if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
+      if (!endDate) {
+        const closedTs = parseUniversalTimestamp(ticket.closed_at);
+        if (closedTs && !isNaN(closedTs.getTime())) {
+          endDate = closedTs;
+        }
+      }
+      if (!endDate) {
+        const lastUpdatedTs = parseUniversalTimestamp(ticket.last_updated);
+        if (lastUpdatedTs && !isNaN(lastUpdatedTs.getTime())) {
+          endDate = lastUpdatedTs;
+        }
       }
     }
-    if (!endDate) endDate = new Date();
 
     let startDate = null;
     const reopenTs = parseUniversalTimestamp(ticket.reopen_at);
-    if (reopenTs && !isNaN(reopenTs.getTime()) && reopenTs <= endDate) {
+    if (reopenTs && !isNaN(reopenTs.getTime())) {
       startDate = reopenTs;
-    } else if (updateEntries.length > 0) {
-      for (let i = updateEntries.length - 1; i >= 0; i--) {
-        const u = updateEntries[i];
-        const s = (u && u.status) ? String(u.status).trim() : '';
-        const ts = parseUniversalTimestamp(u.timestamp);
-        if ((s === 'Open' || s === 'Reopen') && ts && !isNaN(ts.getTime()) && ts <= endDate) {
-          startDate = ts; break;
-        }
-      }
     }
     if (!startDate) {
       const createdCandidates = [ticket.created_at, ticket.createdAt, ticket.timestamp, ticket.date_created];
       for (const c of createdCandidates) {
         const ts = parseUniversalTimestamp(c);
         if (ts && !isNaN(ts.getTime())) { startDate = ts; break; }
+      }
+    }
+
+    if (!endDate) {
+      endDate = startDate || new Date();
+    }
+
+    if (!startDate && updateEntries.length > 0) {
+      for (let i = updateEntries.length - 1; i >= 0; i--) {
+        const u = updateEntries[i];
+        const s = (u && u.status) ? String(u.status).trim() : '';
+        const ts = parseUniversalTimestamp(u.timestamp);
+        const sl = s.toLowerCase();
+        if ((sl === 'open' || sl === 'reopen') && ts && !isNaN(ts.getTime())) {
+          startDate = ts; break;
+        }
       }
     }
     if (!startDate) return "0 Minutes";
