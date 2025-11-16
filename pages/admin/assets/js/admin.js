@@ -126,39 +126,16 @@ window.backfillResolvedAt = async function () {
   try {
     const snap = await getDocs(collection(db, 'tickets'));
     let updated = 0;
-    const finals = ['Resolved', 'Closed', 'Completed', 'Finished'];
     for (const docSnap of snap.docs) {
       const data = docSnap.data();
-      const isFinal = finals.includes(String(data.status || '').trim());
       const hasResolved = !!data.resolved_at;
-      if (!isFinal || hasResolved) continue;
-      const updates = Array.isArray(data.updates) ? data.updates : [];
-      const parseTs = (v) => {
-        if (!v) return null;
-        try {
-          if (v.toDate && typeof v.toDate === 'function') return v.toDate();
-          if (v.seconds !== undefined) return new Date(v.seconds * 1000 + (v.nanoseconds || 0) / 1000000);
-          if (typeof v === 'string') { const d = new Date(v); return isNaN(d.getTime()) ? null : d; }
-          const d = new Date(v); return isNaN(d.getTime()) ? null : d;
-        } catch { return null; }
-      };
-      let end = null;
-      for (let i = updates.length - 1; i >= 0; i--) {
-        const u = updates[i];
-        const s = String((u && u.status) || '').trim();
-        if (finals.includes(s)) {
-          const ts = parseTs(u.timestamp);
-          if (ts) { end = ts; break; }
-        }
-      }
-      if (!end) end = parseTs(data.closed_at);
-      if (!end) end = parseTs(data.last_updated);
-      if (end) {
-        await updateDoc(doc(db, 'tickets', docSnap.id), { resolved_at: end });
-        updated++;
-      }
+      if (hasResolved) continue;
+      const lu = data.last_updated;
+      if (!lu) continue;
+      await updateDoc(doc(db, 'tickets', docSnap.id), { resolved_at: lu });
+      updated++;
     }
-    console.log(`✅ Backfilled resolved_at for ${updated} tickets`);
+    console.log(`✅ Backfilled resolved_at from last_updated for ${updated} tickets`);
     return updated;
   } catch (e) {
     console.error('❌ Backfill resolved_at failed:', e);
@@ -806,6 +783,10 @@ class AdminDashboard {
                       )
                   );
 
+            const resolved_at = data.resolved_at?.toDate
+                ? data.resolved_at.toDate().toISOString()
+                : (data.resolved_at || null);
+
             return {
                 id: id || '',
                 code: data.code || 'UNKNOWN',
@@ -821,6 +802,7 @@ class AdminDashboard {
                 status: data.status || data.status_ticket || (data.qa === 'Finish' ? 'Resolved' : (data.qa || 'Open')),
                 created_at: created_at,
                 last_updated: last_updated,
+                resolved_at: resolved_at,
                 action_by: data.action_by || '',
                 assigned_to: data.assigned_to || '',
                 note: data.note || '',
@@ -2474,6 +2456,7 @@ class AdminDashboard {
                     user_phone: ticket.user_phone || '',
                     createdAt: createdDate,
                     created_at: ticket.created_at,
+                    resolved_at: ticket.resolved_at,
                     updatedAt: updatedDate,
                     last_updated: ticket.last_updated,
                     raw_created_at: ticket.created_at,

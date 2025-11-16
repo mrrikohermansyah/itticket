@@ -64,66 +64,21 @@ function calculateDurationForExport(ticket) {
       return "0 Minutes";
     }
 
-    let endDate = null;
-    const updateEntries = Array.isArray(ticket.updates) ? ticket.updates : [];
-
-    const resolvedTs = parseUniversalTimestamp(ticket.resolved_at);
-    if (resolvedTs && !isNaN(resolvedTs.getTime())) {
-      endDate = resolvedTs;
-    } else {
-    for (let i = updateEntries.length - 1; i >= 0; i--) {
-      const u = updateEntries[i];
-      const s = (u && u.status) ? String(u.status).trim() : '';
-      const sl = s.toLowerCase();
-      if (finals.includes(sl)) {
-        const ts = parseUniversalTimestamp(u.timestamp);
-        if (ts && !isNaN(ts.getTime())) { endDate = ts; break; }
-      }
-    }
-      if (!endDate) {
-        const closedTs = parseUniversalTimestamp(ticket.closed_at);
-        if (closedTs && !isNaN(closedTs.getTime())) {
-          endDate = closedTs;
-        }
-      }
-      if (!endDate) {
-        const lastUpdatedTs = parseUniversalTimestamp(ticket.last_updated);
-        if (lastUpdatedTs && !isNaN(lastUpdatedTs.getTime())) {
-          endDate = lastUpdatedTs;
-        }
-      }
+    const endDate = parseUniversalTimestamp(ticket.resolved_at);
+    if (!endDate || isNaN(endDate.getTime())) {
+      return "0 Minutes";
     }
 
+    const startCandidates = [ticket.created_at, ticket.createdAt];
     let startDate = null;
-    const reopenTs = parseUniversalTimestamp(ticket.reopen_at);
-    if (reopenTs && !isNaN(reopenTs.getTime())) {
-      startDate = reopenTs;
-    }
-    if (!startDate) {
-      const createdCandidates = [ticket.created_at, ticket.createdAt, ticket.timestamp, ticket.date_created];
-      for (const c of createdCandidates) {
-        const ts = parseUniversalTimestamp(c);
-        if (ts && !isNaN(ts.getTime())) { startDate = ts; break; }
-      }
-    }
-
-    if (!endDate) {
-      endDate = startDate || new Date();
-    }
-
-    if (!startDate && updateEntries.length > 0) {
-      for (let i = updateEntries.length - 1; i >= 0; i--) {
-        const u = updateEntries[i];
-        const s = (u && u.status) ? String(u.status).trim() : '';
-        const ts = parseUniversalTimestamp(u.timestamp);
-        const sl = s.toLowerCase();
-        if ((sl === 'open' || sl === 'reopen') && ts && !isNaN(ts.getTime())) {
-          startDate = ts; break;
-        }
-      }
+    for (const c of startCandidates) {
+      const ts = parseUniversalTimestamp(c);
+      if (ts && !isNaN(ts.getTime())) { startDate = ts; break; }
     }
     if (!startDate) return "0 Minutes";
-    if (endDate < startDate) endDate = new Date();
+
+    if (endDate < startDate) return "0 Minutes";
+
     const diffMs = endDate - startDate;
     const diffMinutes = Math.floor(diffMs / (1000 * 60));
     return diffMinutes === 1 ? "1 Minute" : `${diffMinutes} Minutes`;
