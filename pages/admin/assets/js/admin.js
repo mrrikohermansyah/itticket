@@ -188,6 +188,9 @@ class AdminDashboard {
 
             // Setup event listeners
             this.initializeEventListeners();
+            this.injectSwalStyles();
+            
+            this.restoreFilters();
 
             // Load initial data
             await this.loadTickets();
@@ -210,6 +213,29 @@ class AdminDashboard {
             console.error('❌ Admin Dashboard init error:', error);
             this.showNotification('Initialization Error', 'error', error.message);
         }
+    }
+
+    injectSwalStyles() {
+        try {
+            if (document.getElementById('swal-theme')) return;
+            const style = document.createElement('style');
+            style.id = 'swal-theme';
+            style.textContent = `
+                .swal2-popup { border-radius: 16px !important; padding: 1.5rem !important; background: #ffffff !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(640px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
+                .swal2-title { color: #111827 !important; font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: .2px !important; }
+                .swal2-html-container { color: #374151 !important; font-size: .95rem !important; line-height: 1.6 !important; text-align: left !important; }
+                .swal2-actions { gap: .5rem !important; }
+                .swal2-confirm { background-color: #10b981 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
+                .swal2-cancel, .swal2-deny { background-color: #6b7280 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
+                .swal2-confirm:hover { filter: brightness(0.95) !important; }
+                .swal2-cancel:hover, .swal2-deny:hover { filter: brightness(0.9) !important; }
+                .swal2-modal .swal2-input, .swal2-modal .swal2-textarea, .swal2-select { border: 1px solid #e5e7eb !important; border-radius: 10px !important; padding: .55rem .75rem !important; }
+                .swal2-icon.swal2-success { border-color: #10b981 !important; }
+                .swal2-icon.swal2-success [class^=swal2-success-line] { background-color: #10b981 !important; }
+                .swal2-icon.swal2-success .swal2-success-ring { border-color: rgba(16,185,129,0.25) !important; }
+            `;
+            document.head.appendChild(style);
+        } catch {}
     }
 
     // ✅ METHOD BINDING - TERPUSAT
@@ -542,7 +568,68 @@ class AdminDashboard {
         this.renderTickets();
         this.updateStats();
 
+        this.persistFilters();
+
         console.log(`✅ Final filtered tickets: ${filtered.length}`);
+    }
+
+    persistFilters() {
+        try {
+            const payload = {
+                status: this.currentFilters.status,
+                priority: this.currentFilters.priority,
+                date: {
+                    startDate: this.currentFilters.date.startDate ? this.currentFilters.date.startDate.toISOString() : null,
+                    endDate: this.currentFilters.date.endDate ? this.currentFilters.date.endDate.toISOString() : null,
+                    isActive: !!this.currentFilters.date.isActive
+                }
+            };
+            const key = `adminFilters:${this.adminUser?.uid || 'global'}`;
+            localStorage.setItem(key, JSON.stringify(payload));
+        } catch (e) {}
+    }
+
+    setFilterUIFromState() {
+        try {
+            const statusFilter = document.getElementById('statusFilter');
+            const priorityFilter = document.getElementById('priorityFilter');
+            const startDateInput = document.getElementById('startDate');
+            const endDateInput = document.getElementById('endDate');
+
+            if (statusFilter && this.currentFilters.status) statusFilter.value = this.currentFilters.status;
+            if (priorityFilter && this.currentFilters.priority) priorityFilter.value = this.currentFilters.priority;
+
+            if (startDateInput && this.currentFilters.date.startDate) {
+                const d = new Date(this.currentFilters.date.startDate.getTime() - this.currentFilters.date.startDate.getTimezoneOffset() * 60000);
+                startDateInput.value = d.toISOString().split('T')[0];
+            }
+            if (endDateInput && this.currentFilters.date.endDate) {
+                const d = new Date(this.currentFilters.date.endDate.getTime() - this.currentFilters.date.endDate.getTimezoneOffset() * 60000);
+                endDateInput.value = d.toISOString().split('T')[0];
+            }
+        } catch (e) {}
+    }
+
+    restoreFilters() {
+        try {
+            const key = `adminFilters:${this.adminUser?.uid || 'global'}`;
+            let raw = localStorage.getItem(key);
+            if (!raw) raw = localStorage.getItem('adminFilters');
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            const startDate = saved?.date?.startDate ? new Date(saved.date.startDate) : null;
+            const endDate = saved?.date?.endDate ? new Date(saved.date.endDate) : null;
+            this.currentFilters = {
+                status: saved?.status || 'all',
+                priority: saved?.priority || 'all',
+                date: {
+                    startDate: startDate,
+                    endDate: endDate,
+                    isActive: !!(startDate || endDate)
+                }
+            };
+            this.setFilterUIFromState();
+        } catch (e) {}
     }
 
     applyDateFilter(tickets) {
@@ -747,11 +834,8 @@ class AdminDashboard {
             });
 
             this.tickets = allTickets;
-            this.filteredTickets = [...this.tickets];
-
             this.updateGlobalTicketsData();
-            this.renderTickets();
-            this.updateStats();
+            this.applyAllFilters();
 
             console.log(`✅ Loaded ${allTickets.length} tickets`);
 
