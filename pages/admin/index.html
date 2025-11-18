@@ -269,7 +269,6 @@
   
   <!-- Tambahkan device mapping config untuk export -->
   <script>
-    // Device mapping untuk export functionality
     window.CONFIG = {
       DEVICE_TYPE_MAPPING: {
         "PC Hardware": "HW",
@@ -280,12 +279,14 @@
         "Network": "NW",
         "Backup Data": "DR",
         "Others": "OT"
-      }
+      },
+      RECAPTCHA_V3_SITE_KEY: "6LcwPxAsAAAAAPguM-TsDsmczv1p3CZKGh4qAR-M",
+      APPCHECK_ENABLED: true,
+      APPCHECK_DEBUG: true,
+      APPCHECK_DEBUG_TOKEN: "99812416-b14d-4446-a739-0668b19a008f"
     };
-    
-    // Global variable untuk tickets
     window.allTickets = [];
-    </script>
+  </script>
 
 <script src="../../assets/js/utils/export.js"></script>
 <!-- Load admin.js sebagai module TERAKHIR (self-initializes) -->

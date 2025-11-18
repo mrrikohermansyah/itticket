@@ -10,14 +10,14 @@ import {
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check.js";
 
 // ==================== 🔹 Firebase Config ====================
-const firebaseConfig = {
-  apiKey: "AIzaSyCQR--hn0RDvDvCjA2Opa9HLzyYn_GFIs",
+const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
+  apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
   authDomain: "itticketing-f926e.firebaseapp.com",
   projectId: "itticketing-f926e",
   storageBucket: "itticketing-f926e.firebasestorage.app",
-  messagingSenderId: "896370077103",
-  appId: "1:896370077103:web:1d692e88b611bff838935a",
-  measurementId: "G-TJCHPXG7D5",
+  messagingSenderId: "10687213121",
+  appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
+  measurementId: "G-8H0EP72PC2",
 };
 
 // ==================== 🔹 Google Apps Script Configuration ====================
@@ -34,7 +34,8 @@ const siteKey = window.CONFIG?.RECAPTCHA_V3_SITE_KEY;
 const enableAppCheck = !!window.CONFIG?.APPCHECK_ENABLED;
 const debugAppCheck = !!window.CONFIG?.APPCHECK_DEBUG;
 
-if (enableAppCheck && siteKey) {
+if (enableAppCheck && siteKey && !window.__APP_CHECK_INIT__) {
+  window.__APP_CHECK_INIT__ = true;
   if (debugAppCheck) {
     self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
   }
@@ -47,7 +48,7 @@ if (enableAppCheck && siteKey) {
   } catch (e) {
     console.warn('⚠️ App Check init failed:', e && e.message ? e.message : e);
   }
-} else {
+} else if (!enableAppCheck || !siteKey) {
   console.log('ℹ️ App Check disabled');
 }
 
