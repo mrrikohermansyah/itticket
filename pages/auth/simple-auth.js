@@ -28,16 +28,16 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-console.log('✅ Firebase initialized in simple-auth.js');
+ 
 
 class SimpleAuth {
     constructor() {
-        console.log('🔄 SimpleAuth initialized');
+        
     }
 
     async login(email, password) {
         try {
-            console.log('🔐 Attempting login for:', email);
+            
 
             // Show loading state
             this.setLoadingState(true);
@@ -47,7 +47,7 @@ class SimpleAuth {
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            console.log('✅ Firebase Auth success, UID:', user.uid);
+            
 
             let userData = null;
             let userType = 'user';
@@ -58,10 +58,10 @@ class SimpleAuth {
                 if (adminDoc.exists()) {
                     userData = adminDoc.data();
                     userType = 'admin';
-                    console.log('✅ User found in admins collection');
+                    
                 }
             } catch (error) {
-                console.log('ℹ️ No admin access or error:', error.message);
+                
             }
 
             // 3. If not admin, check in users collection
@@ -71,16 +71,16 @@ class SimpleAuth {
                     if (userDoc.exists()) {
                         userData = userDoc.data();
                         userType = 'user';
-                        console.log('✅ User found in users collection');
+                        
                     }
                 } catch (error) {
-                    console.log('ℹ️ No user record found:', error.message);
+                    
                 }
             }
 
             // 4. If no record exists, create basic user record
             if (!userData) {
-                console.log('🆕 Creating new user record...');
+                
                 userData = {
                     email: email,
                     full_name: email.split('@')[0],
@@ -197,7 +197,6 @@ class SimpleAuth {
 
 // Initialize when DOM is loaded
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('🚀 Initializing SimpleAuth...');
 
     const simpleAuth = new SimpleAuth();
     const loginForm = document.getElementById('loginForm');
@@ -214,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 const result = await simpleAuth.login(email, password);
 
                 if (result.success) {
-                    console.log('✅ Login successful, user type:', result.userType);
+                    
 
                     // Redirect based on user type
                     setTimeout(() => {

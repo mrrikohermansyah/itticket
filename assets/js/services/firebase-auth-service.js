@@ -143,18 +143,18 @@ class FirebaseAuthService {
 
     async simpleLogin(email, password) {
         try {
-            console.log('🔐 Attempting login for:', email);
+            
 
             // Coba login dulu dengan Firebase Auth
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            console.log('✅ Firebase Auth success, UID:', user.uid);
+            
 
             // Cek di admins collection
             const adminDoc = await getDoc(doc(db, "admins", user.uid));
             if (adminDoc.exists()) {
-                console.log('✅ User is admin');
+                
                 return {
                     success: true,
                     user: { uid: user.uid, ...adminDoc.data() },
@@ -165,7 +165,7 @@ class FirebaseAuthService {
             // Cek di users collection
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
-                console.log('✅ User is regular user');
+                
                 return {
                     success: true,
                     user: { uid: user.uid, ...userDoc.data() },
@@ -174,7 +174,7 @@ class FirebaseAuthService {
             }
 
             // Jika tidak ada di kedua collection, buat user record
-            console.log('⚠️ User not in Firestore, creating basic record...');
+            
             await setDoc(doc(db, "users", user.uid), {
                 email: email,
                 full_name: email.split('@')[0],
@@ -203,12 +203,12 @@ class FirebaseAuthService {
 
     async loginAdmin(email, password) {
         try {
-            console.log('🔐 Attempting admin login for:', email);
+            
 
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            console.log('✅ Firebase Auth success, UID:', user.uid);
+            
 
             // ✅ CEK 1: Cari dengan UID sebagai document ID (standard way)
             const adminDocByUID = await getDoc(doc(db, "admins", user.uid));
@@ -221,22 +221,20 @@ class FirebaseAuthService {
             let adminData = null;
             let documentId = null;
 
-            console.log('🔍 Search results:');
-            console.log('- UID lookup exists:', adminDocByUID.exists());
-            console.log('- Email query results:', adminQuery.size);
+            
 
             // Priority 1: UID match (standard)
             if (adminDocByUID.exists()) {
                 adminData = adminDocByUID.data();
                 documentId = user.uid;
-                console.log('✅ Admin found with UID match');
+                
             }
             // Priority 2: Email query (fallback - perlu migrasi)
             else if (!adminQuery.empty) {
                 const foundDoc = adminQuery.docs[0];
                 adminData = foundDoc.data();
                 documentId = foundDoc.id;
-                console.log('⚠️ Admin found with email query, document ID:', documentId);
+                
 
                 // ✅ AUTO-MIGRATE: Pindahkan ke document ID yang benar
                 await this.migrateAdminToCorrectUID(user.uid, documentId, adminData);
@@ -246,12 +244,12 @@ class FirebaseAuthService {
                 const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (userDoc.exists() && userDoc.data().role !== 'user') {
                     adminData = userDoc.data();
-                    console.log('✅ Admin found in users collection');
+                    
 
                     // Auto-migrate dari users ke admins
                     await this.migrateUserToAdmin(user.uid, adminData);
                 } else {
-                    console.log('❌ No admin access found');
+                    
                     throw new Error('Admin access not granted. Please contact administrator.');
                 }
             }
@@ -262,7 +260,7 @@ class FirebaseAuthService {
                 throw new Error('Admin account is deactivated.');
             }
 
-            console.log('🎉 Admin login successful');
+            
 
             return {
                 success: true,
@@ -282,7 +280,7 @@ class FirebaseAuthService {
     // ✅ METHOD BARU: Migrasi admin ke document ID yang benar
     async migrateAdminToCorrectUID(correctUID, oldDocId, adminData) {
         try {
-            console.log('🔄 Migrating admin to correct UID...');
+            
 
             // 1. Buat document baru dengan UID yang benar
             await setDoc(doc(db, "admins", correctUID), {
@@ -295,7 +293,7 @@ class FirebaseAuthService {
             // 2. Hapus document lama
             await deleteDoc(doc(db, "admins", oldDocId));
 
-            console.log('✅ Admin migrated to correct UID');
+            
 
         } catch (error) {
             console.error('❌ Migration failed:', error);
@@ -306,7 +304,7 @@ class FirebaseAuthService {
     // Tambahkan method untuk auto-migrate
     async migrateUserToAdmin(uid, userData) {
         try {
-            console.log('🔄 Auto-migrating user to admin...');
+            
 
             await setDoc(doc(db, "admins", uid), {
                 name: userData.full_name || userData.name || userData.email.split('@')[0],
@@ -320,7 +318,7 @@ class FirebaseAuthService {
                 migrated_from_users: true
             });
 
-            console.log('✅ User auto-migrated to admin');
+            
         } catch (error) {
             console.error('❌ Auto-migration failed:', error);
         }
@@ -380,7 +378,7 @@ class FirebaseAuthService {
 
     async updateUserProfile(uid, updates) {
         try {
-            console.log('🔄 USER PROFILE SYNC STARTED:', { uid, updates });
+            
 
             const validation = this.validateUserProfileUpdates(updates);
             if (!validation.isValid) {
@@ -394,7 +392,7 @@ class FirebaseAuthService {
                 last_synced: new Date().toISOString()
             });
 
-            console.log('✅ User profile updated in Firestore');
+            
 
             try {
                 await this.updateUserTicketsInFirestore(uid, updates);
@@ -447,14 +445,7 @@ class FirebaseAuthService {
     // ✅ NEW: Update semua tickets user di Firestore
     async updateUserTicketsInFirestore(userId, userUpdates) {
         try {
-            console.log('🎫 Updating user tickets in Firestore for:', {
-                userId,
-                userUpdates: {
-                    name: userUpdates.full_name,
-                    department: userUpdates.department,
-                    email: userUpdates.email
-                }
-            });
+            
 
             // Cari semua tickets yang dibuat oleh user ini
             const ticketsQuery = query(
@@ -464,7 +455,7 @@ class FirebaseAuthService {
 
             const querySnapshot = await getDocs(ticketsQuery);
 
-            console.log(`📝 Found ${querySnapshot.size} tickets for user ${userId}`);
+            
 
             let updatedTicketsCount = 0;
 
@@ -473,10 +464,7 @@ class FirebaseAuthService {
                 const ticketRef = doc(db, "tickets", docSnapshot.id);
                 const ticketData = docSnapshot.data();
 
-                console.log(`🔄 Updating ticket ${ticketData.code}:`, {
-                    currentDepartment: ticketData.user_department,
-                    newDepartment: userUpdates.department
-                });
+                
 
                 // Update ticket dengan data user terbaru
                 await updateDoc(ticketRef, {
@@ -488,10 +476,9 @@ class FirebaseAuthService {
                 });
 
                 updatedTicketsCount++;
-                console.log(`✅ Updated ticket ${ticketData.code}`);
             }
 
-            console.log(`🎉 Successfully updated ${updatedTicketsCount} tickets in Firestore`);
+            
 
             return updatedTicketsCount;
 
@@ -552,7 +539,7 @@ class FirebaseAuthService {
     // ✅ FIX: Global update trigger dengan error handling
     async triggerGlobalUserUpdate(uid, updates) {
         try {
-            console.log('🌐 Triggering global user update for:', uid);
+            
 
             // Clear cache
             if (window.userCache && window.userCache[uid]) {
@@ -565,7 +552,7 @@ class FirebaseAuthService {
             });
             window.dispatchEvent(updateEvent);
 
-            console.log('✅ Global update triggered');
+            
 
         } catch (error) {
             console.error('❌ Error triggering global update:', error);
@@ -576,7 +563,7 @@ class FirebaseAuthService {
 
     triggerUserDataUpdate(uid) {
         // Method ini akan memicu update real-time di admin panel
-        console.log('🔄 Triggering user data update for:', uid);
+        
 
         // Anda bisa menambahkan custom event atau langsung update cache
         if (window.adminCache && window.adminCache[uid]) {
@@ -616,11 +603,7 @@ class FirebaseAuthService {
 
     async createAdmin(adminData) {
         try {
-            console.log('🔄 Creating admin account...', {
-                email: adminData.email,
-                name: adminData.name,
-                role: adminData.role
-            });
+            
 
             // Validate required data
             if (!adminData.email || !adminData.password) {
@@ -642,18 +625,18 @@ class FirebaseAuthService {
                     adminData.password
                 );
                 user = userCredential.user;
-                console.log('✅ New Firebase Auth user created:', user.uid);
+                
 
             } catch (authError) {
                 // If user already exists, try to convert existing user to admin
                 if (authError.code === 'auth/email-already-in-use') {
-                    console.log('ℹ️ User already exists, converting to admin...');
+                    
                     isExistingUser = true;
 
                     // ❌ JANGAN SIGNIN - INI PENYEBAB SESSION TAKEOVER
                     // Gunakan random ID sebagai fallback
                     user = { uid: doc(collection(db, 'admins')).id };
-                    console.log('⚠️ Using random ID for existing auth user:', user.uid);
+                    
                     console.warn('⚠️ Existing auth user needs manual admin linking');
 
                 } else {
@@ -696,7 +679,7 @@ class FirebaseAuthService {
                 needs_password_setup: isExistingUser // ✅ Jika existing user, butuh setup
             });
 
-            console.log('✅ Admin data saved to Firestore');
+            
 
             return {
                 success: true,
@@ -746,7 +729,7 @@ class FirebaseAuthService {
 
     async createAdminIfNotExists(adminData, currentAdminId = null) {
         try {
-            console.log('🔍 Checking if admin already exists...', { email: adminData.email });
+            
 
             // Check if admin exists by email in Firestore
             const adminsQuery = await getDocs(
@@ -756,7 +739,7 @@ class FirebaseAuthService {
             if (!adminsQuery.empty) {
                 const existingAdmin = adminsQuery.docs[0];
                 const existingData = existingAdmin.data();
-                console.log('ℹ️ Admin already exists in Firestore:', existingData);
+                
 
                 return {
                     success: true,
@@ -776,28 +759,28 @@ class FirebaseAuthService {
                 const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
 
                 if (signInMethods.length > 0) {
-                    console.log('ℹ️ User exists in Authentication');
+                    
                     isExistingUser = true;
 
                     // Buat document dengan random ID
                     userId = doc(collection(db, 'admins')).id;
-                    console.log('⚠️ Using random ID for existing auth user:', userId);
+                    
 
                     console.warn('⚠️ Existing auth user needs manual admin linking');
                 } else {
                     // ✅ CREATE NEW AUTH USER
-                    console.log('🔄 Creating new user in Authentication...');
+                    
 
                     try {
                         const userCredential = await createUserWithEmailAndPassword(auth, adminData.email, adminData.password);
                         userId = userCredential.user.uid;
                         authCreated = true;
                         isExistingUser = false;
-                        console.log('✅ New auth user created:', userId);
+                        
                     } catch (authError) {
                         // ✅ HANDLE AUTH ERROR DENGAN BAIK - JANGAN THROW
                         if (authError.code === 'auth/email-already-in-use') {
-                            console.log('ℹ️ Email already in Auth, using random ID');
+                            
                             userId = doc(collection(db, 'admins')).id;
                             authCreated = false;
                             isExistingUser = true;
@@ -808,12 +791,12 @@ class FirebaseAuthService {
                     }
                 }
             } catch (authError) {
-                console.log('🔄 Auth process failed, using fallback...');
+                
 
                 // Fallback: use random ID
                 userId = doc(collection(db, 'admins')).id;
                 isExistingUser = false;
-                console.log('🔄 Using fallback ID:', userId);
+                
             }
 
             // ✅ PREPARE DATA UNTUK FIRESTORE
@@ -840,7 +823,7 @@ class FirebaseAuthService {
             const adminRef = doc(db, 'admins', userId);
             await setDoc(adminRef, firestoreData);
 
-            console.log('✅ Admin created in Firestore:', userId, firestoreData);
+            
 
             return {
                 success: true,
@@ -863,7 +846,7 @@ class FirebaseAuthService {
     // ✅ METHOD BARU YANG 100% AMAN
     async createAdminSafe(adminData, currentAdminId) {
         try {
-            console.log('🔄 Creating admin (fixed safe mode)...', adminData);
+            
 
             // 1. Check if admin already exists by email
             const adminsQuery = await getDocs(
@@ -886,7 +869,7 @@ class FirebaseAuthService {
                 const authMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
 
                 if (authMethods.length > 0) {
-                    console.log('ℹ️ User exists in Auth, but cannot get UID without login');
+                    
                     // Untuk existing user, kita perlu approach berbeda
                     return {
                         success: false,
@@ -894,7 +877,7 @@ class FirebaseAuthService {
                     };
                 } else {
                     // 3. Create new user in Firebase Auth
-                    console.log('👤 Creating new user in Firebase Auth...');
+                    
                     const userCredential = await createUserWithEmailAndPassword(
                         auth,
                         adminData.email,
@@ -902,7 +885,7 @@ class FirebaseAuthService {
                     );
                     userUID = userCredential.user.uid;
                     authCreated = true;
-                    console.log('✅ Auth user created, UID:', userUID);
+                    
                 }
             } catch (authError) {
                 console.error('❌ Auth creation failed:', authError);
@@ -929,7 +912,7 @@ class FirebaseAuthService {
 
             await setDoc(doc(db, 'admins', userUID), adminDataToSave);
 
-            console.log('✅ Admin created successfully, UID:', userUID);
+            
 
             return {
                 success: true,
@@ -1060,7 +1043,7 @@ class FirebaseAuthService {
     // ✅ METHOD UNTUK DELETE ADMIN PERMANEN
     async deleteAdminPermanently(adminId) {
         try {
-            console.log('🗑️ Deleting admin permanently:', adminId);
+            
 
             // Import Firebase Firestore functions
             const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
@@ -1069,7 +1052,7 @@ class FirebaseAuthService {
             // Delete dari Firestore admins collection
             await deleteDoc(doc(db, 'admins', adminId));
 
-            console.log('✅ Admin deleted from Firestore');
+            
 
             return {
                 success: true,
@@ -1094,28 +1077,23 @@ class FirebaseAuthService {
 
     async debugAdminStatus(email) {
         try {
-            console.log('🔍 Debugging admin status for:', email);
+            
 
             // 1. Cek di Firebase Auth
             const authMethods = await fetchSignInMethodsForEmail(auth, email);
-            console.log('🔐 Auth methods:', authMethods);
+            
 
             // 2. Cek di Firestore dengan email query
             const adminsQuery = await getDocs(
                 query(collection(db, 'admins'), where('email', '==', email))
             );
 
-            console.log('📋 Firestore documents found:', adminsQuery.size);
-            adminsQuery.forEach(doc => {
-                console.log('📄 Document:', {
-                    id: doc.id,
-                    data: doc.data()
-                });
-            });
+            
+            // Removed verbose per-document debug output
 
             // 3. Cek jika ada user dengan UID yang cocok
             if (authMethods.length > 0) {
-                console.log('ℹ️ User exists in Auth, but UID unknown without login');
+                
             }
 
             return {
@@ -1213,7 +1191,7 @@ class FirebaseAuthService {
                     created_at: new Date().toISOString(),
                     created_by: 'system_auto_migration'
                 });
-                console.log('✅ Admin auto-migrated to Firestore');
+                
             }
         } catch (error) {
             console.error('Auto-migration failed:', error);

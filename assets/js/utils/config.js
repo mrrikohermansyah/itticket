@@ -38,6 +38,7 @@ window.generateTicketId = function (department, deviceType, location = "", fires
     Completion: "COMP",
     "Document Control": "DOC",
     Clinic: "CLN",
+    Planner: "PLN",
     Vendor: "VDR",
     Lainlain: "GEN",
   };

@@ -23,7 +23,6 @@
             const script = document.createElement("script");
             script.src = "https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js";
             script.onload = () => {
-                console.log("✅ ExcelJS loaded successfully");
                 resolve();
             };
             script.onerror = (error) => {
@@ -36,7 +35,7 @@
 
     // ==================== ✅ FIXED MAIN EXPORT FUNCTION ====================
     window.exportToExcelAppendSorted = async function(displayedTickets, filterInfo = "My Assigned Tickets") {
-        console.log("🚀 EXPORT STARTED - Tickets:", displayedTickets?.length);
+        
         
         try {
             if (!displayedTickets || displayedTickets.length === 0) {
@@ -66,17 +65,17 @@
                 focusConfirm: false
             });
 
-            console.log("🎯 User action:", result);
+            
 
             // ✅ FIXED ACTION DETECTION
             if (result.isConfirmed) {
-                console.log("📄 Creating new file...");
+                
                 await window.createNewFileWithTemplate(displayedTickets, filterInfo);
             } else if (result.isDenied) {
-                console.log("📥 Appending to existing file...");
+                
                 await window.appendToExistingExcel(displayedTickets, filterInfo);
             } else {
-                console.log("❌ Export cancelled by user choice");
+                
                 return;
             }
 
@@ -94,13 +93,11 @@
     // ==================== ✅ FIXED EVENT HANDLER ====================
     window.handleExportToExcel = async function() {
         if (window.isExporting) {
-            console.log("⏳ Export in progress, please wait...");
             return;
         }
         
         try {
             window.isExporting = true;
-            console.log("🎯 Export button handler started");
             
             const tickets = window.getMyAssignedTickets();
             const filterInfo = window.getCurrentFilterInfo();
@@ -134,7 +131,7 @@ window.setHeaderStyling = function(sheet) {
             return;
         }
 
-        console.log("🎯 Setting header styling for row 7");
+        
 
         // Set alignment untuk setiap kolom header
         for (let col = 1; col <= 9; col++) {
@@ -173,7 +170,7 @@ window.setHeaderStyling = function(sheet) {
         }
 
         // ✅ PERBAIKAN: HAPUS headerRow.commit() - tidak diperlukan di ExcelJS
-        console.log("✅ Header styling applied successfully");
+        
 
     } catch (error) {
         console.error("❌ Error setting header styling:", error);
@@ -187,7 +184,7 @@ window.setHeaderStyling = function(sheet) {
                 throw new Error("No tickets data available");
             }
 
-            console.log("📄 Creating NEW FILE WITH TEMPLATE:", displayedTickets.length, "tickets");
+            
             await window.loadExcelJS();
 
             const templateFile = await window.loadFileInput();
@@ -212,23 +209,23 @@ window.setHeaderStyling = function(sheet) {
             const targetSheetName = monthlySheets[0];
             const sheet = workbook.getWorksheet(targetSheetName);
             
-            console.log(`📊 Using template sheet: "${targetSheetName}"`);
+            
 
             // ✅ APPLY HEADER STYLING SEBELUM MEMASUKKAN DATA
             window.setHeaderStyling(sheet);
 
             // Step 1: Find the last data row in template
             const lastDataRow = window.findLastDataRowSimple(sheet);
-            console.log(`📍 Last data row in template: ${lastDataRow}`);
+            
             
             // Step 2: Find signature area in template
             const signatureRow = window.findSignatureRowSimple(sheet, lastDataRow);
-            console.log(`📝 Signature area in template: ${signatureRow}`);
+            
             
             // Step 3: Clear existing data (keep only headers and structure)
             const startDataRow = 8; // Assuming data starts at row 8
             if (lastDataRow >= startDataRow) {
-                console.log(`🧹 Clearing existing data from row ${startDataRow} to ${lastDataRow}`);
+                
                 
                 // Clear data but keep formatting
                 for (let row = startDataRow; row <= lastDataRow; row++) {
@@ -242,7 +239,7 @@ window.setHeaderStyling = function(sheet) {
                             }
                         }
                     } catch (e) {
-                        console.log(`Row ${row} doesn't exist or cannot be cleared`);
+                        
                     }
                 }
             }
@@ -310,7 +307,7 @@ window.setHeaderStyling = function(sheet) {
                 throw new Error("No tickets data available");
             }
 
-            console.log("📥 Starting APPEND TO EXISTING process:", displayedTickets.length, "tickets");
+            
             await window.loadExcelJS();
 
             const existingFile = await window.loadFileInput();
@@ -335,42 +332,36 @@ window.setHeaderStyling = function(sheet) {
             const targetSheetName = monthlySheets[0];
             const sheet = workbook.getWorksheet(targetSheetName);
             
-            console.log(`📊 Using sheet: "${targetSheetName}"`);
+            
 
             // ✅ APPLY HEADER STYLING
             window.setHeaderStyling(sheet);
 
             // Step 1: Find the last data row
             const lastDataRow = window.findLastDataRowSimple(sheet);
-            console.log(`📍 Last data row found: ${lastDataRow}`);
+            
             
             // Step 2: Find signature area
             const signatureRow = window.findSignatureRowSimple(sheet, lastDataRow);
-            console.log(`📝 Signature area starts at row: ${signatureRow}`);
+            
             
             // Step 3: Calculate how many rows to insert
             const rowsToInsert = displayedTickets.length;
-            
-            // Step 4: INSERT NEW ROWS (like Ctrl+Shift+"+")
+
+            // Step 4: INSERT NEW ROWS (like Ctrl+Shift "+") and determine write start row
+            let startInsertRow;
             if (signatureRow > 0) {
-                console.log(`🔄 Inserting ${rowsToInsert} new rows before signature area...`);
-                
                 // Insert rows at the position before signature area
                 sheet.spliceRows(signatureRow, 0, ...Array(rowsToInsert).fill([]));
-                
-                console.log(`✅ Successfully inserted ${rowsToInsert} rows at position ${signatureRow}`);
+                startInsertRow = signatureRow;
             } else {
                 // If no signature found, insert after last data row
                 const insertPosition = lastDataRow + 1;
-                console.log(`🔄 Inserting ${rowsToInsert} new rows at position ${insertPosition}...`);
-                
                 sheet.spliceRows(insertPosition, 0, ...Array(rowsToInsert).fill([]));
-                
-                console.log(`✅ Successfully inserted ${rowsToInsert} rows at position ${insertPosition}`);
+                startInsertRow = insertPosition;
             }
 
             // Step 5: Insert tickets data in the newly created rows
-            const startInsertRow = lastDataRow + 1;
             const addedCount = window.insertTicketsDataWithFormatting(sheet, displayedTickets, startInsertRow, lastDataRow);
             
             // Step 6: Save the updated file
@@ -444,14 +435,26 @@ window.setHeaderStyling = function(sheet) {
     window.isValidExcelDate = function(value) {
         if (!value) return false;
         
-        // Check for DD/MM/YYYY format
-        if (typeof value === 'string') {
-            return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(value.trim());
+        // Native Date object
+        if (value instanceof Date && !isNaN(value.getTime())) {
+            return true;
         }
-        
-        // Check for Excel date number
+
+        // String DD/MM/YYYY (trim spaces)
+        if (typeof value === 'string') {
+            const v = value.trim();
+            return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v);
+        }
+
+        // ExcelJS rich value with 'text'
+        if (typeof value === 'object' && value && typeof value.text === 'string') {
+            const v = value.text.trim();
+            return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v);
+        }
+
+        // Excel serial date number
         if (typeof value === 'number') {
-            return value > 40000; // Excel dates are numbers > 40000
+            return value > 40000;
         }
         
         return false;
@@ -469,7 +472,7 @@ window.setHeaderStyling = function(sheet) {
                     if (cell.value && typeof cell.value === 'string') {
                         const cellValue = cell.value.toLowerCase();
                         if (keywords.some(keyword => cellValue.includes(keyword))) {
-                            console.log(`📝 Found signature keyword at row ${row}: "${cell.value}"`);
+                            
                             return row;
                         }
                     }
@@ -478,7 +481,7 @@ window.setHeaderStyling = function(sheet) {
                 }
             }
         }
-        console.log("📝 No signature area found");
+        
         return 0; // No signature found
     };
 
@@ -487,7 +490,7 @@ window.setHeaderStyling = function(sheet) {
         const sortedTickets = window.sortTicketsByDate(tickets);
         let currentRow = startRow;
         
-        console.log(`📝 Inserting ${sortedTickets.length} tickets starting at row ${startRow}, lastDataRow: ${lastDataRow}`);
+        
 
         // ✅ DAPATKAN REFERENCE STYLING SEBELUM LOOP
         let referenceHeight = 18.75; // default fallback
@@ -500,7 +503,7 @@ window.setHeaderStyling = function(sheet) {
                     // Ambil height
                     if (referenceRow.height) {
                         referenceHeight = referenceRow.height;
-                        console.log(`📏 Reference row height from row ${lastDataRow}: ${referenceHeight}`);
+                        
                     }
                     
                     // Ambil border styling untuk setiap kolom
@@ -509,17 +512,17 @@ window.setHeaderStyling = function(sheet) {
                             const referenceCell = referenceRow.getCell(col);
                             if (referenceCell.border) {
                                 referenceBorders[col] = { ...referenceCell.border };
-                                console.log(`🎨 Reference border for col ${col}:`, referenceBorders[col]);
+                                
                             }
                         } catch (e) {
                             // Skip jika kolom tidak ada
                         }
                     }
                 } else {
-                    console.log(`📏 No reference row found, using default styling`);
+                    
                 }
             } else {
-                console.log(`📏 Invalid lastDataRow, using default styling`);
+                
             }
         } catch (error) {
             console.warn(`📏 Error getting reference styling, using default`, error);
@@ -533,7 +536,7 @@ window.setHeaderStyling = function(sheet) {
 
             const rowData = [
                 null, // Kolom A kosong
-                window.formatDateForExcel(ticket.createdAt || ticket.last_updated),
+                window.formatDateForExcel(window.getTicketDate(ticket)),
                 ticket.inventory || "-",
                 deviceCode,
                 ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
@@ -622,11 +625,11 @@ window.setHeaderStyling = function(sheet) {
             
             
             
-            console.log(`✅ Inserted ticket ${index + 1} at row ${currentRow} with matching styling`);
+            
             currentRow++;
         });
 
-        console.log(`🎉 Successfully inserted ${sortedTickets.length} tickets with EXACT formatting from existing file`);
+        
         return sortedTickets.length;
     };
 
@@ -767,10 +770,14 @@ window.setHeaderStyling = function(sheet) {
         });
     };
 
+    window.getTicketDate = function(ticket) {
+        return ticket.created_at || ticket.createdAt || ticket.updated_at || ticket.last_updated || null;
+    };
+
     window.sortTicketsByDate = function(tickets) {
         return tickets.sort((a, b) => {
-            const dateA = window.parseUniversalTimestamp(a.createdAt || a.last_updated);
-            const dateB = window.parseUniversalTimestamp(b.createdAt || b.last_updated);
+            const dateA = window.parseUniversalTimestamp(window.getTicketDate(a));
+            const dateB = window.parseUniversalTimestamp(window.getTicketDate(b));
             if (!dateA && !dateB) return 0;
             if (!dateA) return -1;
             if (!dateB) return 1;
@@ -850,21 +857,60 @@ window.setHeaderStyling = function(sheet) {
         return false;
     };
 
+    window.getExportSourceTickets = function() {
+        const dash = window.adminDashboard;
+        if (dash && Array.isArray(dash.filteredTickets) && dash.filteredTickets.length > 0) {
+            return dash.filteredTickets;
+        }
+        if (dash && Array.isArray(dash.tickets) && dash.tickets.length > 0) {
+            return dash.tickets;
+        }
+        return window.getAllAvailableTickets();
+    };
+
+    window.filterTicketsByCurrentDateRange = function(tickets) {
+        try {
+            const dash = window.adminDashboard;
+            const dateFilter = dash && dash.currentFilters ? dash.currentFilters.date : null;
+            if (!dateFilter || !dateFilter.isActive) return tickets;
+
+            const startDate = dateFilter.startDate ? new Date(dateFilter.startDate) : null;
+            const endDate = dateFilter.endDate ? new Date(dateFilter.endDate) : null;
+
+            return tickets.filter(ticket => {
+                const d = window.parseUniversalTimestamp(window.getTicketDate(ticket));
+                if (!d) return false;
+                if (startDate && endDate) {
+                    const s = new Date(startDate); s.setHours(0,0,0,0);
+                    const e = new Date(endDate); e.setHours(23,59,59,999);
+                    return d >= s && d <= e;
+                }
+                if (startDate && !endDate) {
+                    const s = new Date(startDate); s.setHours(0,0,0,0);
+                    return d >= s;
+                }
+                if (!startDate && endDate) {
+                    const e = new Date(endDate); e.setHours(23,59,59,999);
+                    return d <= e;
+                }
+                return true;
+            });
+        } catch (error) {
+            return tickets;
+        }
+    };
+
     window.getMyAssignedTickets = function() {
         try {
             const currentUser = window.getCurrentAdminUser();
             if (!currentUser) return [];
 
-            const allTickets = window.getAllAvailableTickets();
-            const myTickets = allTickets.filter(ticket => 
+            const sourceTickets = window.getExportSourceTickets();
+            let myTickets = sourceTickets.filter(ticket => 
                 window.isTicketAssignedToCurrentUser(ticket, currentUser)
             );
 
-            console.log("?? My assigned tickets:", {
-                currentUser: currentUser.name || currentUser.email,
-                totalTickets: allTickets.length,
-                myTickets: myTickets.length
-            });
+            myTickets = window.filterTicketsByCurrentDateRange(myTickets);
 
             return myTickets;
             
@@ -888,7 +934,7 @@ window.setHeaderStyling = function(sheet) {
             
             for (const source of possibleSources) {
                 if (source && Array.isArray(source) && source.length > 0) {
-                    console.log("📦 Found tickets source:", source.length, "tickets");
+                    
                     return source;
                 }
             }
@@ -897,7 +943,7 @@ window.setHeaderStyling = function(sheet) {
             const savedTickets = localStorage.getItem("tickets-backup");
             if (savedTickets) {
                 const tickets = JSON.parse(savedTickets);
-                console.log("📦 Using backup tickets:", tickets.length);
+                
                 return tickets;
             }
             
@@ -966,7 +1012,7 @@ window.setHeaderStyling = function(sheet) {
             if (exportBtn) {
                 e.preventDefault();
                 e.stopImmediatePropagation();
-                console.log("🔄 Export button detected");
+                
                 window.handleExportToExcel();
             }
         };
@@ -999,7 +1045,7 @@ window.setHeaderStyling = function(sheet) {
     // Cleanup function
     window.cleanupExportHandlers = function() {
         document.removeEventListener('click', window.exportButtonHandler);
-        console.log("🧹 Export handlers cleaned up");
+        
     };
 
     // Initialize everything

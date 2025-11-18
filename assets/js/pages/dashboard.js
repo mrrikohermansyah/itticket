@@ -20,17 +20,17 @@ class Dashboard {
 
   async init() {
     try {
-      console.log('Dashboard initializing...');
+      
 
       const user = await this.authService.getCurrentUser();
 
       if (!user) {
-        console.log('❌ No user found, redirecting to login');
+        
         this.redirectToLogin();
         return;
       }
 
-      console.log('✅ User authenticated in Firebase Auth:', user.uid);
+      
 
       const profile = await this.authService.getUserProfile(user.uid);
       if (profile) {
@@ -54,7 +54,7 @@ class Dashboard {
       this.initializeEventListeners();
       await this.setupRealtimeTickets();
 
-      console.log('✅ Dashboard initialized successfully');
+      
 
     } catch (error) {
       console.error('❌ Dashboard init error:', error);
@@ -65,11 +65,11 @@ class Dashboard {
 
   async setupRealtimeTickets() {
     try {
-      console.log('🔄 Setting up realtime tickets listener...');
+      
 
       // Cek dulu apakah user sudah ada
       if (!this.currentUser || !this.currentUser.id) {
-        console.log('⚠️ No current user, skipping tickets setup');
+        
         return;
       }
 
@@ -111,7 +111,7 @@ class Dashboard {
       // ✅ Setup realtime listener dengan error handling
       this.unsubscribeTickets = onSnapshot(q,
         (snapshot) => {
-          console.log('🔄 Realtime update received for tickets');
+          
           this.processTicketsSnapshot(snapshot);
         },
         (error) => {
@@ -128,7 +128,7 @@ class Dashboard {
 
   // Method baru untuk handle Firestore errors
   showFirestoreError() {
-    console.log('🔧 Showing Firestore error message');
+    
 
     // Tampilkan message ke user
     const ticketsList = document.getElementById('ticketsList');
@@ -151,7 +151,7 @@ class Dashboard {
 
   // Pisahkan processing logic
   processTicketsSnapshot(snapshot) {
-    console.log('📊 Processing tickets snapshot...');
+    
 
     const adminCache = new Map();
     const processPromises = [];
@@ -196,7 +196,7 @@ class Dashboard {
       this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       this.renderTickets();
       this.updateStats();
-      console.log('✅ Tickets updated. Total:', this.tickets.length);
+      
     });
   }
 
@@ -631,7 +631,7 @@ class Dashboard {
           timerProgressBar: true
         });
 
-        console.log(`✅ Ticket ${ticketCode} deleted by user`);
+        
       }
     } catch (error) {
       console.error('❌ Error deleting ticket:', error);
@@ -661,7 +661,7 @@ class Dashboard {
     if (openEl) openEl.textContent = openTickets.length;
     if (resolvedEl) resolvedEl.textContent = resolvedTickets.length;
 
-    console.log(`📊 Stats updated: ${openTickets.length} open, ${resolvedTickets.length} resolved`);
+    
   }
 
   // Show real-time notification
@@ -734,12 +734,12 @@ class Dashboard {
   cleanup() {
     if (this.unsubscribeTickets) {
       this.unsubscribeTickets();
-      console.log('🧹 Realtime listener cleaned up');
+      
     }
   }
 
   redirectToLogin() {
-    console.log('Redirecting to login...');
+    
     this.cleanup();
     window.location.href = '../auth/login.html';
   }
@@ -1027,7 +1027,7 @@ class Dashboard {
         note: ''
       });
 
-      console.log('🔍 DEBUG - Firestore ID:', ticketRef.id);
+      
 
       // ✅ GENERATE CODE DENGAN FIRESTORE ID (3 karakter terakhir)
       const ticketCode = window.generateTicketId(
@@ -1037,7 +1037,7 @@ class Dashboard {
         ticketRef.id  // Kirim Firestore ID untuk diambil 3 karakter terakhir
       );
 
-      console.log('🎫 Generated Ticket Code:', ticketCode, 'from ID:', ticketRef.id);
+      
 
       // ✅ UPDATE TICKET DENGAN CODE YANG SUDAH DIGENERATE
       await updateDoc(ticketRef, {
@@ -1133,7 +1133,7 @@ class Dashboard {
       timer: 8000, // Auto close setelah 8 detik
       timerProgressBar: true,
       willClose: () => {
-        console.log('✅ Success alert closed for ticket:', ticketCode);
+        
       }
     });
   }
@@ -1166,7 +1166,7 @@ class Dashboard {
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('Initializing Dashboard with Realtime Updates...');
+  
   new Dashboard();
 });
 

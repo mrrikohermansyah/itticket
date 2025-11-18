@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', function() {
     submitBtn.disabled = true;
 
     try {
-        console.log('🔐 Attempting admin login...', email);
+        
         
         const result = await firebaseAuthService.loginAdmin(email, password);
 
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
             loginTime: new Date().toISOString()
         }));
 
-        console.log('✅ Login successful, redirecting...');
+        
         
         // Redirect to admin dashboard
         window.location.href = 'index.html';

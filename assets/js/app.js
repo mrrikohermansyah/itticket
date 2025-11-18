@@ -190,14 +190,7 @@ function resetValidationStyles() {
 
 // GANTI fungsi collectFormData() dengan ini:
 function collectFormData() {
-  // Debug: Cek semua nilai form
-  console.log("🔍 Debug Form Values:");
-  console.log("Department:", document.getElementById("department").value);
-  console.log("Location:", document.getElementById("location").value);
-  console.log("Device:", document.getElementById("device").value);
-  console.log("Inventory:", document.getElementById("inventory").value);
-  console.log("Name:", document.getElementById("name").value);
-  console.log("Email:", document.getElementById("user_email").value);
+  // Debug logs removed
 
   const formData = {
     user_email:
@@ -222,13 +215,12 @@ function collectFormData() {
       : "Desktop",
   };
 
-  console.log("📦 Final Form Data:", formData);
   return formData;
 }
 // ==================== 🔹 Google Apps Script Submission (No-CORS Solution) ====================
 async function submitToGoogleScript(formData) {
   try {
-    console.log("🚀 Preparing to submit to Google Script...", formData);
+  
 
     const ticketId = generateSimpleTicketId(formData);
 
@@ -240,7 +232,7 @@ async function submitToGoogleScript(formData) {
       timestamp: new Date().toISOString(),
     };
 
-    console.log("📤 Sending data (no-cors mode)...");
+  
 
     // Use no-cors mode - we can't read the response but the request will go through
     await fetch(GAS_CONFIG.WEB_APP_URL, {
@@ -253,7 +245,7 @@ async function submitToGoogleScript(formData) {
     });
 
     // Since we can't get a response in no-cors mode, return success with local ticket ID
-    console.log("✅ Request sent (no-cors mode) - assuming success");
+  
 
     return {
       status: "success",
@@ -276,7 +268,7 @@ async function submitToGoogleScript(formData) {
 // ==================== 🔹 JSONP FALLBACK ====================
 async function tryJSONPFallback(formData) {
   return new Promise((resolve) => {
-    console.log("🔄 Trying JSONP fallback...");
+  
 
     // Generate ticket locally sebagai fallback
     const ticketId = generateSimpleTicketId(formData);
@@ -291,7 +283,6 @@ async function tryJSONPFallback(formData) {
 
 // ==================== 🔹 Enhanced Ticket ID Generation ====================
 function generateSimpleTicketId(ticket) {
-  console.log("🔧 Generating Ticket ID for:", ticket);
 
   // GANTI codeMaps dengan ini:
   const codeMaps = {
@@ -306,6 +297,7 @@ function generateSimpleTicketId(ticket) {
       HR: "HR",
       HSE: "HSE",
       IT: "IT",
+      Planner: "PLN",
       Maintenance: "MNT",
       Management: "MGT",
       Procurement: "PRO",
@@ -353,15 +345,15 @@ function generateSimpleTicketId(ticket) {
 
   const getCode = (value, map) => {
     if (!value || value === "") {
-      console.log(`❌ Empty value for map:`, map);
+      
       return "GEN";
     }
 
     const code = map[value];
-    console.log(`🔍 Mapping: "${value}" -> "${code}"`);
+    
 
     if (!code) {
-      console.log(`❌ No mapping found for: "${value}"`);
+      
       // Try to find partial match
       const partialMatch = Object.keys(map).find(
         (key) =>
@@ -369,9 +361,7 @@ function generateSimpleTicketId(ticket) {
           key.toLowerCase().includes(value.toLowerCase())
       );
       if (partialMatch) {
-        console.log(
-          `🔍 Partial match found: "${partialMatch}" -> "${map[partialMatch]}"`
-        );
+        
         return map[partialMatch];
       }
       return value.substring(0, 3).toUpperCase();
@@ -384,9 +374,7 @@ function generateSimpleTicketId(ticket) {
   const locCode = getCode(ticket.location, codeMaps.locations);
   const deviceCode = getCode(ticket.device, codeMaps.devices);
 
-  console.log(
-    `📝 Codes - Dept: ${deptCode}, Loc: ${locCode}, Device: ${deviceCode}`
-  );
+  
 
   // Format date YYMM (4 digit)
   const dateCode = (() => {
@@ -399,7 +387,7 @@ function generateSimpleTicketId(ticket) {
   const randomCode = generateConsistentRandomCode(ticket);
 
   const finalTicketId = `${deptCode}-${locCode}-${deviceCode}-${dateCode}-${randomCode}`;
-  console.log(`🎫 Final Ticket ID: ${finalTicketId}`);
+  
 
   return finalTicketId;
 }
@@ -476,7 +464,7 @@ async function saveTicketIdToFirestore(ticketId, formData) {
 
     await updateDoc(docRef, { code: ticketCode });
 
-    console.log("✅ Ticket saved with Firebase ID:", docRef.id, "Code:", ticketCode);
+    
     return { id: docRef.id, code: ticketCode };
   } catch (error) {
     console.error("❌ Error saving ticket to Firestore:", error);
@@ -706,7 +694,7 @@ function saveDraft() {
 
   try {
     localStorage.setItem("ticketDraft", JSON.stringify(draft));
-    console.log("💾 Draft saved automatically");
+    
   } catch (e) {
     console.warn("Could not save draft to localStorage:", e);
   }
@@ -726,7 +714,7 @@ function loadDraft() {
         }
       }
 
-      console.log("📝 Draft loaded");
+      
     }
   } catch (e) {
     console.warn("Could not load draft from localStorage:", e);
@@ -736,7 +724,7 @@ function loadDraft() {
 function clearDraft() {
   try {
     localStorage.removeItem("ticketDraft");
-    console.log("🗑️ Draft cleared");
+    
   } catch (e) {
     console.warn("Could not clear draft from localStorage:", e);
   }
@@ -892,7 +880,7 @@ window.addEventListener("beforeinstallprompt", (e) => {
       deferredPrompt.prompt();
       // Wait for the user to respond to the prompt
       const { outcome } = await deferredPrompt.userChoice;
-      console.log(`User response to the install prompt: ${outcome}`);
+      
       // We've used the prompt, and can't use it again, throw it away
       deferredPrompt = null;
     });
@@ -904,7 +892,6 @@ window.addEventListener("beforeinstallprompt", (e) => {
 
 // Event listener untuk app installed
 window.addEventListener("appinstalled", (evt) => {
-  console.log("App was successfully installed");
   deferredPrompt = null;
 
   // Show success message
@@ -936,7 +923,7 @@ function showInstallPrompt() {
           deferredPrompt.prompt();
           deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === "accepted") {
-              console.log("User accepted the install prompt");
+              
             }
             deferredPrompt = null;
           });
@@ -958,17 +945,10 @@ function isRunningStandalone() {
 // Update UI based on installation status
 if (isRunningStandalone()) {
   document.body.classList.add("standalone-mode");
-  console.log("App is running in standalone mode");
 }
 
 // ==================== 🔹 System Initialization ====================
-console.log("✅ IT Ticketing System Loaded");
-console.log("📧 Email system integrated with Google Apps Script");
-console.log("🔥 Firebase Firestore connected");
-console.log(
-  "📱 Platform:",
-  platform.isMobile ? (platform.isIOS ? "iOS" : "Android") : "Desktop"
-);
+ 
 
 // Initialize network monitoring
 setupNetworkMonitoring();

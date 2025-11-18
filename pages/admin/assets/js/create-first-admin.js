@@ -16,7 +16,6 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 
 class FirstAdminSetup {
     constructor() {
-        console.log('🚀 FirstAdminSetup constructor called');
         this.isSubmitting = false;
         this.form = null;
         this.firebaseInitialized = false;
@@ -26,43 +25,35 @@ class FirstAdminSetup {
     }
 
     init() {
-        console.log('📄 Initializing...');
         
         if (document.readyState === 'complete' || document.readyState === 'interactive') {
-            console.log('📄 DOM ready, initializing...');
             this.initialize();
         } else {
-            console.log('📄 Waiting for DOM...');
             document.addEventListener('DOMContentLoaded', () => {
-                console.log('📄 DOM Content Loaded');
                 this.initialize();
             });
         }
     }
 
     async initialize() {
-        console.log('🔧 Starting initialization...');
         
         try {
             await new Promise(resolve => setTimeout(resolve, 500));
             
-            console.log('🔍 Looking for form...');
+            
             
             this.form = document.getElementById('setupAdminForm');
-            console.log('Form by ID (setupAdminForm):', this.form);
             
             if (!this.form) {
                 this.form = document.querySelector('form');
-                console.log('Form by query:', this.form);
             }
             
             if (!this.form) {
                 const allForms = document.querySelectorAll('form');
-                console.log('All forms:', allForms);
                 throw new Error('Form element not found');
             }
 
-            console.log('✅ Form found:', this.form.id);
+            
             
             this.messageContainer = document.getElementById('message');
 
@@ -72,7 +63,7 @@ class FirstAdminSetup {
             this.enableAllFormElements();
             this.setupFormListener();
             
-            console.log('✅ FirstAdminSetup initialized successfully');
+            
             
         } catch (error) {
             console.error('❌ Initialization failed:', error);
@@ -87,7 +78,7 @@ class FirstAdminSetup {
             element.disabled = true;
             element.readOnly = true;
         });
-        console.log('🔒 Form elements locked');
+        
     }
 
     enableAllFormElements() {
@@ -98,11 +89,11 @@ class FirstAdminSetup {
             element.disabled = false;
             element.readOnly = false;
         });
-        console.log('✅ All form elements enabled');
+        
     }
 
     async initializeFirebase() {
-        console.log('🔥 Initializing Firebase...');
+        
         
         const firebaseConfig = {
             apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
@@ -119,7 +110,7 @@ class FirstAdminSetup {
         this.auth = getAuth(this.app);
         this.firebaseInitialized = true;
         
-        console.log('✅ Firebase initialized');
+        
     }
 
     async requireAccessPassword() {
@@ -268,15 +259,13 @@ class FirstAdminSetup {
     }
 
     setupFormListener() {
-        console.log('📝 Setting up form listener...');
         
         this.form.addEventListener('submit', (e) => {
-            console.log('🎯 Form submit event captured');
             e.preventDefault();
             this.handleSubmit();
         });
 
-        console.log('✅ Form listener setup successfully');
+        
     }
 
     async handleSubmit() {
@@ -293,7 +282,6 @@ class FirstAdminSetup {
         submitBtn.disabled = true;
 
         try {
-            console.log('📝 Getting form data...');
             const formData = new FormData(this.form);
             
             const adminData = {
@@ -304,7 +292,7 @@ class FirstAdminSetup {
                 department: formData.get('department')?.trim() || 'IT Department'
             };
 
-            console.log('📝 Admin data:', { ...adminData, password: '***' });
+            
 
             if (!this.validateForm(adminData)) {
                 throw new Error('Please fill all required fields correctly');
@@ -323,7 +311,6 @@ class FirstAdminSetup {
     }
 
     validateForm(data) {
-        console.log('🔍 Validating form data:', data);
         
         let isValid = true;
         this.clearFieldErrors();
@@ -358,7 +345,6 @@ class FirstAdminSetup {
     }
 
    async createAdminAccount(adminData) {
-    console.log('🔄 Starting account creation process...');
     
     try {
         // Show loading state di button
@@ -367,7 +353,7 @@ class FirstAdminSetup {
         submitBtn.innerHTML = '<i class="fas fa-spinner loading-spinner"></i> Creating Account...';
         submitBtn.disabled = true;
 
-        console.log('🔐 Step 1: Creating Firebase Auth user...');
+        
         
         // ✅ ADD TIMEOUT FOR FIREBASE AUTH
         const authPromise = createUserWithEmailAndPassword(
@@ -383,9 +369,8 @@ class FirstAdminSetup {
 
         const userCredential = await Promise.race([authPromise, timeoutPromise]);
         const user = userCredential.user;
-        console.log('✅ Step 1: Firebase Auth user created:', user.uid);
 
-        console.log('💾 Step 2: Saving admin data to Firestore...');
+        
         const adminDocData = {
             name: adminData.name,
             email: adminData.email,
@@ -398,9 +383,8 @@ class FirstAdminSetup {
         };
 
         await setDoc(doc(this.db, "admins", user.uid), adminDocData);
-        console.log('✅ Step 2: Admin data saved to Firestore');
 
-        console.log('🎉 Step 3: Showing success message...');
+        
         
         // Reset button first
         submitBtn.innerHTML = originalText;
@@ -570,8 +554,7 @@ class FirstAdminSetup {
     }
 }
 
-console.log('🔄 Loading FirstAdminSetup...');
+ 
 window.addEventListener('load', function() {
-    console.log('🏁 Window fully loaded, initializing FirstAdminSetup...');
     new FirstAdminSetup();
 });

@@ -58,7 +58,7 @@ window.normalizeTicketCodes = async function() {
         updated++;
       }
     }
-    console.log(`✅ Normalized ${updated} tickets`);
+    
     return updated;
   } catch (e) {
     console.error('❌ Failed to normalize tickets:', e);
@@ -94,7 +94,7 @@ window.normalizeTicketStatusAndCode = async function () {
         updated++;
       }
     }
-    console.log(`✅ Normalized status/code for ${updated} tickets`);
+    
     return updated;
   } catch (e) {
     console.error('❌ Failed to normalize status/code:', e);
@@ -115,7 +115,7 @@ window.backfillResolvedAt = async function () {
       await updateDoc(doc(db, 'tickets', docSnap.id), { resolved_at: lu });
       updated++;
     }
-    console.log(`✅ Backfilled resolved_at from last_updated for ${updated} tickets`);
+    
     return updated;
   } catch (e) {
     console.error('❌ Backfill resolved_at failed:', e);
@@ -152,7 +152,7 @@ class AdminDashboard {
 
     async init() {
         try {
-            console.log('🚀 Admin Dashboard initializing...');
+            
 
             // Bind methods
             this.bindMethods();
@@ -178,7 +178,7 @@ class AdminDashboard {
             // Setup real-time listeners
             this.setupRealTimeListeners();
 
-            console.log('✅ Admin Dashboard ready');
+            
 
             const mainEl = document.querySelector('.admin-main');
             if (mainEl) {
@@ -204,6 +204,7 @@ class AdminDashboard {
                 .swal2-popup { border-radius: 16px !important; padding: 1.5rem !important; background: #ffffff !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(640px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
                 .swal2-title { color: #111827 !important; font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: .2px !important; }
                 .swal2-html-container { color: #374151 !important; font-size: .95rem !important; line-height: 1.6 !important; text-align: left !important; }
+                .swal2-html-container.swal-center { text-align: center !important; }
                 .swal2-actions { gap: .5rem !important; }
                 .swal2-confirm { background-color: #10b981 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
                 .swal2-cancel, .swal2-deny { background-color: #6b7280 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
@@ -330,11 +331,7 @@ class AdminDashboard {
                 }
             }
 
-            console.log('✅ Admin authenticated:', {
-                uid: this.adminUser.uid,
-                role: this.adminUser.role,
-                name: this.adminUser.name
-            });
+            
 
         } catch (error) {
             console.error('Admin auth check failed:', error);
@@ -434,7 +431,7 @@ class AdminDashboard {
             'ticketModalBody': document.getElementById('ticketModalBody')
         };
 
-        console.log('🏗️ DOM Elements check:', requiredElements);
+        
 
         for (const [name, element] of Object.entries(requiredElements)) {
             if (!element) {
@@ -446,7 +443,7 @@ class AdminDashboard {
     }
 
     initializeEventListeners() {
-        console.log('🔧 Initializing event listeners...');
+        
 
         // Logout
         const logoutBtn = document.getElementById('adminLogoutBtn');
@@ -488,11 +485,11 @@ class AdminDashboard {
             exportBtn.addEventListener('click', this.handleExport);
         }
 
-        console.log('✅ All event listeners initialized');
+        
     }
 
     initializeDateFilter() {
-        console.log('📅 Initializing date filter...');
+        
 
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
@@ -509,12 +506,12 @@ class AdminDashboard {
         if (thisMonthBtn) thisMonthBtn.addEventListener('click', this.handleThisMonthClick);
         if (clearDateBtn) clearDateBtn.addEventListener('click', this.handleClearDateClick);
 
-        console.log('✅ Date filter initialized');
+        
     }
 
     // ✅ FILTER SYSTEM
     applyAllFilters() {
-        console.log('🔍 Applying comprehensive filters...');
+        
 
         // Get current filter values
         const statusFilter = document.getElementById('statusFilter');
@@ -524,7 +521,7 @@ class AdminDashboard {
         this.currentFilters.status = statusFilter ? statusFilter.value : 'all';
         this.currentFilters.priority = priorityFilter ? priorityFilter.value : 'all';
 
-        console.log('🎯 Current filter state:', this.currentFilters);
+        
 
         // Apply all filters sequentially
         let filtered = [...this.tickets];
@@ -550,7 +547,7 @@ class AdminDashboard {
 
         this.persistFilters();
 
-        console.log(`✅ Final filtered tickets: ${filtered.length}`);
+        
     }
 
     persistFilters() {
@@ -652,7 +649,7 @@ class AdminDashboard {
     }
 
     handleDateChange() {
-        console.log('📅 Date input changed');
+        
 
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
@@ -679,14 +676,14 @@ class AdminDashboard {
             isActive: !!(startDate || endDate)
         };
 
-        console.log('📅 Date filter updated:', this.currentFilters.date);
+        
 
         // Apply combined filters
         this.applyAllFilters();
     }
 
     handleTodayClick() {
-        console.log('📅 Today button clicked');
+        
 
         const today = new Date();
         const todayString = today.toISOString().split('T')[0];
@@ -746,7 +743,7 @@ class AdminDashboard {
     }
 
     handleClearDateClick() {
-        console.log('🗑️ Reset filters clicked');
+        
 
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
@@ -783,14 +780,14 @@ class AdminDashboard {
     }
 
     filterTickets() {
-        console.log('🔍 Filter tickets called');
+        
         this.applyAllFilters();
     }
 
     // ✅ DATA MANAGEMENT
     async loadTickets() {
         try {
-            console.log('🔄 Loading tickets...');
+            
 
             const q = query(collection(this.db, "tickets"));
 
@@ -817,7 +814,7 @@ class AdminDashboard {
             this.updateGlobalTicketsData();
             this.applyAllFilters();
 
-            console.log(`✅ Loaded ${allTickets.length} tickets`);
+            
 
         } catch (error) {
             console.error('❌ Error loading tickets:', error);
@@ -918,11 +915,11 @@ class AdminDashboard {
             const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
 
             this.unsubscribe = onSnapshot(q, (snapshot) => {
-                console.log('🔄 Real-time update: tickets changed');
+                
                 this.loadTickets();
             });
 
-            console.log('✅ Tickets real-time listener activated');
+            
         } catch (error) {
             console.error('❌ Error setting up tickets real-time listener:', error);
         }
@@ -947,7 +944,6 @@ class AdminDashboard {
                     });
 
                     if (hasUserUpdates) {
-                        console.log('🔄 User updates detected - reloading tickets...');
                         this.loadTickets();
                     }
                 },
@@ -956,7 +952,7 @@ class AdminDashboard {
                 }
             );
 
-            console.log('✅ User data listener activated');
+            
 
         } catch (error) {
             console.error('❌ Error setting up user data listener:', error);
@@ -1000,7 +996,7 @@ class AdminDashboard {
                 console.error('❌ Admin data listener error:', error);
             });
 
-            console.log('✅ Admin data listener activated');
+            
 
         } catch (error) {
             console.error('❌ Error setting up admin data listener:', error);
@@ -1500,7 +1496,7 @@ class AdminDashboard {
     // ✅ TICKET OPERATIONS
     async updateTicketStatus(ticketId, newStatus) {
         try {
-            console.log(`🔄 Updating ticket ${ticketId} to status: ${newStatus}`);
+            
 
             const ticketRef = doc(this.db, "tickets", ticketId);
             const ticket = this.tickets.find(t => t.id === ticketId);
@@ -1597,7 +1593,7 @@ class AdminDashboard {
 
     async takeTicket(ticketId) {
         try {
-            console.log(`👋 Taking ticket: ${ticketId}`);
+            
 
             const ticketRef = doc(this.db, "tickets", ticketId);
             const ticket = this.tickets.find(t => t.id === ticketId);
@@ -2011,7 +2007,7 @@ class AdminDashboard {
     }
 
     closeTicketModal() {
-        console.log('🚪 Closing ticket modal...');
+        
 
         // Unsubscribe real-time listener
         if (this.ticketModalUnsubscribe) {
@@ -2237,7 +2233,7 @@ class AdminDashboard {
     // ✅ EXPORT FUNCTIONALITY
     async handleExport() {
         try {
-            console.log('📤 Export button clicked');
+            
             await this.handleExportWithCustomDialog();
         } catch (error) {
             console.error('❌ Export error:', error);
@@ -2267,7 +2263,7 @@ class AdminDashboard {
                 return;
             }
 
-            console.log(`📊 Preparing to export ${exportData.length} tickets`);
+            
 
             // Update global data
             if (typeof window.updateAllTickets === 'function') {
@@ -2309,7 +2305,6 @@ class AdminDashboard {
             });
 
             if (exportAction === undefined) {
-                console.log('❌ Export cancelled by user');
                 return;
             }
 
@@ -2372,7 +2367,7 @@ class AdminDashboard {
     // ✅ METHOD UNTUK EXPORT COMPATIBILITY YANG HILANG
     async fixExportCompatibility() {
         try {
-            console.log('🔧 Fixing export compatibility...');
+            
 
             // Fix missing function: window.originalExportToExcelAppendSorted
             if (typeof window.originalExportToExcelAppendSorted === 'undefined') {
@@ -2389,7 +2384,7 @@ class AdminDashboard {
             // Fix missing function: setExportFilterInfo
             if (typeof window.setExportFilterInfo === 'undefined') {
                 window.setExportFilterInfo = function (filterInfo) {
-                    console.log('📊 setExportFilterInfo called:', filterInfo);
+                    
                     window.exportFilterInfo = filterInfo;
                 };
             }
@@ -2456,7 +2451,7 @@ class AdminDashboard {
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
 
-            console.log('✅ Fallback CSV export completed');
+            
 
         } catch (error) {
             console.error('❌ Fallback export error:', error);
@@ -3222,14 +3217,15 @@ class AdminDashboard {
             confirmButtonColor: '#ef4444',
             cancelButtonColor: '#6b7280',
             confirmButtonText: 'Yes, Logout',
-            cancelButtonText: 'Cancel'
+            cancelButtonText: 'Cancel',
+            customClass: { htmlContainer: 'swal-center' }
         });
 
         if (result.isConfirmed) {
             try {
                 await firebaseAuthService.logout();
             } catch (error) {
-                console.log('Firebase logout:', error.message);
+                
             }
 
             localStorage.removeItem('adminUser');

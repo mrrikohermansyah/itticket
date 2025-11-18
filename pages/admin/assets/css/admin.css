@@ -1071,6 +1071,104 @@ textarea.form-control {
   margin-bottom: 1rem;
 }
 
+/* ===== ADMIN NOTIFICATION (TOAST) ===== */
+.admin-notification {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2000;
+  background: var(--white);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius);
+  min-width: 280px;
+  max-width: 360px;
+  padding: 0.75rem 1rem;
+}
+
+.admin-notification .notification-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.admin-notification i {
+  color: var(--primary);
+  margin-top: 0.15rem;
+}
+
+.admin-notification .notification-text strong {
+  font-weight: 600;
+}
+
+.admin-notification .notification-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+}
+
+.admin-notification.success { border-left: 4px solid var(--success); }
+.admin-notification.error { border-left: 4px solid var(--danger); }
+.admin-notification.warning { border-left: 4px solid var(--warning); }
+.admin-notification.info { border-left: 4px solid var(--info); }
+
+.admin-notification.notification-hiding {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* ===== SWEETALERT2 OVERRIDES ===== */
+.swal2-popup {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 1.25rem 1.5rem;
+}
+
+.swal2-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.swal2-html-container {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.swal2-actions {
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.swal2-styled {
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.swal2-confirm.swal2-styled {
+  background-color: #ef4444 !important;
+}
+
+.swal2-cancel.swal2-styled {
+  background-color: #6b7280 !important;
+}
+
+.swal2-confirm.swal2-styled:focus,
+.swal2-cancel.swal2-styled:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+.swal2-icon.swal2-question {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
 .mt-1 {
   margin-top: 0.5rem;
 }
