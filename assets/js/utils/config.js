@@ -144,9 +144,7 @@ if (typeof module !== "undefined" && module.exports) {
   // Untuk browser
   window.CONFIG = {
     FIREBASE_CONFIG: FIREBASE_CONFIG,
-    RECAPTCHA_V3_SITE_KEY: '6LcNHw0sAAAAAKGoJvBfV94ho54CpuvmWvRpDArx',
-    APPCHECK_ENABLED: false,
-    APPCHECK_DEBUG: false,
+    RECAPTCHA_V3_SITE_KEY: '6LcwPxAsAAAAAPguM-TsDsmczv1p3CZKGh4qAR-M',
     DEVICE_TYPE_MAPPING: DEVICE_TYPE_MAPPING,
     IT_STAFF: IT_STAFF,
     ADMIN_EMAILS: ADMIN_EMAILS,

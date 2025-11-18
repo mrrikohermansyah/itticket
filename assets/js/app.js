@@ -7,7 +7,7 @@ import {
   updateDoc,
   serverTimestamp,
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app-check.js";
+// App Check dihapus sementara untuk menghindari error saat push
 
 // ==================== 🔹 Firebase Config ====================
 const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
@@ -30,27 +30,7 @@ const GAS_CONFIG = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const siteKey = window.CONFIG?.RECAPTCHA_V3_SITE_KEY;
-const enableAppCheck = !!window.CONFIG?.APPCHECK_ENABLED;
-const debugAppCheck = !!window.CONFIG?.APPCHECK_DEBUG;
-
-if (enableAppCheck && siteKey && !window.__APP_CHECK_INIT__) {
-  window.__APP_CHECK_INIT__ = true;
-  if (debugAppCheck) {
-    self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
-  }
-  try {
-    initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(siteKey),
-      isTokenAutoRefreshEnabled: true,
-    });
-    console.log('✅ App Check initialized');
-  } catch (e) {
-    console.warn('⚠️ App Check init failed:', e && e.message ? e.message : e);
-  }
-} else if (!enableAppCheck || !siteKey) {
-  console.log('ℹ️ App Check disabled');
-}
+// App Check dihapus: tidak ada inisialisasi App Check
 
 // ==================== 🔹 DOM Element ====================
 const form = document.getElementById("ticketForm");
