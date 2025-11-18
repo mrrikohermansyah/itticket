@@ -207,42 +207,31 @@ class Dashboard {
       adminCache.set(ticket.admin_id, adminInfo);
     }
     const adminInfo = adminCache.get(ticket.admin_id);
-    ticket.action_by = adminInfo.name;
-    ticket.action_by_email = adminInfo.email;
+    if (ticket.action_by === 'Admin' || ticket.action_by === 'Loading...') {
+      ticket.action_by = adminInfo.name;
+      ticket.action_by_email = adminInfo.email;
+    }
   }
 
   // Normalize ticket data
   // Normalize ticket data
   normalizeTicketData(id, data) {
-    // Cek apakah action_by berisi ID admin atau nama
     let actionByName = data.action_by || '';
-    let adminId = '';
+    let adminId = data.assigned_to || '';
 
-
-
-    // CASE 1: Jika action_by berisi ID admin (format: "Admin (ID...)")
-    if (actionByName.startsWith('Admin (') && actionByName.includes(')')) {
-      // Format: "Admin (ZlATPRsp...)" - extract ID
-      adminId = this.extractAdminId(actionByName);
-      actionByName = 'Admin'; // Default, nanti akan di-update via realtime
-    }
-    // CASE 2: Jika action_by adalah langsung ID admin (seperti yang terjadi)
-    else if (actionByName && actionByName.length > 10 && !actionByName.includes(' ')) {
-      // Jika string panjang tanpa spasi, kemungkinan adalah ID admin
-      adminId = actionByName;
-      actionByName = 'Admin'; // Temporary, akan di-resolve nanti
-    }
-    // CASE 3: Jika action_by adalah nama biasa (bukan ID)
-    else if (actionByName && actionByName !== 'Admin') {
-      // Biarkan sebagai nama
-      adminId = '';
+    if (!adminId) {
+      if (actionByName.startsWith('Admin (') && actionByName.includes(')')) {
+        adminId = this.extractAdminId(actionByName);
+        actionByName = 'Admin';
+      } else if (actionByName && actionByName.length > 10 && !actionByName.includes(' ')) {
+        adminId = actionByName;
+        actionByName = 'Admin';
+      }
     }
 
-    // Cek dari updates history untuk nama admin sebenarnya
     let actualAdminName = '';
     let actualAdminEmail = '';
     if (data.updates && data.updates.length > 0) {
-      // Cari update terakhir yang mengandung "by [nama]"
       const lastUpdate = data.updates[data.updates.length - 1];
       if (lastUpdate.updatedBy && lastUpdate.updatedBy !== 'Admin') {
         actualAdminName = lastUpdate.updatedBy;
@@ -252,19 +241,15 @@ class Dashboard {
       }
     }
 
-    // Tentukan display untuk assigned to
     let assignedToDisplay = 'Unassigned';
     let assignedEmail = '';
 
-    // Jika ada admin_id yang valid, berarti sudah di-assign
-    if (adminId) {
-      assignedToDisplay = 'Loading...'; // Temporary, akan di-resolve di realtime listener
-      assignedEmail = ''; // Akan di-resolve nanti
-    }
-    // Jika ada action_by yang bukan format ID dan bukan empty, gunakan itu
-    else if (actionByName && !actionByName.startsWith('Admin (') && actionByName !== 'Admin') {
+    if (data.assigned_name) {
+      assignedToDisplay = data.assigned_name;
+    } else if (adminId) {
+      assignedToDisplay = 'Admin';
+    } else if (actionByName && !actionByName.startsWith('Admin (') && actionByName !== 'Admin') {
       assignedToDisplay = actionByName;
-      // Coba extract email dari action_by jika ada format email
       if (actionByName.includes('@')) {
         const emailMatch = actionByName.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/);
         if (emailMatch) {
@@ -301,7 +286,7 @@ class Dashboard {
       updates: data.updates || [],
       deleted: data.deleted || false,
       archived: data.archived || false,
-      admin_id: adminId, // Simpan admin_id untuk di-resolve nanti
+      admin_id: adminId,
       original_action_by: data.action_by,
       deleted_at: data.deleted_at?.toDate ? data.deleted_at.toDate().toISOString() :
         (data.deleted_at || null),
