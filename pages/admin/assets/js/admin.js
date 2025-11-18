@@ -1296,7 +1296,7 @@ class AdminDashboard {
                         <div class="ticket-date">${createdDate}</div>
                     </div>
                     
-                    <div class="ticket-title">${ticket.subject || 'No Subject'}</div>
+                    <div class="ticket-title">${escapeHTML(ticket.subject || 'No Subject')}</div>
                     
                     <div class="ticket-user-info">
                         <div class="ticket-user">${userDisplay.name || 'Unknown'}</div>
@@ -1304,7 +1304,7 @@ class AdminDashboard {
                     </div>
                     
                     <div class="ticket-location">
-                        <i class="fas fa-map-marker-alt"></i> ${ticket.location || 'N/A'}
+                        <i class="fas fa-map-marker-alt"></i> ${escapeHTML(ticket.location || 'N/A')}
                     </div>
                     
                     <div class="ticket-meta">
@@ -1320,7 +1320,7 @@ class AdminDashboard {
                     
                     ${ticket.message ? `
                     <div class="ticket-description">
-                        ${this.truncateText(ticket.message, 100)}
+                        ${escapeHTML(this.truncateText(ticket.message, 100))}
                     </div>
                     ` : ''}
                     
@@ -2226,7 +2226,7 @@ class AdminDashboard {
         <div class="modal-error">
             <i class="fas fa-exclamation-triangle"></i>
             <h3>Error Loading Ticket</h3>
-            <p>${message}</p>
+        <p>${escapeHTML(message)}</p>
             <button class="btn-primary" onclick="adminDashboard.closeTicketModal()">
                 <i class="fas fa-times"></i> Close
             </button>
@@ -3282,3 +3282,4 @@ window.addEventListener('resize', function () {
 });
 
 export default AdminDashboard;
+const escapeHTML = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));

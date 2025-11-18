@@ -37,14 +37,24 @@ service cloud.firestore {
                !('assigned_to' in request.resource.data) &&
                !('assigned_by' in request.resource.data) &&
                !('assignee_name' in request.resource.data) &&
-               (!('status' in request.resource.data) || request.resource.data.status == 'Open');
+               (!('status' in request.resource.data) || request.resource.data.status == 'Open') &&
+               request.resource.data.keys().hasOnly([
+                 'user_email','inventory','name','user_phone','department','location','device','priority','subject','message','status_ticket','ticketId','user_agent','platform','createdAt','updatedAt','qa','action_by','note'
+               ]) &&
+               request.resource.data.subject is string && request.resource.data.subject.matches('^.{1,200}$') &&
+               request.resource.data.message is string && request.resource.data.message.matches('^.{1,2000}$') &&
+               request.resource.data.department is string && request.resource.data.department.matches('^.{0,100}$') &&
+               request.resource.data.location is string && request.resource.data.location.matches('^.{0,100}$') &&
+               request.resource.data.priority is string && request.resource.data.priority.matches('^(Low|Medium|High|Critical)$');
       }
 
       function validUserTicketCreate() {
         return request.resource.data.user_id == request.auth.uid &&
                !('assigned_to' in request.resource.data) &&
                !('assigned_by' in request.resource.data) &&
-               !('assignee_name' in request.resource.data);
+               !('assignee_name' in request.resource.data) &&
+               request.resource.data.subject is string && request.resource.data.subject.matches('^.{1,200}$') &&
+               request.resource.data.message is string && request.resource.data.message.matches('^.{1,2000}$');
       }
 
       allow create: if (isSignedIn() && validUserTicketCreate())
