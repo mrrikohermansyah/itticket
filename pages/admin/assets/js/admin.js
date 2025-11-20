@@ -15,7 +15,8 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
-    getAuth
+    getAuth,
+    onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -306,35 +307,31 @@ class AdminDashboard {
     // ✅ AUTHENTICATION & PERMISSION SYSTEM
     async checkAuth() {
         try {
-            // Check localStorage first
-            this.adminUser = JSON.parse(localStorage.getItem('adminUser'));
+            const firebaseUser = await new Promise((resolve) => {
+                const unsub = onAuthStateChanged(this.auth, (u) => {
+                    unsub();
+                    resolve(u);
+                });
+            });
 
-            if (!this.adminUser) {
-                // Check Firebase Auth
-                const firebaseUser = await firebaseAuthService.getCurrentUser();
-                if (firebaseUser) {
-                    // Check if user is admin
-                    const adminDoc = await getDoc(doc(db, "admins", firebaseUser.uid));
-                    if (adminDoc.exists()) {
-                        this.adminUser = {
-                            uid: firebaseUser.uid,
-                            ...adminDoc.data()
-                        };
-                        localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
-                    } else {
-                        window.location.href = 'login.html';
-                        return;
-                    }
-                } else {
-                    window.location.href = 'login.html';
-                    return;
-                }
+            if (!firebaseUser) {
+                localStorage.removeItem('adminUser');
+                window.location.href = 'login.html';
+                return;
             }
 
-            
+            const adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
+            if (!adminSnap.exists() || adminSnap.data().is_active === false) {
+                localStorage.removeItem('adminUser');
+                window.location.href = 'login.html';
+                return;
+            }
 
+            this.adminUser = { uid: firebaseUser.uid, ...adminSnap.data() };
+            localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
         } catch (error) {
             console.error('Admin auth check failed:', error);
+            localStorage.removeItem('adminUser');
             window.location.href = 'login.html';
         }
     }
