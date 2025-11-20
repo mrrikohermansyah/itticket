@@ -2371,6 +2371,17 @@ class AdminDashboard {
                 hour: '2-digit', minute: '2-digit', second: '2-digit',
                 hour12: false
             }) : 'Just now';
+        const createdDate = ticket.created_at ? new Date(ticket.created_at) : null;
+        const resolvedDate = ticket.resolved_at ? new Date(ticket.resolved_at) : null;
+        const durationMinutes = (resolvedDate && createdDate && resolvedDate >= createdDate)
+            ? Math.floor((resolvedDate.getTime() - createdDate.getTime()) / (1000 * 60))
+            : 0;
+        const durationDisplay = `${durationMinutes} Minutes`;
+        const resolvedDisplay = resolvedDate ? new Date(ticket.resolved_at).toLocaleString('en-GB', {
+            day: 'numeric', month: 'short', year: 'numeric',
+            hour: '2-digit', minute: '2-digit', second: '2-digit',
+            hour12: false
+        }) : 'Not resolved';
 
         return `
         <div class="ticket-details real-time-ticket">
@@ -2446,6 +2457,18 @@ class AdminDashboard {
                     <div class="ticket-col"><strong>Last Updated:</strong></div>
                     <div class="ticket-col value" data-field="last_updated">
                         ${lastUpdated}
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Duration:</strong></div>
+                    <div class="ticket-col value" data-field="duration">
+                        ${durationDisplay}
+                    </div>
+                </div>
+                <div class="ticket-row">
+                    <div class="ticket-col"><strong>Resolved At:</strong></div>
+                    <div class="ticket-col value" data-field="resolved_at">
+                        ${resolvedDisplay}
                     </div>
                 </div>
             </div>
