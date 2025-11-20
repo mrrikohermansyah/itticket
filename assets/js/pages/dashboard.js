@@ -54,6 +54,11 @@ class Dashboard {
       this.initializeEventListeners();
       await this.setupRealtimeTickets();
 
+      // Initialize IT assignment section for specific email
+      if (this.currentUser && (this.currentUser.email || '').toLowerCase() === 'it@meb.com') {
+        this.initializeAssignmentSection();
+      }
+
       
 
     } catch (error) {
@@ -804,6 +809,197 @@ class Dashboard {
       profileModal.addEventListener('click', (e) => {
         if (e.target === profileModal) this.closeProfileModal();
       });
+    }
+
+    // Assignment form events
+    const assignmentScope = document.getElementById('assignment_scope');
+    const assignmentMemberGroup = document.getElementById('assignmentMemberGroup');
+    const assignmentForm = document.getElementById('assignmentForm');
+    if (assignmentScope) {
+      assignmentScope.addEventListener('change', () => {
+        const v = assignmentScope.value;
+        assignmentMemberGroup.style.display = v === 'single' ? 'block' : 'none';
+      });
+    }
+    if (assignmentForm) {
+      assignmentForm.addEventListener('submit', (e) => this.handleAssignmentSubmit(e));
+    }
+  }
+
+  async initializeAssignmentSection() {
+    const section = document.getElementById('itAssignmentSection');
+    if (section) section.style.display = '';
+    await this.loadITMembersForAssignment();
+  }
+
+  async loadITMembersForAssignment() {
+    const memberSelect = document.getElementById('assignment_member');
+    if (!memberSelect) return;
+
+    const options = [];
+    const emailsSet = new Set();
+
+    const fallbackEmails = [
+      'ade.reinalwi@meitech-ekabintan.com',
+      'wahyu.nugroho@meitech-ekabintan.com',
+      'riko.hermansyah@meitech-ekabintan.com',
+      'abdurahman.hakim@meitech-ekabintan.com'
+    ];
+
+    for (const em of fallbackEmails) {
+      const local = em.split('@')[0].replace(/\./g, ' ');
+      const displayName = local.replace(/\b\w/g, c => c.toUpperCase());
+      options.push({ uid: '', name: displayName, email: em });
+      emailsSet.add(em.toLowerCase());
+    }
+
+    try {
+      const snap = await getDocs(collection(this.db, 'admins'));
+      snap.forEach(docSnap => {
+        const d = docSnap.data();
+        const name = d.name || d.full_name || d.email || 'Unknown';
+        const email = d.email || '';
+        const isActive = d.is_active !== false;
+        if (isActive) {
+          const lower = email.toLowerCase();
+          if (!emailsSet.has(lower)) {
+            options.push({ uid: docSnap.id, name, email });
+            if (email) emailsSet.add(lower);
+          } else {
+            const idx = options.findIndex(o => o.email.toLowerCase() === lower);
+            if (idx !== -1) options[idx] = { uid: docSnap.id, name, email };
+          }
+        }
+      });
+    } catch (err) {
+    }
+
+    options.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    memberSelect.innerHTML = '<option value="" disabled selected>Select IT Member</option>' +
+      options.map(o => `<option data-uid="${o.uid}" data-email="${o.email}" value="${o.uid || o.email}">${o.name}${o.email ? ` (${o.email})` : ''}</option>`).join('');
+  }
+
+  async handleAssignmentSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const submitBtn = document.getElementById('submitAssignmentBtn');
+    if (!submitBtn) return;
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnLoading = submitBtn.querySelector('.btn-loading');
+    submitBtn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = 'flex';
+
+    try {
+      const scope = document.getElementById('assignment_scope')?.value || '';
+      const memberSelect = document.getElementById('assignment_member');
+      const selectedOpt = memberSelect && memberSelect.selectedIndex >= 0 ? memberSelect.options[memberSelect.selectedIndex] : null;
+      const memberUid = selectedOpt ? (selectedOpt.dataset.uid || '') : '';
+      const memberEmail = selectedOpt ? (selectedOpt.dataset.email || '') : '';
+      const activity = document.getElementById('assignment_activity')?.value || '';
+      const location = document.getElementById('assignment_location')?.value || '';
+
+      if (!scope || !activity || !location || (scope === 'single' && !memberUid && !memberEmail)) {
+        throw new Error('Please fill in all required assignment fields');
+      }
+
+      let targetAdmin = null;
+      if (scope === 'single') {
+        if (memberUid) {
+          const targetSnap = await getDoc(doc(this.db, 'admins', memberUid));
+          if (targetSnap.exists()) {
+            const td = targetSnap.data();
+            targetAdmin = {
+              uid: targetSnap.id,
+              name: td.name || td.full_name || '',
+              email: td.email || ''
+            };
+          } else {
+            targetAdmin = { uid: memberUid, email: memberEmail || '' };
+          }
+        } else if (memberEmail) {
+          targetAdmin = { uid: null, name: memberEmail.split('@')[0], email: memberEmail };
+        }
+      }
+
+      try {
+        await addDoc(collection(this.db, 'assignments'), {
+          scope,
+          activity,
+          location,
+          target_admin_uid: targetAdmin?.uid || null,
+          target_admin_name: targetAdmin?.name || null,
+          target_admin_email: targetAdmin?.email || memberEmail || null,
+          created_by_uid: this.currentUser.id,
+          created_by_email: this.currentUser.email,
+          created_by_name: this.currentUser.full_name || 'IT',
+          status: 'Assigned',
+          created_at: serverTimestamp()
+        });
+      } catch (permErr) {
+        // Fallback: create as ticket with is_assignment flag (allowed by Firestore rules)
+        const ticketRef = await addDoc(collection(this.db, 'tickets'), {
+          subject: `Assignment: ${activity}`,
+          message: `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
+          location: location,
+          inventory: '',
+          device: 'Others',
+          priority: 'Medium',
+          user_id: this.currentUser.id,
+          user_name: this.currentUser.full_name || '',
+          user_email: this.currentUser.email || '',
+          user_department: this.currentUser.department || 'IT',
+          user_phone: this.currentUser.phone || '',
+          status: 'Open',
+          qa: 'Open',
+          created_at: serverTimestamp(),
+          last_updated: serverTimestamp(),
+          updates: [{
+            status: 'Open',
+            notes: 'Assignment created',
+            timestamp: new Date().toISOString(),
+            updatedBy: this.currentUser.full_name || 'IT'
+          }],
+          action_by: '',
+          note: '',
+          is_assignment: true,
+          assignment_scope: scope,
+          assignment_activity: activity,
+          assignment_location: location,
+          target_admin_uid: targetAdmin?.uid || null,
+          target_admin_email: targetAdmin?.email || memberEmail || null
+        });
+
+        const ticketCode = window.generateTicketId(
+          this.currentUser.department || 'IT',
+          'Others',
+          location,
+          ticketRef.id
+        );
+        await updateDoc(ticketRef, { code: ticketCode });
+      }
+
+      await Swal.fire({
+        title: 'Assignment Created',
+        text: 'Assignment has been created successfully',
+        icon: 'success',
+        confirmButtonColor: '#ef070a'
+      });
+      form.reset();
+      const assignmentMemberGroup = document.getElementById('assignmentMemberGroup');
+      if (assignmentMemberGroup) assignmentMemberGroup.style.display = 'none';
+    } catch (error) {
+      console.error('Error creating assignment:', error);
+      await Swal.fire({
+        title: 'Error',
+        text: error.message || 'Failed to create assignment',
+        icon: 'error',
+        confirmButtonColor: '#ef070a'
+      });
+    } finally {
+      submitBtn.disabled = false;
+      if (btnText) btnText.style.display = 'block';
+      if (btnLoading) btnLoading.style.display = 'none';
     }
   }
 

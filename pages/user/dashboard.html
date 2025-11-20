@@ -59,7 +59,7 @@
             </div>
         </div>
     </header>
-
+    
     <!-- Main Content -->
     <main id="dashboardMain" class="dashboard-main" style="visibility:hidden">
         <div class="dashboard-container">
@@ -75,7 +75,7 @@
                             <div class="form-group">
                                 <label for="edit_employee_id">Employee ID</label>
                                 <input type="text" id="edit_employee_id" name="employee_id" readonly
-                                    class="readonly-field">
+                                class="readonly-field">
                             </div>
                             <div class="form-group">
                                 <label for="edit_full_name">Full Name *</label>
@@ -87,7 +87,7 @@
                             <label for="edit_email">Email Address *</label>
                             <input type="email" id="edit_email" name="email" required>
                         </div>
-
+                        
                         <div class="form-group">
                             <label for="edit_phone">Phone Number</label>
                             <input type="tel" id="edit_phone" name="phone" placeholder="+62 XXX-XXXX-XXXX">
@@ -189,6 +189,90 @@
                         </div>
                     </div>
                 </div>
+            </section>
+            <section id="itAssignmentSection" class="ticket-section" style="display:none">
+                <div class="section-header">
+                    <h2><i class="fas fa-tasks"></i> IT Assignments</h2>
+                    <p>Create assignment for all IT or a specific member</p>
+                </div>
+        
+                <form id="assignmentForm" class="ticket-form">
+                    <div class="form-section">
+                        <h3 class="section-title">Assignment Details</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="assignment_scope"><span class="required">Scope</span></label>
+                                <select id="assignment_scope" name="scope" required>
+                                    <option value="" disabled selected>Select Scope</option>
+                                    <option value="all">All IT Members</option>
+                                    <option value="single">Specific IT Member</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="assignmentMemberGroup" style="display:none">
+                                <label for="assignment_member">Select Member</label>
+                                <select id="assignment_member" name="member_uid">
+                                    <option value="" disabled selected>Select IT Member</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="assignment_activity"><span class="required">Activity</span></label>
+                                <select id="assignment_activity" name="activity" required>
+                                    <option value="" disabled selected>Select Activity</option>
+                                    <option value="Weekly Safety Talk">Weekly Safety Talk</option>
+                                    <option value="Ceremony Sail Away">Ceremony Sail Away</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="assignment_location"><span class="required">Location</span></label>
+                                <select id="assignment_location" name="location" required>
+                                    <option value="" disabled selected>Select Location</option>
+                                    <option value="Blue Office">Blue Office</option>
+                                    <option value="Clinic">Clinic</option>
+                                    <option value="Control Room">Control Room</option>
+                                    <option value="Dark Room">Dark Room</option>
+                                    <option value="Green Office">Green Office</option>
+                                    <option value="HRD">HR Department</option>
+                                    <option value="HSE Yard">HSE Yard</option>
+                                    <option value="IT Server">IT Server</option>
+                                    <option value="IT Store">IT Store</option>
+                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
+                                    <option value="Red Office">Red Office</option>
+                                    <option value="Security">Security</option>
+                                    <option value="Store 1">Store 1</option>
+                                    <option value="Store 2">Store 2</option>
+                                    <option value="Store 3">Store 3</option>
+                                    <option value="Store 4">Store 4</option>
+                                    <option value="Store 5">Store 5</option>
+                                    <option value="Store 6">Store 6</option>
+                                    <option value="Warehouse">Warehouse</option>
+                                    <option value="White Office">White Office</option>
+                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
+                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
+                                    <option value="Welding School">Welding School</option>
+                                    <option value="Workshop9">Workshop 9</option>
+                                    <option value="Workshop10">Workshop 10</option>
+                                    <option value="Workshop11">Workshop 11</option>
+                                    <option value="Workshop12">Workshop 12</option>
+                                    <option value="Yard">Yard</option>
+                                    <option value="Lainlain">Other Location</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+        
+                    <div class="form-actions">
+                        <button type="submit" class="btn-primary" id="submitAssignmentBtn">
+                            <span class="btn-text">Create Assignment</span>
+                            <div class="btn-loading" style="display:none">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                Processing...
+                            </div>
+                        </button>
+                    </div>
+                </form>
             </section>
 
             <!-- Ticket Form Section -->
@@ -350,6 +434,7 @@
                     </div>
                 </div>
             </section>
+
         </div>
     </main>
 

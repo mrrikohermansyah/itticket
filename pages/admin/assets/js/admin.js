@@ -11,6 +11,7 @@ import {
     where,
     orderBy,
     serverTimestamp,
+    Timestamp,
     onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -39,6 +40,104 @@ const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
+
+// Bulk resolve helper
+window.bulkResolveTicketsByDateRange = async function(startDateStr, endDateStr) {
+  try {
+    const start = new Date(`${startDateStr}T00:00:00`);
+    const end = new Date(`${endDateStr}T23:59:59`);
+    const startTS = Timestamp.fromDate(start);
+    const endTS = Timestamp.fromDate(end);
+
+    const q1 = query(collection(db, 'tickets'), where('created_at', '>=', startTS), where('created_at', '<=', endTS));
+    const q2 = query(collection(db, 'tickets'), where('createdAt', '>=', startTS), where('createdAt', '<=', endTS));
+
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    let docs = [...snap1.docs, ...snap2.docs];
+    if (docs.length === 0) {
+      const allSnap = await getDocs(collection(db, 'tickets'));
+      docs = allSnap.docs.filter(d => {
+        const data = d.data();
+        let dt = null;
+        if (data.created_at && typeof data.created_at.toDate === 'function') dt = data.created_at.toDate();
+        else if (data.createdAt && typeof data.createdAt.toDate === 'function') dt = data.createdAt.toDate();
+        else if (typeof data.created_at === 'string') dt = new Date(data.created_at);
+        else if (typeof data.createdAt === 'string') dt = new Date(data.createdAt);
+        if (!dt || isNaN(dt.getTime())) return false;
+        return dt >= start && dt <= end;
+      });
+    }
+    let updated = 0, skipped = 0, matched = 0;
+
+    for (const docSnap of docs) {
+      const d = docSnap.data();
+      const s1 = (d.status || '').toString().trim().toLowerCase();
+      const s2 = (d.status_ticket || '').toString().trim().toLowerCase();
+      const isClosed = s1 === 'closed' || s2 === 'closed' || s1 === 'close' || s2 === 'close' || s1.includes('closed') || s2.includes('closed');
+      const isProgress = s1 === 'on progress' || s2 === 'on progress' || s1 === 'in progress' || s2 === 'in progress' || s1.includes('progress') || s2.includes('progress');
+      const alreadyResolved = s1 === 'resolved' || s2 === 'resolved';
+      const isTarget = (isClosed || isProgress) && !alreadyResolved;
+      if (!isTarget) { skipped++; continue; }
+
+      matched++;
+      await updateDoc(doc(db, 'tickets', docSnap.id), {
+        status: 'Resolved',
+        status_ticket: 'Resolved',
+        last_updated: serverTimestamp()
+      });
+      updated++;
+    }
+
+    return { matched, updated, skipped };
+  } catch (e) {
+    console.error('Bulk resolve failed:', e);
+    throw e;
+  }
+};
+
+window.migrateDepartmentToUserDepartmentRange = async function(startDateStr, endDateStr) {
+  try {
+    const start = new Date(`${startDateStr}T00:00:00`);
+    const end = new Date(`${endDateStr}T23:59:59`);
+    const startTS = Timestamp.fromDate(start);
+    const endTS = Timestamp.fromDate(end);
+
+    const q1 = query(collection(db, 'tickets'), where('created_at', '>=', startTS), where('created_at', '<=', endTS));
+    const q2 = query(collection(db, 'tickets'), where('createdAt', '>=', startTS), where('createdAt', '<=', endTS));
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    let docs = [...snap1.docs, ...snap2.docs];
+    if (docs.length === 0) {
+      const allSnap = await getDocs(collection(db, 'tickets'));
+      docs = allSnap.docs.filter(d => {
+        const data = d.data();
+        let dt = null;
+        if (data.created_at && typeof data.created_at.toDate === 'function') dt = data.created_at.toDate();
+        else if (data.createdAt && typeof data.createdAt.toDate === 'function') dt = data.createdAt.toDate();
+        else if (typeof data.created_at === 'string') dt = new Date(data.created_at);
+        else if (typeof data.createdAt === 'string') dt = new Date(data.createdAt);
+        if (!dt || isNaN(dt.getTime())) return false;
+        return dt >= start && dt <= end;
+      });
+    }
+
+    let updated = 0, skipped = 0;
+    for (const docSnap of docs) {
+      const d = docSnap.data();
+      const dep = (d.department || '').toString().trim();
+      const currentUserDep = (d.user_department || '').toString().trim();
+      if (!dep) { skipped++; continue; }
+      const newUserDep = currentUserDep || dep;
+      if (newUserDep === currentUserDep) { skipped++; continue; }
+      await updateDoc(doc(db, 'tickets', docSnap.id), { user_department: newUserDep, last_updated: serverTimestamp() });
+      updated++;
+    }
+
+    return { matched: docs.length, updated, skipped };
+  } catch (e) {
+    console.error('Department migration failed:', e);
+    throw e;
+  }
+};
 
 // App Check dihapus: tidak ada inisialisasi App Check di admin
 
@@ -129,6 +228,7 @@ class AdminDashboard {
     constructor() {
         this.adminUser = null;
         this.tickets = [];
+        this.assignments = [];
         this.filteredTickets = [];
         this.currentFilters = {
             status: 'all',
@@ -147,6 +247,9 @@ class AdminDashboard {
         this.userUnsubscribe = null;
         this.ticketModalUnsubscribe = null;
         this.ticketUserModalUnsubscribe = null;
+        this.assignmentsUnsubAll = null;
+        this.assignmentsUnsubMine = null;
+        this.assignmentsUnsubMineEmail = null;
 
         this.init();
     }
@@ -178,6 +281,10 @@ class AdminDashboard {
 
             // Setup real-time listeners
             this.setupRealTimeListeners();
+
+            // Load assignments for current admin
+            await this.loadAssignments();
+            this.setupAssignmentsRealtime();
 
             
 
@@ -536,6 +643,15 @@ class AdminDashboard {
         // 3. Apply date filter
         if (this.currentFilters.date.isActive) {
             filtered = this.applyDateFilter(filtered);
+        }
+
+        // 4. Restrict visibility for non-Super Admin: only own or unassigned
+        if (!this.adminUser || this.adminUser.role !== 'Super Admin') {
+            filtered = filtered.filter(ticket => {
+                const isUnassigned = !ticket.action_by && !ticket.assigned_to;
+                const isMine = this.isAssignedToCurrentAdmin(ticket);
+                return isUnassigned || isMine;
+            });
         }
 
         this.filteredTickets = filtered;
@@ -905,6 +1021,156 @@ class AdminDashboard {
         this.setupTicketsRealTimeListener();
         this.setupUserDataListener();
         this.setupAdminDataListener();
+    }
+
+    async loadAssignments() {
+        try {
+            if (!this.adminUser) return;
+            const listEl = document.getElementById('assignmentsList');
+            if (listEl) {
+                listEl.innerHTML = `
+                    <div class="loading-state">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading assignments...</p>
+                    </div>
+                `;
+            }
+            const mineTicketsQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('target_admin_uid', '==', this.adminUser.uid));
+            const mineTicketsEmailQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('target_admin_email', '==', this.adminUser.email));
+            const allTicketsQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('assignment_scope', '==', 'all'));
+            const [mt, mte, at] = await Promise.all([
+                getDocs(mineTicketsQ), getDocs(mineTicketsEmailQ), getDocs(allTicketsQ)
+            ]);
+            const items = [];
+            const toItem = (docSnap) => {
+                const d = docSnap.data();
+                return {
+                    id: docSnap.id,
+                    activity: d.assignment_activity || d.activity || '',
+                    location: d.assignment_location || d.location || '',
+                    scope: d.assignment_scope || d.scope || 'single',
+                    created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                    created_by_name: d.created_by_name || d.created_by_email || '',
+                    target_uid: d.target_admin_uid || null,
+                    target_email: d.target_admin_email || null,
+                };
+            };
+            mt.forEach(ds => items.push(toItem(ds)));
+            mte.forEach(ds => items.push(toItem(ds)));
+            at.forEach(ds => items.push(toItem(ds)));
+            // Filter only assignments for current admin or ALL
+            const filtered = items.filter(a => a.scope === 'all' || a.target_uid === this.adminUser.uid || a.target_email === this.adminUser.email);
+            // Sort newest first
+            filtered.sort((a,b) => (b.created_at?.getTime()||0) - (a.created_at?.getTime()||0));
+            this.assignments = filtered;
+            this.renderAssignments();
+        } catch (err) {
+            console.error('Error loading assignments:', err);
+        }
+    }
+
+    setupAssignmentsRealtime() {
+        try {
+            if (!this.adminUser) return;
+            if (this.assignmentsUnsubAll) this.assignmentsUnsubAll();
+            if (this.assignmentsUnsubMine) this.assignmentsUnsubMine();
+            if (this.assignmentsUnsubMineEmail) this.assignmentsUnsubMineEmail();
+
+            const mineTicketsQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('target_admin_uid', '==', this.adminUser.uid));
+            const mineTicketsEmailQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('target_admin_email', '==', this.adminUser.email));
+            const allTicketsQ = query(collection(this.db, 'tickets'), where('is_assignment', '==', true), where('assignment_scope', '==', 'all'));
+            this.assignmentsUnsubMine = onSnapshot(mineTicketsQ, (snap) => {
+                const arr = [];
+                snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    arr.push({
+                        id: docSnap.id,
+                        activity: d.assignment_activity || d.activity || '',
+                        location: d.assignment_location || d.location || '',
+                        scope: d.assignment_scope || d.scope || 'single',
+                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                        created_by_name: d.created_by_name || d.created_by_email || '',
+                    });
+                });
+                this.mergeAssignments(arr);
+            });
+            const handleEmailSnap = (snap) => {
+                const arr = [];
+                snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    arr.push({
+                        id: docSnap.id,
+                        activity: d.assignment_activity || d.activity || '',
+                        location: d.assignment_location || d.location || '',
+                        scope: d.assignment_scope || d.scope || 'single',
+                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                        created_by_name: d.created_by_name || d.created_by_email || '',
+                    });
+                });
+                this.mergeAssignments(arr);
+            };
+            this.assignmentsUnsubMineEmail = onSnapshot(mineTicketsEmailQ, handleEmailSnap);
+            this.assignmentsUnsubAll = onSnapshot(allTicketsQ, (snap) => {
+                const arr = [];
+                snap.forEach(docSnap => {
+                    const d = docSnap.data();
+                    arr.push({
+                        id: docSnap.id,
+                        activity: d.assignment_activity || d.activity || '',
+                        location: d.assignment_location || d.location || '',
+                        scope: d.assignment_scope || d.scope || 'all',
+                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                        created_by_name: d.created_by_name || d.created_by_email || '',
+                    });
+                });
+                this.mergeAssignments(arr);
+            });
+        } catch (err) {
+            console.error('Error setting assignments realtime:', err);
+        }
+    }
+
+    mergeAssignments(newItems) {
+        const map = new Map(this.assignments.map(a => [a.id, a]));
+        newItems.forEach(item => { map.set(item.id, item); });
+        const merged = Array.from(map.values());
+        const filtered = merged.filter(a => a.scope === 'all' || a.target_uid === this.adminUser.uid || a.target_email === this.adminUser.email);
+        this.assignments = filtered.sort((a,b) => (b.created_at?.getTime()||0) - (a.created_at?.getTime()||0));
+        this.renderAssignments();
+    }
+
+    renderAssignments() {
+        const listEl = document.getElementById('assignmentsList');
+        if (!listEl) return;
+        if (!this.assignments || this.assignments.length === 0) {
+            listEl.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-clipboard-list"></i>
+                    <h3>No assignments</h3>
+                    <p>Assignments created by IT will appear here</p>
+                </div>
+            `;
+            return;
+        }
+        const html = this.assignments.map(a => {
+            const date = a.created_at ? a.created_at.toLocaleString() : '';
+            return `
+                <div class="ticket-item">
+                    <div class="ticket-content">
+                        <div class="ticket-header">
+                            <div class="ticket-code">${a.activity}</div>
+                            <div class="ticket-priority">${a.scope === 'all' ? 'All IT' : 'You'}</div>
+                        </div>
+                        <h4 class="ticket-subject">Location: ${a.location}</h4>
+                        <div class="ticket-meta">
+                            <span class="ticket-date">${date}</span>
+                            <span class="ticket-device">Created by: ${a.created_by_name}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        listEl.innerHTML = html;
     }
 
     setupTicketsRealTimeListener() {
