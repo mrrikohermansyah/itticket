@@ -898,6 +898,8 @@ class Dashboard {
       const memberEmail = selectedOpt ? (selectedOpt.dataset.email || '') : '';
       const activity = document.getElementById('assignment_activity')?.value || '';
       const location = document.getElementById('assignment_location')?.value || '';
+      const assignmentSubject = document.getElementById('assignment_subject')?.value?.trim() || '';
+      const assignmentMessage = document.getElementById('assignment_message')?.value?.trim() || '';
 
       if (!scope || !activity || !location || (scope === 'single' && !memberUid && !memberEmail)) {
         throw new Error('Please fill in all required assignment fields');
@@ -927,6 +929,8 @@ class Dashboard {
           scope,
           activity,
           location,
+          subject: assignmentSubject || `Assignment: ${activity}`,
+          message: assignmentMessage || `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
           target_admin_uid: targetAdmin?.uid || null,
           target_admin_name: targetAdmin?.name || null,
           target_admin_email: targetAdmin?.email || memberEmail || null,
@@ -939,8 +943,8 @@ class Dashboard {
       } catch (permErr) {
         // Fallback: create as ticket with is_assignment flag (allowed by Firestore rules)
         const ticketRef = await addDoc(collection(this.db, 'tickets'), {
-          subject: `Assignment: ${activity}`,
-          message: `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
+          subject: assignmentSubject || `Assignment: ${activity}`,
+          message: assignmentMessage || `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
           location: location,
           inventory: '',
           device: 'Others',
@@ -965,7 +969,8 @@ class Dashboard {
           is_assignment: true,
           assignment_scope: scope,
           assignment_activity: activity,
-          assignment_location: location,
+          assignment_subject: assignmentSubject || `Assignment: ${activity}`,
+          assignment_message: assignmentMessage || `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
           target_admin_uid: targetAdmin?.uid || null,
           target_admin_email: targetAdmin?.email || memberEmail || null
         });

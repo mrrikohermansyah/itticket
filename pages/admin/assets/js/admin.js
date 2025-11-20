@@ -12,6 +12,7 @@ import {
     orderBy,
     serverTimestamp,
     Timestamp,
+    deleteField,
     onSnapshot
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -135,6 +136,64 @@ window.migrateDepartmentToUserDepartmentRange = async function(startDateStr, end
     return { matched: docs.length, updated, skipped };
   } catch (e) {
     console.error('Department migration failed:', e);
+    throw e;
+  }
+};
+
+window.migrateAssignmentLocationRange = async function(startDateStr, endDateStr) {
+  try {
+    const start = new Date(`${startDateStr}T00:00:00`);
+    const end = new Date(`${endDateStr}T23:59:59`);
+    const startTS = Timestamp.fromDate(start);
+    const endTS = Timestamp.fromDate(end);
+
+    const q1 = query(collection(db, 'tickets'), where('created_at', '>=', startTS), where('created_at', '<=', endTS));
+    const q2 = query(collection(db, 'tickets'), where('createdAt', '>=', startTS), where('createdAt', '<=', endTS));
+    const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+    let docs = [...snap1.docs, ...snap2.docs];
+    if (docs.length === 0) {
+      const allSnap = await getDocs(collection(db, 'tickets'));
+      docs = allSnap.docs.filter(d => {
+        const data = d.data();
+        let dt = null;
+        if (data.created_at && typeof data.created_at.toDate === 'function') dt = data.created_at.toDate();
+        else if (data.createdAt && typeof data.createdAt.toDate === 'function') dt = data.createdAt.toDate();
+        else if (typeof data.created_at === 'string') dt = new Date(data.created_at);
+        else if (typeof data.createdAt === 'string') dt = new Date(data.createdAt);
+        if (!dt || isNaN(dt.getTime())) return false;
+        return dt >= start && dt <= end;
+      });
+    }
+
+    let updated = 0, skipped = 0;
+    for (const docSnap of docs) {
+      const d = docSnap.data();
+      if (!d.is_assignment) { skipped++; continue; }
+      const assignLoc = (d.assignment_location || '').toString().trim();
+      const loc = (d.location || '').toString().trim();
+      if (!assignLoc) { skipped++; continue; }
+
+      const newLocation = assignLoc;
+      const updatePayload = { location: newLocation, last_updated: serverTimestamp() };
+
+      if (typeof d.assignment_location !== 'undefined') {
+        updatePayload.assignment_location = deleteField();
+      }
+
+      if (typeof d.message === 'string' && d.message.includes('Location:')) {
+        updatePayload.message = d.message.replace(/(Location:\s*)([^|]+)(?=\s*\|?|$)/, `$1${newLocation}`);
+      }
+      if (typeof d.assignment_message === 'string' && d.assignment_message.includes('Location:')) {
+        updatePayload.assignment_message = d.assignment_message.replace(/(Location:\s*)([^|]+)(?=\s*\|?|$)/, `$1${newLocation}`);
+      }
+
+      await updateDoc(doc(db, 'tickets', docSnap.id), updatePayload);
+      updated++;
+    }
+
+    return { matched: docs.length, updated, skipped };
+  } catch (e) {
+    console.error('Assignment location migration failed:', e);
     throw e;
   }
 };
@@ -969,6 +1028,8 @@ class AdminDashboard {
                 user_email: data.user_email || '',
                 user_department: data.user_department || '',
                 location: data.location || '',
+                activity: (data.assignment_activity || data.activity || ''),
+                assignment_activity: (data.assignment_activity || ''),
                 inventory: data.inventory || '',
                 device: data.device || '',
                 message: data.message || '',
@@ -1053,6 +1114,8 @@ class AdminDashboard {
                     created_by_name: d.created_by_name || d.created_by_email || '',
                     target_uid: d.target_admin_uid || null,
                     target_email: d.target_admin_email || null,
+                    subject: d.assignment_subject || d.subject || '',
+                    message: d.assignment_message || d.message || ''
                 };
             };
             mt.forEach(ds => items.push(toItem(ds)));
@@ -1083,30 +1146,34 @@ class AdminDashboard {
                 const arr = [];
                 snap.forEach(docSnap => {
                     const d = docSnap.data();
-                    arr.push({
-                        id: docSnap.id,
-                        activity: d.assignment_activity || d.activity || '',
-                        location: d.assignment_location || d.location || '',
-                        scope: d.assignment_scope || d.scope || 'single',
-                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
-                        created_by_name: d.created_by_name || d.created_by_email || '',
+                        arr.push({
+                            id: docSnap.id,
+                            activity: d.assignment_activity || d.activity || '',
+                            location: d.assignment_location || d.location || '',
+                            scope: d.assignment_scope || d.scope || 'single',
+                            created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                            created_by_name: d.created_by_name || d.created_by_email || '',
+                            subject: d.assignment_subject || d.subject || '',
+                            message: d.assignment_message || d.message || ''
+                        });
                     });
-                });
                 this.mergeAssignments(arr);
             });
             const handleEmailSnap = (snap) => {
                 const arr = [];
                 snap.forEach(docSnap => {
                     const d = docSnap.data();
-                    arr.push({
-                        id: docSnap.id,
-                        activity: d.assignment_activity || d.activity || '',
-                        location: d.assignment_location || d.location || '',
-                        scope: d.assignment_scope || d.scope || 'single',
-                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
-                        created_by_name: d.created_by_name || d.created_by_email || '',
+                        arr.push({
+                            id: docSnap.id,
+                            activity: d.assignment_activity || d.activity || '',
+                            location: d.assignment_location || d.location || '',
+                            scope: d.assignment_scope || d.scope || 'single',
+                            created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                            created_by_name: d.created_by_name || d.created_by_email || '',
+                            subject: d.assignment_subject || d.subject || '',
+                            message: d.assignment_message || d.message || ''
+                        });
                     });
-                });
                 this.mergeAssignments(arr);
             };
             this.assignmentsUnsubMineEmail = onSnapshot(mineTicketsEmailQ, handleEmailSnap);
@@ -1114,15 +1181,17 @@ class AdminDashboard {
                 const arr = [];
                 snap.forEach(docSnap => {
                     const d = docSnap.data();
-                    arr.push({
-                        id: docSnap.id,
-                        activity: d.assignment_activity || d.activity || '',
-                        location: d.assignment_location || d.location || '',
-                        scope: d.assignment_scope || d.scope || 'all',
-                        created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
-                        created_by_name: d.created_by_name || d.created_by_email || '',
+                        arr.push({
+                            id: docSnap.id,
+                            activity: d.assignment_activity || d.activity || '',
+                            location: d.assignment_location || d.location || '',
+                            scope: d.assignment_scope || d.scope || 'all',
+                            created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
+                            created_by_name: d.created_by_name || d.created_by_email || '',
+                            subject: d.assignment_subject || d.subject || '',
+                            message: d.assignment_message || d.message || ''
+                        });
                     });
-                });
                 this.mergeAssignments(arr);
             });
         } catch (err) {
@@ -1154,6 +1223,8 @@ class AdminDashboard {
         }
         const html = this.assignments.map(a => {
             const date = a.created_at ? a.created_at.toLocaleString() : '';
+            const subject = a.subject ? this.escapeHtml(a.subject) : '';
+            const message = a.message ? this.escapeHtml(a.message) : '';
             return `
                 <div class="ticket-item">
                     <div class="ticket-content">
@@ -1162,6 +1233,8 @@ class AdminDashboard {
                             <div class="ticket-priority">${a.scope === 'all' ? 'All IT' : 'You'}</div>
                         </div>
                         <h4 class="ticket-subject">Location: ${a.location}</h4>
+                        ${subject ? `<div class="ticket-meta"><strong>Subject:</strong> ${subject}</div>` : ''}
+                        ${message ? `<div class="ticket-meta"><strong>Message:</strong> ${message}</div>` : ''}
                         <div class="ticket-meta">
                             <span class="ticket-date">${date}</span>
                             <span class="ticket-device">Created by: ${a.created_by_name}</span>
@@ -2329,6 +2402,10 @@ class AdminDashboard {
                     <div class="ticket-col value" data-field="subject">${this.escapeHtml(ticket.message)}</div>
                 </div>
                 <div class="ticket-row">
+                    <div class="ticket-col"><strong>Activity:</strong></div>
+                    <div class="ticket-col value" data-field="activity">${this.escapeHtml(ticket.assignment_activity || ticket.activity || '-')}</div>
+                </div>
+                <div class="ticket-row">
                     <div class="ticket-col"><strong>Priority:</strong></div>
                     <div class="ticket-col" data-field="priority">
                         <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
@@ -2676,7 +2753,7 @@ class AdminDashboard {
     async fallbackExport(exportData) {
         try {
             const headers = [
-                'Ticket Code', 'Subject', 'User Name', 'User Email', 'Department',
+                'Ticket Code', 'Subject', 'Activity', 'User Name', 'User Email', 'Department',
                 'Location', 'Priority', 'Status', 'Created Date', 'Last Updated',
                 'Assigned To', 'Admin Notes', 'Device Type', 'Inventory Number'
             ];
@@ -2684,6 +2761,7 @@ class AdminDashboard {
             const csvData = exportData.map(ticket => [
                 ticket.code || '',
                 ticket.subject || '',
+                ticket.activity || '',
                 ticket.name || '',
                 ticket.user_email || '',
                 ticket.department || '',
@@ -2752,11 +2830,16 @@ class AdminDashboard {
                 const cachedUser = (ticket.user_id && window.userCache) ? window.userCache[ticket.user_id] : null;
                 const resolvedFullName = (cachedUser && cachedUser.full_name) || ticket.user_name || 'Unknown User';
 
+                const activityRaw = ticket.assignment_activity || ticket.activity || '';
+                const activityMapped = (activityRaw || '').toLowerCase() === 'deliver' ? 'MV' : activityRaw;
+                const subjectForExport = ticket.is_assignment ? (ticket.subject || activityMapped || 'No Subject') : (ticket.subject || 'No Subject');
+
                 return {
                     id: ticket.id,
                     user_id: ticket.user_id || '',
                     code: ticket.code || 'UNKNOWN',
-                    subject: ticket.subject || 'No Subject',
+                    subject: subjectForExport,
+                    activity: activityMapped,
                     name: resolvedFullName,
                     full_name: resolvedFullName,
                     user_name: ticket.user_name || 'Unknown User',
@@ -3143,6 +3226,17 @@ class AdminDashboard {
                             </div>
 
                             <div class="form-group">
+                                <label for="updateActivity">Activity</label>
+                                <select id="updateActivity" class="form-control">
+                                    <option value="">Select Activity</option>
+                                    <option value="Weekly Safety Talk" ${(ticket.assignment_activity || ticket.activity) === 'Weekly Safety Talk' ? 'selected' : ''}>Weekly Safety Talk</option>
+                                    <option value="Ceremony Sail Away" ${(ticket.assignment_activity || ticket.activity) === 'Ceremony Sail Away' ? 'selected' : ''}>Ceremony Sail Away</option>
+                                    <option value="Deliver" ${(ticket.assignment_activity || ticket.activity) === 'Deliver' ? 'selected' : ''}>Deliver</option>
+                                    <option value="Other" ${(ticket.assignment_activity || ticket.activity) === 'Other' ? 'selected' : ''}>Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
                                 <label for="updateLocation">Location *</label>
                                 <select id="updateLocation" class="form-control" required>
                                     <option value="">Select Location</option>
@@ -3174,6 +3268,7 @@ class AdminDashboard {
                                     <option value="Workshop11" ${ticket.location === 'Workshop11' ? 'selected' : ''}>Workshop 11</option>
                                     <option value="Workshop12" ${ticket.location === 'Workshop12' ? 'selected' : ''}>Workshop 12</option>
                                     <option value="Yard" ${ticket.location === 'Yard' ? 'selected' : ''}>Yard</option>
+                                    <option value="Rest Area" ${ticket.location === 'Rest Area' ? 'selected' : ''}>Rest Area</option>
                                     <option value="Lainlain" ${ticket.location === 'Lainlain' ? 'selected' : ''}>Other Location</option>
                                 </select>
                             </div>
@@ -3349,6 +3444,30 @@ class AdminDashboard {
                 user_department: this.getElementValueSafely('updateUserDepartment'),
                 user_phone: this.getElementValueSafely('updateUserPhone')
             };
+
+            const newActivity = this.getElementValueSafely('updateActivity');
+            if (newActivity) {
+                updateData.activity = newActivity;
+                if (currentData.is_assignment) {
+                    updateData.assignment_activity = newActivity;
+                }
+            }
+
+            // Keep assignment message and fields in sync with new location
+            try {
+                const newLoc = updateData.location || '';
+                if (typeof currentData.message === 'string' && currentData.message.includes('Location:')) {
+                    const replaced = currentData.message.replace(/(Location:\s*)([^|]+)(?=\s*\|?|$)/, `$1${newLoc}`);
+                    updateData.message = replaced;
+                }
+                if (typeof currentData.assignment_message === 'string' && currentData.assignment_message.includes('Location:')) {
+                    const replacedAssign = currentData.assignment_message.replace(/(Location:\s*)([^|]+)(?=\s*\|?|$)/, `$1${newLoc}`);
+                    updateData.assignment_message = replacedAssign;
+                }
+                if (currentData.is_assignment && typeof currentData.assignment_location !== 'undefined') {
+                    updateData.assignment_location = deleteField();
+                }
+            } catch (_) {}
 
             const isSuperAdmin = this.adminUser && this.adminUser.role === 'Super Admin';
 

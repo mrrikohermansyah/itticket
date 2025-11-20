@@ -532,7 +532,8 @@ window.setHeaderStyling = function(sheet) {
             const durationText = window.calculateDurationForExport(ticket);
             const ticketStatus = ticket.status_ticket || ticket.status || "Open";
             const kendaliMutu = (ticketStatus === "Resolved" || ticketStatus === "Closed") ? "Finish" : "Continue";
-            const deviceCode = window.getDeviceCode(ticket.device);
+            const activityLower = String(ticket.activity || '').toLowerCase();
+            const deviceCode = activityLower === 'mv' ? 'MV' : window.getDeviceCode(ticket.device);
 
             const rowData = [
                 null, // Kolom A kosong
