@@ -37,47 +37,27 @@ body {
 }
 
 .theme-toggle {
-  position: relative;
+  position: fixed;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 40px;
-  min-width: 170px;
-  width: auto !important;
-  padding: 0 18px 0 70px;
-  border-radius: 9999px;
+  height: 44px;
+  width: 44px;
+  border-radius: 50%;
   border: 0;
   background: linear-gradient(180deg, #e9edf3 0%, #e3e7ee 100%);
   color: #98a1b0;
-  font-weight: 700;
-  font-size: 0.82rem;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.1),
-    inset -3px -3px 8px rgba(255, 255, 255, 0.65),
-    4px 6px 14px rgba(0, 0, 0, 0.12);
+  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.7),
+    3px 3px 12px rgba(0, 0, 0, 0.16);
   transition: all 0.2s ease;
 }
 
 .theme-toggle::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 32px;
-  height: 32px;
-  border-radius: 9999px;
-  background: linear-gradient(180deg, #eef2f7 0%, #e6eaf0 100%);
-  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.7),
-    3px 3px 8px rgba(0, 0, 0, 0.12);
-  transition: all 0.2s ease;
+  content: none;
 }
 
 .theme-toggle i {
-  position: absolute;
-  left: 20px;
-  top: 50%;
-  transform: translateY(-50%);
+  font-size: 18px;
   color: #9aa3b2;
 }
 .theme-toggle.is-dark i {
@@ -85,21 +65,18 @@ body {
 }
 
 .theme-toggle.is-dark::before {
-  left: calc(100% - 36px);
+  content: none;
 }
 
 html[data-theme="dark"] .theme-toggle {
-  background: linear-gradient(180deg, #1e242e 0%, #19202a 100%);
-  color: #d0d5df;
-  box-shadow: inset 3px 3px 8px rgba(0, 0, 0, 0.35),
-    inset -3px -3px 8px rgba(255, 255, 255, 0.06),
-    6px 8px 18px rgba(0, 0, 0, 0.35);
+  background: linear-gradient(180deg, #2b313b 0%, #232a34 100%);
+  color: #e6e7eb;
+  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.08),
+    3px 3px 12px rgba(0, 0, 0, 0.45);
 }
 
 html[data-theme="dark"] .theme-toggle::before {
-  background: linear-gradient(180deg, #2b313b 0%, #232a34 100%);
-  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.08),
-    3px 3px 10px rgba(0, 0, 0, 0.45);
+  content: none;
 }
 
 html[data-theme="dark"] .theme-toggle i {
@@ -108,15 +85,15 @@ html[data-theme="dark"] .theme-toggle i {
 
 .theme-floating {
   position: fixed;
-  top: 12px;
-  right: 12px;
+  right: 1rem;
+  bottom: 1rem;
   z-index: 1000;
 }
 
 @media (max-width: 480px) {
   .theme-floating {
-    top: 8px;
-    right: 8px;
+    right: 0.75rem;
+    bottom: 0.75rem;
     transform: scale(0.94);
   }
 }

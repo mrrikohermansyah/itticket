@@ -160,7 +160,7 @@ if (typeof module !== "undefined" && module.exports) {
       localStorage.setItem('theme', t);
       var btn = document.getElementById('themeToggleBtn');
       if (btn) {
-        btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i> LIGHT MODE' : '<i class="fas fa-moon"></i> DARK MODE';
+        btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
         if (t === 'dark') {
           btn.classList.add('is-dark');
         } else {

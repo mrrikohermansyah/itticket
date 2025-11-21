@@ -1937,6 +1937,11 @@ textarea.form-control {
   justify-content: center;
 }
 
+/* Place theme toggle above scroll-to-top on admin pages */
+.theme-floating {
+  bottom: 4.5rem;
+}
+
 .scroll-top-btn:hover {
   background: var(--primary-dark);
   transform: translateY(-1px);
