@@ -3318,17 +3318,18 @@ class AdminDashboard {
                                         <option value="Admin" ${userDisplay.department === 'Admin' ? 'selected' : ''}>Admin</option>
                                         <option value="Civil" ${userDisplay.department === 'Civil' ? 'selected' : ''}>Civil</option>
                                         <option value="Clinic" ${userDisplay.department === 'Clinic' ? 'selected' : ''}>Clinic</option>
+                                        <option value="Client" ${userDisplay.department === 'Client' ? 'selected' : ''}>Client</option>
                                         <option value="Completion" ${userDisplay.department === 'Completion' ? 'selected' : ''}>Completion</option>
                                         <option value="DC" ${userDisplay.department === 'DC' ? 'selected' : ''}>Dimentional Control (DC)</option>
                                         <option value="Document Control" ${userDisplay.department === 'Document Control' ? 'selected' : ''}>Document Control</option>
                                         <option value="Engineer" ${userDisplay.department === 'Engineer' ? 'selected' : ''}>Engineering</option>
                                         <option value="Finance" ${userDisplay.department === 'Finance' ? 'selected' : ''}>Finance</option>
-                                        <option value="HR" ${userDisplay.department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
                                         <option value="HSE" ${userDisplay.department === 'HSE' ? 'selected' : ''}>HSE</option>
+                                        <option value="HR" ${userDisplay.department === 'HR' ? 'selected' : ''}>Human Resources (HRD)</option>
                                         <option value="IT" ${userDisplay.department === 'IT' ? 'selected' : ''}>IT</option>
-                                        <option value="PGA" ${userDisplay.department === 'PGA' ? 'selected' : ''}>PGA</option>
                                         <option value="Maintenance" ${userDisplay.department === 'Maintenance' ? 'selected' : ''}>Maintenance</option>
                                         <option value="Management" ${userDisplay.department === 'Management' ? 'selected' : ''}>Management</option>
+                                        <option value="PGA" ${userDisplay.department === 'PGA' ? 'selected' : ''}>PGA</option>
                                         <option value="Planner" ${userDisplay.department === 'Planner' ? 'selected' : ''}>Planner</option>
                                         <option value="Procurement" ${userDisplay.department === 'Procurement' ? 'selected' : ''}>Procurement</option>
                                         <option value="QC" ${userDisplay.department === 'QC' ? 'selected' : ''}>Quality Control (QC)</option>
