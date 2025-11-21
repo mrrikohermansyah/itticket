@@ -19,6 +19,21 @@
     --info: #3b82f6;
 }
 
+html[data-theme="dark"] {
+    --white: #151a20;
+    --black: #e6e7eb;
+    --gray-50: #0c0e12;
+    --gray-100: #12141b;
+    --gray-200: #1f2530;
+    --gray-300: #2a2f3a;
+    --gray-400: #8b90a2;
+    --gray-500: #a0a6b8;
+    --gray-600: #b8bcc9;
+    --gray-700: #d0d3db;
+    --gray-800: #e0e3ea;
+    --gray-900: #f5f6f7;
+}
+
 /* ===== BASE STYLES ===== */
 * {
     margin: 0;

@@ -11,8 +11,19 @@
   --gray-900: #18181b;
 }
 
+html[data-theme="dark"] {
+  --white: #151a20;
+  --black: #e6e7eb;
+  --gray-50: #0c0e12;
+  --gray-100: #12141b;
+  --gray-200: #1f2530;
+  --gray-400: #8b90a2;
+  --gray-600: #b8bcc9;
+  --gray-900: #e6e7eb;
+}
+
 .auth-body {
-  font-family: 'Inter', sans-serif;
+  font-family: "Inter", sans-serif;
   background: var(--white);
   min-height: 100vh;
   display: flex;
@@ -38,7 +49,7 @@
 }
 
 .auth-card::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 0;
   left: 2rem;
@@ -58,6 +69,12 @@
   height: 48px;
   width: auto;
   margin-bottom: 1rem;
+}
+html[data-theme="dark"] .auth-logo-container img {
+  filter: drop-shadow(0.5px 0 0 rgba(255, 255, 255, 0.8))
+    drop-shadow(-0.5px 0 0 rgba(255, 255, 255, 0.8))
+    drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.8))
+    drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.8));
 }
 
 .auth-logo-container h2 {
@@ -314,7 +331,7 @@
 }
 
 .btn-auth.loading::after {
-  content: '';
+  content: "";
   width: 16px;
   height: 16px;
   border: 2px solid transparent;

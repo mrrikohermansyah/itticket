@@ -142,7 +142,6 @@ if (typeof module !== "undefined" && module.exports) {
     ADMIN_NAME_MAPPING,
   };
 } else {
-  // Untuk browser
   window.CONFIG = {
     FIREBASE_CONFIG: FIREBASE_CONFIG,
     RECAPTCHA_V3_SITE_KEY: '6LcwPxAsAAAAAPguM-TsDsmczv1p3CZKGh4qAR-M',
@@ -151,4 +150,28 @@ if (typeof module !== "undefined" && module.exports) {
     ADMIN_EMAILS: ADMIN_EMAILS,
     ADMIN_NAME_MAPPING: ADMIN_NAME_MAPPING
   };
+
+  (function() {
+    var stored = localStorage.getItem('theme');
+    var prefers = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    var current = stored || prefers;
+    function applyTheme(t) {
+      document.documentElement.setAttribute('data-theme', t);
+      localStorage.setItem('theme', t);
+      var btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
+      }
+    }
+    applyTheme(current);
+    document.addEventListener('DOMContentLoaded', function() {
+      var btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          var next = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+          applyTheme(next);
+        });
+      }
+    });
+  })();
 }

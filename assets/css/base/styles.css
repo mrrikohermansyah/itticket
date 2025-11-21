@@ -11,6 +11,18 @@
   --gray-900: #18181b;
 }
 
+html[data-theme="dark"] {
+  --white: #0f1115;
+  --black: #f5f6f7;
+  --primary: #ef070a;
+  --gray-50: #0c0e12;
+  --gray-100: #12141b;
+  --gray-200: #191c25;
+  --gray-400: #8b90a2;
+  --gray-600: #b8bcc9;
+  --gray-900: #e6e7eb;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -18,7 +30,7 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
   line-height: 1.5;
   color: var(--black);
   background: var(--white);
@@ -109,6 +121,14 @@ textarea:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+.modal-content {
+  background: var(--white);
+  color: var(--black);
+}
+
+html[data-theme="dark"] .modal .form-section {
+  border-color: var(--gray-200) !important;
 }
 .page-enter-animate {
   animation: pageFadeIn 260ms ease-out;
