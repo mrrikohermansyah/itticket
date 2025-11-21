@@ -160,7 +160,12 @@ if (typeof module !== "undefined" && module.exports) {
       localStorage.setItem('theme', t);
       var btn = document.getElementById('themeToggleBtn');
       if (btn) {
-        btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i> Light Mode' : '<i class="fas fa-moon"></i> Dark Mode';
+        btn.innerHTML = t === 'dark' ? '<i class="fas fa-sun"></i> LIGHT MODE' : '<i class="fas fa-moon"></i> DARK MODE';
+        if (t === 'dark') {
+          btn.classList.add('is-dark');
+        } else {
+          btn.classList.remove('is-dark');
+        }
       }
     }
     applyTheme(current);
