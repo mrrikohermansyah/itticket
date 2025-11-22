@@ -3255,6 +3255,11 @@ class AdminDashboard {
                                     <option value="Weekly Safety Talk" ${(ticket.assignment_activity || ticket.activity) === 'Weekly Safety Talk' ? 'selected' : ''}>Weekly Safety Talk</option>
                                     <option value="Ceremony Sail Away" ${(ticket.assignment_activity || ticket.activity) === 'Ceremony Sail Away' ? 'selected' : ''}>Ceremony Sail Away</option>
                                     <option value="Deliver" ${(ticket.assignment_activity || ticket.activity) === 'Deliver' ? 'selected' : ''}>Deliver</option>
+                                    <option value="Setup Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Setup Meeting' ? 'selected' : ''}>Setup Meeting</option>
+                                    <option value="Drone Update Area" ${(ticket.assignment_activity || ticket.activity) === 'Drone Update Area' ? 'selected' : ''}>Drone Update Area</option>
+                                    <option value="Drone Lifting" ${(ticket.assignment_activity || ticket.activity) === 'Drone Lifting' ? 'selected' : ''}>Drone Lifting</option>
+                                    <option value="Stand By Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Meeting' ? 'selected' : ''}>Stand By Meeting</option>
+                                    <option value="Stand By Sunday" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Sunday' ? 'selected' : ''}>Stand By Sunday</option>
                                     <option value="Other" ${(ticket.assignment_activity || ticket.activity) === 'Other' ? 'selected' : ''}>Other</option>
                                 </select>
                             </div>
