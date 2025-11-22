@@ -532,14 +532,13 @@ window.setHeaderStyling = function(sheet) {
             const durationText = window.calculateDurationForExport(ticket);
             const ticketStatus = ticket.status_ticket || ticket.status || "Open";
             const kendaliMutu = (ticketStatus === "Resolved" || ticketStatus === "Closed") ? "Finish" : "Continue";
-            const activityLower = String(ticket.activity || '').toLowerCase();
-            const deviceCode = activityLower === 'mv' ? 'MV' : window.getDeviceCode(ticket.device);
+            const activityCode = window.getActivityCode(ticket.activity);
 
             const rowData = [
-                null, // Kolom A kosong
+                null,
                 window.formatDateForExcel(window.getTicketDate(ticket)),
                 ticket.inventory || "-",
-                deviceCode,
+                activityCode,
                 ticket.location ? "Bintan / " + ticket.location : "Bintan / -",
                 ticket.note || "-",
                 ((ticket.user_id && window.userCache && window.userCache[ticket.user_id] && window.userCache[ticket.user_id].full_name)
@@ -721,6 +720,17 @@ window.setHeaderStyling = function(sheet) {
         if (lowerDevice.includes('backup') || lowerDevice.includes('data') || lowerDevice.includes('drone')) return "DR";
         
         return "OT";
+    };
+
+    window.getActivityCode = function(activity) {
+        const a = (activity || '').trim().toLowerCase();
+        if (!a) return 'OT';
+        if (a === 'deliver') return 'MV';
+        if (a === 'software install') return 'SW';
+        if (a === 'setup meeting') return 'HW';
+        if (a === 'drone update area' || a === 'drone lifting') return 'DR';
+        if (a === 'weekly safety talk' || a === 'ceremony sail away' || a === 'stand by meeting' || a === 'stand by sunday' || a === 'other') return 'OT';
+        return 'OT';
     };
 
     window.toProperCase = function(s) {
