@@ -21,8 +21,14 @@ html[data-theme="dark"] {
   --gray-600: #b8bcc9;
   --gray-900: #e6e7eb;
 }
-html[data-theme="dark"] .auth-card { background: #1a1f27; border: 1px solid var(--gray-200); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
-html[data-theme="dark"] .auth-card::before { background: var(--primary); }
+html[data-theme="dark"] .auth-card {
+  background: #1a1f27;
+  border: 1px solid var(--gray-200);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+html[data-theme="dark"] .auth-card::before {
+  background: var(--primary);
+}
 
 .auth-body {
   font-family: "Inter", sans-serif;
@@ -73,10 +79,11 @@ html[data-theme="dark"] .auth-card::before { background: var(--primary); }
   margin-bottom: 1rem;
 }
 html[data-theme="dark"] .auth-logo-container img {
-  filter: drop-shadow(0.5px 0 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(-0.5px 0 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.8));
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
+html[data-theme="dark"] .btn-auth {
+  color: var(--black);
 }
 
 .auth-logo-container h2 {

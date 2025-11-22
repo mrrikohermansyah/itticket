@@ -41,10 +41,7 @@ html[data-theme="dark"] .dashboard-footer {
   border-top: 1px solid var(--gray-300);
 }
 html[data-theme="dark"] .dashboard-logo {
-  filter: drop-shadow(0.5px 0 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(-0.5px 0 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(0 0.5px 0 rgba(255, 255, 255, 0.8))
-    drop-shadow(0 -0.5px 0 rgba(255, 255, 255, 0.8));
+  filter: brightness(0) saturate(100%) invert(1);
 }
 
 .dashboard-body {

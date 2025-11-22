@@ -33,6 +33,9 @@ html[data-theme="dark"] {
   --gray-800: #e0e3ea;
   --gray-900: #f5f6f7;
 }
+html[data-theme="dark"] .admin-logo {
+  filter: brightness(0) saturate(100%) invert(1);
+}
 html[data-theme="dark"] .admin-header {
   background: #151a20;
   border-bottom: 1px solid var(--gray-300);

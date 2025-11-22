@@ -18,7 +18,7 @@
             <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="setup-logo">
             <h2>Create First Administrator</h2>
             <p>Setup the initial admin account for IT Support System</p>
-            <button id="themeToggleBtn" class="theme-toggle theme-floating" style="margin-top: 0.75rem;">
+            <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="margin-top: 0.75rem;" onclick="toggleTheme()">
                 <i class="fas fa-moon"></i>
             </button>
         </div>
@@ -81,6 +81,39 @@
 
     <!-- Load JavaScript -->
     <script type="module" src="assets/js/create-first-admin.js"></script>
-</body>
+    <script>
+      (function() {
+        const html = document.documentElement;
+        const btn = document.getElementById('themeToggleBtn');
+        const icon = btn ? btn.querySelector('i') : null;
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        html.setAttribute('data-theme', savedTheme);
+        html.classList.toggle('dark', savedTheme === 'dark');
+        if (btn) {
+          btn.classList.toggle('is-dark', savedTheme === 'dark');
+          if (icon) {
+            icon.className = savedTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+          }
+        }
+      })();
+
+      function toggleTheme() {
+        const html = document.documentElement;
+        const btn = document.getElementById('themeToggleBtn');
+        const icon = btn ? btn.querySelector('i') : null;
+        const current = html.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        html.classList.toggle('dark', next === 'dark');
+        if (btn) {
+          btn.classList.toggle('is-dark', next === 'dark');
+        }
+        if (icon) {
+          icon.className = next === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+        }
+      }
+    </script>
+  </body>
 
 </html>
