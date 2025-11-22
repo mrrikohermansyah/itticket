@@ -2854,15 +2854,23 @@ class AdminDashboard {
                 const resolvedFullName = (cachedUser && cachedUser.full_name) || ticket.user_name || 'Unknown User';
 
                 const activityRaw = ticket.assignment_activity || ticket.activity || '';
-                const activityMapped = (activityRaw || '').toLowerCase() === 'deliver' ? 'MV' : activityRaw;
-                const subjectForExport = ticket.is_assignment ? (ticket.subject || activityMapped || 'No Subject') : (ticket.subject || 'No Subject');
+                const act = (activityRaw || '').trim();
+                const actLower = act.toLowerCase();
+                let activityCode = '';
+                if (actLower === 'deliver') activityCode = 'MV';
+                else if (actLower === 'software install') activityCode = 'SW';
+                else if (actLower === 'setup meeting') activityCode = 'HW';
+                else if (actLower === 'drone update area' || actLower === 'drone lifting') activityCode = 'DR';
+                else if (actLower === 'weekly safety talk' || actLower === 'ceremony sail away' || actLower === 'stand by meeting' || actLower === 'stand by sunday' || actLower === 'other') activityCode = 'OT';
+                const activityName = act;
+                const subjectForExport = ticket.is_assignment ? (ticket.subject || activityName || 'No Subject') : (ticket.subject || 'No Subject');
 
                 return {
                     id: ticket.id,
                     user_id: ticket.user_id || '',
-                    code: ticket.code || 'UNKNOWN',
+                    code: activityCode || '',
                     subject: subjectForExport,
-                    activity: activityMapped,
+                    activity: activityName,
                     name: resolvedFullName,
                     full_name: resolvedFullName,
                     user_name: ticket.user_name || 'Unknown User',
