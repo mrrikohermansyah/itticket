@@ -35,6 +35,24 @@ html[data-theme="dark"] {
   --shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 0.5rem 1rem rgba(0, 0, 0, 0.5);
 }
+html[data-theme="dark"] .admin-header {
+  background: #151a20;
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+html[data-theme="dark"] .tickets-section {
+  background: #1a1f27;
+  border: 1px solid var(--border);
+}
+html[data-theme="dark"] .section-header {
+  background: #1a1f27;
+  border-bottom: 1px solid var(--border);
+}
+html[data-theme="dark"] .stat-card {
+  background: #1a1f27;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
 html[data-theme="dark"] .admin-logo {
   filter: drop-shadow(0.5px 0 0 rgba(255, 255, 255, 0.8))
     drop-shadow(-0.5px 0 0 rgba(255, 255, 255, 0.8))
@@ -301,6 +319,7 @@ body {
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+  border-radius: var(--radius-lg);
 }
 
 .section-header h2 {

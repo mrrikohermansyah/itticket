@@ -21,6 +21,8 @@ html[data-theme="dark"] {
   --gray-600: #b8bcc9;
   --gray-900: #e6e7eb;
 }
+html[data-theme="dark"] .auth-card { background: #1a1f27; border: 1px solid var(--gray-200); box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+html[data-theme="dark"] .auth-card::before { background: var(--primary); }
 
 .auth-body {
   font-family: "Inter", sans-serif;

@@ -28,6 +28,18 @@ html[data-theme="dark"] {
   --gray-600: #b8bcc9;
   --gray-900: #e6e7eb;
 }
+html[data-theme="dark"] .ticket-form,
+html[data-theme="dark"] .welcome-card,
+html[data-theme="dark"] .section-header,
+html[data-theme="dark"] .dashboard-footer,
+html[data-theme="dark"] .modal-content {
+  background: #1a1f27;
+  border: 1px solid var(--gray-300);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+html[data-theme="dark"] .dashboard-footer {
+  border-top: 1px solid var(--gray-300);
+}
 html[data-theme="dark"] .dashboard-logo {
   filter: drop-shadow(0.5px 0 0 rgba(255, 255, 255, 0.8))
     drop-shadow(-0.5px 0 0 rgba(255, 255, 255, 0.8))
@@ -56,9 +68,10 @@ html[data-theme="dark"] .dashboard-logo {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1rem;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
+  column-gap: 1rem;
 }
 
 .logo-section {
@@ -87,12 +100,17 @@ html[data-theme="dark"] .dashboard-logo {
 
 .user-menu {
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
 }
 
 .user-info {
   text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .user-name {
@@ -188,6 +206,8 @@ html[data-theme="dark"] .dashboard-logo {
 /* Section Headers */
 .section-header {
   margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border-radius: 12px;
 }
 
 .section-header h2 {
@@ -522,18 +542,28 @@ html[data-theme="dark"] .dashboard-logo {
 /* Responsive Design */
 @media (max-width: 768px) {
   .header-content {
-    flex-direction: column;
-    gap: 1rem;
+    grid-template-columns: 1fr;
+    row-gap: 0.75rem;
     text-align: center;
   }
 
   .user-menu {
     flex-direction: column;
-    gap: 1rem;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .header-actions {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    justify-content: center;
   }
 
   .user-info {
     text-align: center;
+    justify-content: center;
+    gap: 0.5rem;
   }
 
   .welcome-card {
@@ -574,6 +604,42 @@ html[data-theme="dark"] .dashboard-logo {
     padding: 1.5rem;
   }
 
+  .header-content {
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    column-gap: 0.75rem;
+  }
+
+  .user-menu {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.5rem;
+  }
+
+  .header-actions {
+    flex-direction: row;
+    gap: 0.25rem;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    display: inline-flex;
+  }
+
+  .btn-profile,
+  .btn-logout {
+    padding: 0.25rem;
+    font-size: 0;
+    border-radius: 6px;
+    min-height: 28px;
+    min-width: 34px;
+    line-height: 1;
+    justify-content: center;
+  }
+
+  .btn-profile i,
+  .btn-logout i {
+    font-size: 0.85rem;
+  }
+
   .section-header h2 {
     font-size: 1.125rem;
   }
@@ -585,9 +651,17 @@ html[data-theme="dark"] .dashboard-logo {
 
 /* Header Actions */
 .header-actions {
-  display: flex;
+  display: inline-flex;
   gap: 0.75rem;
   align-items: center;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.header-actions .btn-profile,
+.header-actions .btn-logout {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .btn-profile {
@@ -952,4 +1026,11 @@ html[data-theme="dark"] .dashboard-logo {
 
 .dashboard-main.enter-animate {
   animation: dashboardFadeIn 260ms ease-out;
+}
+.header-text {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}
+.user-info {
+  gap: 0.375rem;
 }

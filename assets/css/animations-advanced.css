@@ -1,0 +1,904 @@
+/* =====================================================
+   ADVANCED ANIMATIONS & INTERACTIONS LIBRARY
+   ===================================================== */
+
+/* =====================================================
+   1. ADVANCED ENTRANCE ANIMATIONS
+   ===================================================== */
+@keyframes slideInFromTop {
+  from {
+    opacity: 0;
+    transform: translateY(-100px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(100px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes slideInFromLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-100px) rotate(-5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotate(0);
+  }
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px) rotate(5deg);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) rotate(0);
+  }
+}
+
+@keyframes fadeInZoom {
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes fadeInBlur {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+@keyframes rotateIn {
+  from {
+    opacity: 0;
+    transform: rotate(-180deg) scale(0.5);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(0) scale(1);
+  }
+}
+
+@keyframes flipIn {
+  from {
+    opacity: 0;
+    transform: perspective(400px) rotateY(-90deg);
+  }
+  to {
+    opacity: 1;
+    transform: perspective(400px) rotateY(0);
+  }
+}
+
+/* =====================================================
+   2. ADVANCED EXIT ANIMATIONS
+   ===================================================== */
+@keyframes slideOutToTop {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-100px) scale(0.9);
+  }
+}
+
+@keyframes slideOutToBottom {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(100px) scale(0.9);
+  }
+}
+
+@keyframes fadeOutZoom {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+
+@keyframes shrinkOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0);
+  }
+}
+
+/* =====================================================
+   3. ADVANCED HOVER ANIMATIONS
+   ===================================================== */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(239, 7, 10, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(239, 7, 10, 0.6);
+  }
+}
+
+@keyframes shake {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  10%, 30%, 50%, 70%, 90% {
+    transform: translateX(-5px);
+  }
+  20%, 40%, 60%, 80% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes wobble {
+  0% {
+    transform: rotate(0deg);
+  }
+  15% {
+    transform: rotate(-5deg);
+  }
+  30% {
+    transform: rotate(3deg);
+  }
+  45% {
+    transform: rotate(-3deg);
+  }
+  60% {
+    transform: rotate(2deg);
+  }
+  75% {
+    transform: rotate(-1deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes bounceIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  70% {
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* =====================================================
+   4. ADVANCED LOADING ANIMATIONS
+   ===================================================== */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes wave {
+  0%, 100% {
+    transform: scaleY(1);
+  }
+  50% {
+    transform: scaleY(1.5);
+  }
+}
+
+@keyframes dots {
+  0%, 20% {
+    content: '.';
+  }
+  40% {
+    content: '..';
+  }
+  60%, 100% {
+    content: '...';
+  }
+}
+
+@keyframes circularProgress {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes progressBar {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+/* =====================================================
+   5. ADVANCED ATTENTION ANIMATIONS
+   ===================================================== */
+@keyframes flash {
+  0%, 50%, 100% {
+    opacity: 1;
+  }
+  25%, 75% {
+    opacity: 0;
+  }
+}
+
+@keyframes rubberBand {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scaleX(1.25) scaleY(0.75);
+  }
+  40% {
+    transform: scaleX(0.75) scaleY(1.25);
+  }
+  60% {
+    transform: scaleX(1.15) scaleY(0.85);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes swing {
+  20% {
+    transform: rotate(15deg);
+  }
+  40% {
+    transform: rotate(-10deg);
+  }
+  60% {
+    transform: rotate(5deg);
+  }
+  80% {
+    transform: rotate(-5deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@keyframes tada {
+  0% {
+    transform: scale(1);
+  }
+  10%, 20% {
+    transform: scale(0.9) rotate(-3deg);
+  }
+  30%, 50%, 70%, 90% {
+    transform: scale(1.1) rotate(3deg);
+  }
+  40%, 60%, 80% {
+    transform: scale(1.1) rotate(-3deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+/* =====================================================
+   6. ANIMATION UTILITY CLASSES
+   ===================================================== */
+/* Entrance Animations */
+.animate-slide-in-top {
+  animation: slideInFromTop 0.8s ease-out;
+}
+
+.animate-slide-in-bottom {
+  animation: slideInFromBottom 0.8s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 0.8s ease-out;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 0.8s ease-out;
+}
+
+.animate-fade-in-zoom {
+  animation: fadeInZoom 0.6s ease-out;
+}
+
+.animate-fade-in-blur {
+  animation: fadeInBlur 0.8s ease-out;
+}
+
+.animate-rotate-in {
+  animation: rotateIn 0.8s ease-out;
+}
+
+.animate-flip-in {
+  animation: flipIn 0.8s ease-out;
+}
+
+.animate-bounce-in {
+  animation: bounceIn 0.8s ease-out;
+}
+
+/* Exit Animations */
+.animate-slide-out-top {
+  animation: slideOutToTop 0.5s ease-in;
+}
+
+.animate-slide-out-bottom {
+  animation: slideOutToBottom 0.5s ease-in;
+}
+
+.animate-fade-out-zoom {
+  animation: fadeOutZoom 0.5s ease-in;
+}
+
+.animate-shrink-out {
+  animation: shrinkOut 0.5s ease-in;
+}
+
+/* Hover Animations */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+.animate-wobble {
+  animation: wobble 1s ease-in-out;
+}
+
+/* Attention Animations */
+.animate-flash {
+  animation: flash 1s ease-in-out;
+}
+
+.animate-rubber-band {
+  animation: rubberBand 1s ease-in-out;
+}
+
+.animate-swing {
+  animation: swing 1s ease-in-out;
+}
+
+.animate-tada {
+  animation: tada 1s ease-in-out;
+}
+
+/* Loading Animations */
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-wave {
+  animation: wave 1s ease-in-out infinite;
+}
+
+.animate-circular-progress {
+  animation: circularProgress 1s linear infinite;
+}
+
+.animate-progress-bar {
+  animation: progressBar 2s ease-out;
+}
+
+/* =====================================================
+   7. STAGGERED ANIMATION DELAYS
+   ===================================================== */
+.delay-75 { animation-delay: 75ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-500 { animation-delay: 500ms; }
+.delay-700 { animation-delay: 700ms; }
+.delay-1000 { animation-delay: 1000ms; }
+
+/* =====================================================
+   8. ANIMATION DURATION UTILITIES
+   ===================================================== */
+.duration-75 { animation-duration: 75ms; }
+.duration-100 { animation-duration: 100ms; }
+.duration-150 { animation-duration: 150ms; }
+.duration-200 { animation-duration: 200ms; }
+.duration-300 { animation-duration: 300ms; }
+.duration-500 { animation-duration: 500ms; }
+.duration-700 { animation-duration: 700ms; }
+.duration-1000 { animation-duration: 1000ms; }
+.duration-2000 { animation-duration: 2000ms; }
+
+/* =====================================================
+   9. ANIMATION ITERATION UTILITIES
+   ===================================================== */
+.infinite { animation-iteration-count: infinite; }
+.count-1 { animation-iteration-count: 1; }
+.count-2 { animation-iteration-count: 2; }
+.count-3 { animation-iteration-count: 3; }
+
+/* =====================================================
+   10. INTERSECTION OBSERVER ANIMATIONS
+   ===================================================== */
+.animate-on-scroll {
+  opacity: 0;
+  transform: translateY(30px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.animate-on-scroll.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.animate-on-scroll.slide-in-left {
+  transform: translateX(-30px);
+}
+
+.animate-on-scroll.slide-in-left.is-visible {
+  transform: translateX(0);
+}
+
+.animate-on-scroll.slide-in-right {
+  transform: translateX(30px);
+}
+
+.animate-on-scroll.slide-in-right.is-visible {
+  transform: translateX(0);
+}
+
+.animate-on-scroll.zoom-in {
+  transform: scale(0.9);
+}
+
+.animate-on-scroll.zoom-in.is-visible {
+  transform: scale(1);
+}
+
+/* =====================================================
+   11. PARALLAX EFFECTS
+   ===================================================== */
+.parallax-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.parallax-element {
+  will-change: transform;
+  transition: transform 0.1s ease-out;
+}
+
+.parallax-slow {
+  transform: translateY(calc(var(--scroll-position) * -0.5));
+}
+
+.parallax-medium {
+  transform: translateY(calc(var(--scroll-position) * -0.3));
+}
+
+.parallax-fast {
+  transform: translateY(calc(var(--scroll-position) * -0.1));
+}
+
+/* =====================================================
+   12. 3D TRANSFORM EFFECTS
+   ===================================================== */
+.transform-3d {
+  transform-style: preserve-3d;
+  perspective: 1000px;
+}
+
+.rotate-3d {
+  transform: rotateY(15deg) rotateX(5deg);
+  transition: transform 0.3s ease-out;
+}
+
+.rotate-3d:hover {
+  transform: rotateY(0deg) rotateX(0deg);
+}
+
+.flip-card {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s;
+}
+
+.flip-card:hover {
+  transform: rotateY(180deg);
+}
+
+.flip-card-front,
+.flip-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+/* =====================================================
+   13. ENHANCED HOVER EFFECTS
+   ===================================================== */
+.hover-lift-enhanced {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift-enhanced:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+.hover-glow-enhanced {
+  position: relative;
+  overflow: hidden;
+}
+
+.hover-glow-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.5s;
+}
+
+.hover-glow-enhanced:hover::before {
+  left: 100%;
+}
+
+.hover-tilt {
+  transition: transform 0.3s ease-out;
+}
+
+.hover-tilt:hover {
+  transform: perspective(1000px) rotateX(5deg) rotateY(-5deg) scale(1.05);
+}
+
+/* =====================================================
+   14. ENHANCED LOADING STATES
+   ===================================================== */
+.skeleton-enhanced {
+  background: linear-gradient(90deg, 
+    var(--bg-secondary) 25%, 
+    var(--bg-tertiary) 50%, 
+    var(--bg-secondary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-md);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-text-enhanced {
+  height: 20px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-text-enhanced:last-child {
+  margin-bottom: 0;
+  width: 80%;
+}
+
+.skeleton-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+  animation: shimmer 2s infinite;
+}
+
+/* =====================================================
+   15. ENHANCED NOTIFICATION ANIMATIONS
+   ===================================================== */
+@keyframes notificationSlideIn {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes notificationSlideOut {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(100%) scale(0.8);
+  }
+}
+
+@keyframes notificationBounce {
+  0%, 20%, 53%, 80%, 100% {
+    transform: translateX(0);
+  }
+  40%, 43% {
+    transform: translateX(-10px);
+  }
+  70% {
+    transform: translateX(-5px);
+  }
+  90% {
+    transform: translateX(-2px);
+  }
+}
+
+.notification-enter {
+  animation: notificationSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.notification-exit {
+  animation: notificationSlideOut 0.3s ease-in;
+}
+
+.notification-bounce {
+  animation: notificationBounce 1s ease-in-out;
+}
+
+/* =====================================================
+   16. MODAL ENHANCED ANIMATIONS
+   ===================================================== */
+@keyframes modalBackdropFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalContentScaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.7) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes modalContentSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(50px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-backdrop-enter {
+  animation: modalBackdropFadeIn 0.3s ease-out;
+}
+
+.modal-content-scale-enter {
+  animation: modalContentScaleIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.modal-content-slide-enter {
+  animation: modalContentSlideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* =====================================================
+   17. CUSTOM CURSOR EFFECTS
+   ===================================================== */
+.cursor-trail {
+  position: fixed;
+  width: 20px;
+  height: 20px;
+  background: var(--primary-500);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  transition: transform 0.1s ease-out;
+  mix-blend-mode: difference;
+}
+
+.cursor-glow {
+  position: fixed;
+  width: 40px;
+  height: 40px;
+  background: radial-gradient(circle, rgba(239, 7, 10, 0.3) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  transition: transform 0.2s ease-out;
+}
+
+/* =====================================================
+   18. ACCESSIBILITY CONSIDERATIONS
+   ===================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slide-in-top,
+  .animate-slide-in-bottom,
+  .animate-slide-in-left,
+  .animate-slide-in-right,
+  .animate-fade-in-zoom,
+  .animate-fade-in-blur,
+  .animate-rotate-in,
+  .animate-flip-in,
+  .animate-bounce-in,
+  .animate-float,
+  .animate-pulse-glow,
+  .animate-shake,
+  .animate-wobble,
+  .animate-flash,
+  .animate-rubber-band,
+  .animate-swing,
+  .animate-tada,
+  .animate-shimmer,
+  .animate-wave,
+  .animate-circular-progress,
+  .animate-progress-bar {
+    animation: none !important;
+    transition: opacity 0.2s ease-out !important;
+  }
+  
+  .animate-on-scroll {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  
+  .cursor-trail,
+  .cursor-glow {
+    display: none !important;
+  }
+}
+
+/* =====================================================
+   19. PERFORMANCE OPTIMIZATIONS
+   ===================================================== */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
+}
+
+.will-change-all {
+  will-change: all;
+}
+
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* =====================================================
+   20. ADVANCED INTERACTION STATES
+   ===================================================== */
+.state-loading {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.state-loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: circularProgress 1s linear infinite;
+}
+
+.state-success {
+  position: relative;
+}
+
+.state-success::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--success-500);
+  font-size: 24px;
+  font-weight: bold;
+  animation: bounceIn 0.5s ease-out;
+}
+
+.state-error {
+  position: relative;
+}
+
+.state-error::after {
+  content: '✗';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--error-500);
+  font-size: 24px;
+  font-weight: bold;
+  animation: shake 0.5s ease-in-out;
+}
