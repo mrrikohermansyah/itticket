@@ -1185,6 +1185,14 @@ class Dashboard {
       const validation = this.validateTicketForm(formData);
       if (!validation.isValid) throw new Error(validation.message);
 
+      // Diagnostic: ensure auth uid matches payload
+      if (!this.currentUser || !this.currentUser.id) {
+        throw new Error('Not authenticated. Please sign in again.');
+      }
+      if (this.currentUser && formData) {
+        console.debug('[TicketSubmit] auth.uid=', this.currentUser.id, ' payload.user_id will be set to same uid');
+      }
+
       // ✅ BUAT TICKET DULU UNTUK DAPAT ID
       const ticketRef = await addDoc(collection(this.db, "tickets"), {
         // Data sementara tanpa code
@@ -1235,8 +1243,12 @@ class Dashboard {
       form.reset();
 
     } catch (error) {
+      console.error('[TicketSubmit] code=', error?.code, ' message=', error?.message);
+      const msg = (error && (error.code === 'permission-denied' || /insufficient permissions/i.test(error?.message)))
+        ? 'Permission denied. Please sign in again or contact support.'
+        : (error.message || 'Failed to create ticket');
       console.error('❌ Error creating ticket:', error);
-      this.showError(error.message || 'Failed to create ticket');
+      this.showError(msg);
     } finally {
       submitBtn.disabled = false;
       if (btnText) btnText.style.display = 'block';
