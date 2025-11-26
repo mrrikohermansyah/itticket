@@ -397,6 +397,58 @@ body {
 .tickets-table tbody tr:hover {
   background: var(--primary-light);
 }
+html[data-theme="dark"] .tickets-table th {
+  background: #202635;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+
+html[data-theme="dark"] .tickets-table tbody tr:hover {
+  background: rgba(42, 39, 184, 0.18);
+}
+
+html[data-theme="dark"] .date-filter-group {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+html[data-theme="dark"] .date-inputs {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .date-input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .date-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+html[data-theme="dark"] .date-separator {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .btn-today {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .btn-today:hover {
+  background: #1d4ed8;
+}
+
+html[data-theme="dark"] .btn-clear-date {
+  background: #4b5563;
+  color: #ffffff;
+}
+
+html[data-theme="dark"] .btn-clear-date:hover {
+  background: #374151;
+}
 
 /* Mobile card layout - hidden by default */
 .tickets-cards {
@@ -804,16 +856,25 @@ body {
 }
 
 .modal-actions {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  padding: 20px 24px;
-  border-top: 1px solid #eee;
-  background-color: white;
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--border);
+  background-color: var(--white);
   position: sticky;
   bottom: 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  width: 100%;
+}
+
+.action-buttons-group {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .modal-content.large {
@@ -832,7 +893,7 @@ body {
 .modal-content.large .form-actions {
   position: sticky;
   bottom: 0;
-  background: white;
+  background: var(--white);
   padding: 16px 24px;
   border-top: 1px solid var(--border);
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
@@ -851,7 +912,8 @@ body {
   align-items: center;
   position: sticky;
   top: 0;
-  background-color: white;
+  background-color: var(--white);
+  width: 100%;
 }
 
 .modal-header h2 {
@@ -962,6 +1024,41 @@ body {
 .form-group:nth-child(4) {
   background: rgba(168, 85, 247, 0.05);
   border-color: rgba(168, 85, 247, 0.2);
+}
+
+/* Update Modal: remove small containers around each field */
+.modal-content.large .form-section .form-group {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.modal-content.large .form-section .form-group:nth-child(1),
+.modal-content.large .form-section .form-group:nth-child(2),
+.modal-content.large .form-section .form-group:nth-child(3),
+.modal-content.large .form-section .form-group:nth-child(4) {
+  background: transparent;
+  border: 0;
+}
+html[data-theme="dark"] .modal-content.large .form-section .form-group,
+html[data-theme="dark"]
+  .modal-content.large
+  .form-section
+  .form-group:nth-child(1),
+html[data-theme="dark"]
+  .modal-content.large
+  .form-section
+  .form-group:nth-child(2),
+html[data-theme="dark"]
+  .modal-content.large
+  .form-section
+  .form-group:nth-child(3),
+html[data-theme="dark"]
+  .modal-content.large
+  .form-section
+  .form-group:nth-child(4) {
+  background: transparent;
+  border: 0;
 }
 
 /* Responsive */
@@ -1352,6 +1449,11 @@ textarea.form-control {
   background: #f8fafc;
   border-radius: 8px;
   border-left: 4px solid #3b82f6;
+}
+
+html[data-theme="dark"] .modal-content.large .form-section {
+  background: var(--surface);
+  border-left-color: var(--border);
 }
 
 .form-section h4 {

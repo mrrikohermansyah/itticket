@@ -20,7 +20,7 @@
   max-width: 440px;
   border: none;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   animation: fadeInUp 0.4s ease-out;
 }
 
@@ -33,7 +33,6 @@
   height: 4px;
   background: var(--primary);
 }
-
 html[data-theme="dark"] .login-container {
   background: #1a1f27;
   border: none;
@@ -143,7 +142,6 @@ html[data-theme="dark"] .form-group input::placeholder {
 
 .btn-login:hover {
   background: #d40609;
-  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 7, 10, 0.3);
 }
 
@@ -160,7 +158,7 @@ html[data-theme="dark"] .login-logo {
 }
 
 .btn-login:active {
-  transform: translateY(0);
+  transform: none;
 }
 
 .btn-login:disabled {

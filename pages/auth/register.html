@@ -30,9 +30,6 @@
         <img src="../../assets/images/meitech-logo.png" alt="Company Logo" />
         <h2>User Registration</h2>
         <p>IT Support Ticketing System</p>
-        <button id="themeToggleBtn" class="theme-toggle theme-floating" style="margin-top: 0.75rem;">
-          <i class="fas fa-moon"></i>
-        </button>
       </div>
 
       <form id="registerForm" class="auth-form">
@@ -41,7 +38,10 @@
           <div class="form-group">
             <label for="employee_id">Employee ID *</label>
             <input type="text" id="employee_id" name="employee_id" required placeholder="xxxx-xx-xxxx" />
-          </div>
+    </div>
+    <button id="themeToggleBtn" class="theme-toggle theme-floating" style="position: fixed; right: 1rem; bottom: 1rem; z-index: 1000;">
+      <i class="fas fa-moon"></i>
+    </button>
           <div class="form-group">
             <label for="full_name">Full Name *</label>
             <input type="text" id="full_name" name="full_name" required placeholder="Your full name" />
@@ -151,8 +151,8 @@
         </div>
         </div>
         
-        <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-        <script type="module" src="../../assets/js/pages/auth.js"></script>
-        </body>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+  <script type="module" src="../../assets/js/pages/auth.js"></script>
+</body>
         
         </html>

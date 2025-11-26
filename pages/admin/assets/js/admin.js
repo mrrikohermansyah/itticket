@@ -368,16 +368,16 @@ class AdminDashboard {
             const style = document.createElement('style');
             style.id = 'swal-theme';
             style.textContent = `
-                .swal2-popup { border-radius: 16px !important; padding: 1.5rem !important; background: #ffffff !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(640px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
-                .swal2-title { color: #111827 !important; font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: .2px !important; }
-                .swal2-html-container { color: #374151 !important; font-size: .95rem !important; line-height: 1.6 !important; text-align: left !important; }
+                .swal2-popup { border-radius: 16px !important; padding: 1.5rem !important; background: var(--white) !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(640px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
+                .swal2-title { color: var(--black) !important; font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: .2px !important; }
+                .swal2-html-container { color: var(--gray-600) !important; font-size: .95rem !important; line-height: 1.6 !important; text-align: left !important; }
                 .swal2-html-container.swal-center { text-align: center !important; }
                 .swal2-actions { gap: .5rem !important; }
                 .swal2-confirm { background-color: #10b981 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
                 .swal2-cancel, .swal2-deny { background-color: #6b7280 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
                 .swal2-confirm:hover { filter: brightness(0.95) !important; }
                 .swal2-cancel:hover, .swal2-deny:hover { filter: brightness(0.9) !important; }
-                .swal2-modal .swal2-input, .swal2-modal .swal2-textarea, .swal2-select { border: 1px solid #e5e7eb !important; border-radius: 10px !important; padding: .55rem .75rem !important; }
+                .swal2-modal .swal2-input, .swal2-modal .swal2-textarea, .swal2-select { border: 1px solid var(--gray-200) !important; border-radius: 10px !important; padding: .55rem .75rem !important; }
                 .swal2-icon.swal2-success { border-color: #10b981 !important; }
                 .swal2-icon.swal2-success [class^=swal2-success-line] { background-color: #10b981 !important; }
                 .swal2-icon.swal2-success .swal2-success-ring { border-color: rgba(16,185,129,0.25) !important; }
@@ -1110,6 +1110,7 @@ class AdminDashboard {
                     activity: d.assignment_activity || d.activity || '',
                     location: d.assignment_location || d.location || '',
                     scope: d.assignment_scope || d.scope || 'single',
+                    priority: d.priority || 'Medium',
                     created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
                     created_by_name: d.created_by_name || d.created_by_email || '',
                     target_uid: d.target_admin_uid || null,
@@ -1151,6 +1152,7 @@ class AdminDashboard {
                             activity: d.assignment_activity || d.activity || '',
                             location: d.assignment_location || d.location || '',
                             scope: d.assignment_scope || d.scope || 'single',
+                            priority: d.priority || 'Medium',
                             created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
                             created_by_name: d.created_by_name || d.created_by_email || '',
                             subject: d.assignment_subject || d.subject || '',
@@ -1168,6 +1170,7 @@ class AdminDashboard {
                             activity: d.assignment_activity || d.activity || '',
                             location: d.assignment_location || d.location || '',
                             scope: d.assignment_scope || d.scope || 'single',
+                            priority: d.priority || 'Medium',
                             created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
                             created_by_name: d.created_by_name || d.created_by_email || '',
                             subject: d.assignment_subject || d.subject || '',
@@ -1186,6 +1189,7 @@ class AdminDashboard {
                             activity: d.assignment_activity || d.activity || '',
                             location: d.assignment_location || d.location || '',
                             scope: d.assignment_scope || d.scope || 'all',
+                            priority: d.priority || 'Medium',
                             created_at: d.created_at?.toDate ? d.created_at.toDate() : null,
                             created_by_name: d.created_by_name || d.created_by_email || '',
                             subject: d.assignment_subject || d.subject || '',
@@ -1230,7 +1234,10 @@ class AdminDashboard {
                     <div class="ticket-content">
                         <div class="ticket-header">
                             <div class="ticket-code">${a.activity}</div>
-                            <div class="ticket-priority">${a.scope === 'all' ? 'All IT' : 'You'}</div>
+                            <div class="ticket-priority">
+                                ${a.scope === 'all' ? 'All IT' : 'You'}
+                                <span class="priority-badge priority-${(a.priority||'Medium').toLowerCase()}">${a.priority||'Medium'}</span>
+                            </div>
                         </div>
                         <h4 class="ticket-subject">Location: ${a.location}</h4>
                         ${subject ? `<div class="ticket-meta"><strong>Subject:</strong> ${subject}</div>` : ''}
@@ -2311,11 +2318,23 @@ class AdminDashboard {
             const modalHTML = this.getTicketModalHTML(ticket, assignedAdmins, permissions, userDisplay);
 
             modalBody.style.opacity = '0.7';
-            setTimeout(() => {
-                modalBody.innerHTML = modalHTML;
-                modalBody.style.opacity = '1';
-                this.addRealTimeIndicator(modalBody);
-            }, 150);
+        setTimeout(() => {
+            modalBody.innerHTML = modalHTML;
+            modalBody.style.opacity = '1';
+            const modalContent = modalBody.closest('.modal-content');
+            if (modalContent) {
+                const actionsHTML = this.getTicketActionsHTML(ticket, permissions);
+                const existing = modalContent.querySelector('.modal-actions');
+                if (existing) {
+                    existing.outerHTML = actionsHTML;
+                } else {
+                    const temp = document.createElement('div');
+                    temp.innerHTML = actionsHTML;
+                    modalContent.appendChild(temp.firstElementChild);
+                }
+            }
+            this.addRealTimeIndicator(modalBody);
+        }, 150);
 
         } catch (error) {
             console.error('❌ Error rendering modal content:', error);
@@ -2540,14 +2559,19 @@ class AdminDashboard {
                 </div>
             </div>
 
-            <!-- Action Buttons -->
+            
+        </div>
+    `;
+    }
+
+    getTicketActionsHTML(ticket, permissions) {
+        return `
             <div class="modal-actions">
                 ${permissions.canUpdate ? `
                     <button class="btn-primary" onclick="adminDashboard.showUpdateFormModal('${ticket.id}')">
                         <i class="fas fa-edit"></i> Update Ticket
                     </button>
                 ` : ''}
-                
                 <div class="action-buttons-group">
                     ${ticket.status === 'Open' && permissions.canStart ? `
                         <button class="btn-action btn-edit" onclick="adminDashboard.updateTicketStatus('${ticket.id}', 'In Progress')">
@@ -2570,13 +2594,11 @@ class AdminDashboard {
                         </button>
                     ` : ''}
                 </div>
-                
                 <button class="btn-secondary" onclick="adminDashboard.closeTicketModal()">
                     <i class="fas fa-times"></i> Close
                 </button>
             </div>
-        </div>
-    `;
+        `;
     }
 
     // ✅ METHOD UNTUK ERROR MODAL YANG HILANG
@@ -3208,123 +3230,124 @@ class AdminDashboard {
                 </div>
                 <div class="modal-body">
                     <form id="updateTicketForm">
-                        <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <!-- BASIC TICKET INFO -->
-                            <div class="form-group">
-                                <label for="updateSubject">Subject *</label>
-                                <input type="text" id="updateSubject" class="form-control" value="${this.escapeHtml(ticket.subject)}" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="updatePriority">Priority *</label>
-                                <select id="updatePriority" class="form-control" required>
-                                    <option value="">Select Priority</option>
-                                    <option value="Low" ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
-                                    <option value="Medium" ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
-                                    <option value="High" ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
-                                    <option value="Critical" ${ticket.priority === 'Critical' ? 'selected' : ''}>Critical</option>
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="updateStatus">Status *</label>
-                                <select id="updateStatus" class="form-control" required>
-                                    <option value="">Select Status</option>
-                                    <option value="Open" ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
-                                    <option value="In Progress" ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
-                                    <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="updateInventory">Inventory Code</label>
-                                <input type="text" id="updateInventory" class="form-control" value="${this.escapeHtml(ticket.inventory || '')}" placeholder="e.g., IT-001, LAP-002">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="updateDevice">Device Type</label>
-                                <select id="updateDevice" class="form-control">
-                                    <option value="">Select Device</option>
-                                    <option value="PC Hardware" ${ticket.device === 'PC Hardware' ? 'selected' : ''}>PC Hardware</option>
-                                    <option value="PC Software" ${ticket.device === 'PC Software' ? 'selected' : ''}>PC Software</option>
-                                    <option value="Laptop" ${ticket.device === 'Laptop' ? 'selected' : ''}>Laptop</option>
-                                    <option value="Printer" ${ticket.device === 'Printer' ? 'selected' : ''}>Printer</option>
-                                    <option value="Network" ${ticket.device === 'Network' ? 'selected' : ''}>Network</option>
-                                    <option value="Projector" ${ticket.device === 'Projector' ? 'selected' : ''}>Projector</option>
-                                    <option value="Backup Data" ${ticket.device === 'Backup Data' ? 'selected' : ''}>Backup Data</option>
-                                    <option value="Others" ${ticket.device === 'Others' ? 'selected' : ''}>Others</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="updateActivity">Activity</label>
-                                <select id="updateActivity" class="form-control">
-                                    <option value="">Select Activity</option>
-                                    <option value="Weekly Safety Talk" ${(ticket.assignment_activity || ticket.activity) === 'Weekly Safety Talk' ? 'selected' : ''}>Weekly Safety Talk</option>
-                                    <option value="Ceremony Sail Away" ${(ticket.assignment_activity || ticket.activity) === 'Ceremony Sail Away' ? 'selected' : ''}>Ceremony Sail Away</option>
-                                    <option value="Deliver" ${(ticket.assignment_activity || ticket.activity) === 'Deliver' ? 'selected' : ''}>Deliver</option>
-                                    <option value="Software Install" ${(ticket.assignment_activity || ticket.activity) === 'Software Install' ? 'selected' : ''}>Software Install</option>
-                                    <option value="Setup Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Setup Meeting' ? 'selected' : ''}>Setup Meeting</option>
-                                    <option value="Drone Update Area" ${(ticket.assignment_activity || ticket.activity) === 'Drone Update Area' ? 'selected' : ''}>Drone Update Area</option>
-                                    <option value="Drone Lifting" ${(ticket.assignment_activity || ticket.activity) === 'Drone Lifting' ? 'selected' : ''}>Drone Lifting</option>
-                                    <option value="Stand By Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Meeting' ? 'selected' : ''}>Stand By Meeting</option>
-                                    <option value="Stand By Sunday" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Sunday' ? 'selected' : ''}>Stand By Sunday</option>
-                                    <option value="Other" ${(ticket.assignment_activity || ticket.activity) === 'Other' ? 'selected' : ''}>Other</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="updateLocation">Location *</label>
-                                <select id="updateLocation" class="form-control" required>
-                                    <option value="">Select Location</option>
-                                    <option value="Blue Office" ${ticket.location === 'Blue Office' ? 'selected' : ''}>Blue Office</option>
-                                    <option value="Clinic" ${ticket.location === 'Clinic' ? 'selected' : ''}>Clinic</option>
-                                    <option value="Control Room" ${ticket.location === 'Control Room' ? 'selected' : ''}>Control Room</option>
-                                    <option value="Dark Room" ${ticket.location === 'Dark Room' ? 'selected' : ''}>Dark Room</option>
-                                    <option value="Green Office" ${ticket.location === 'Green Office' ? 'selected' : ''}>Green Office</option>
-                                    <option value="HRD" ${ticket.location === 'HRD' ? 'selected' : ''}>HR Department</option>
-                                    <option value="HSE Yard" ${ticket.location === 'HSE Yard' ? 'selected' : ''}>HSE Yard</option>
-                                    <option value="IT Server" ${ticket.location === 'IT Server' ? 'selected' : ''}>IT Server</option>
-                                    <option value="IT Store" ${ticket.location === 'IT Store' ? 'selected' : ''}>IT Store</option>
-                                    <option value="Multi Purposes Building" ${ticket.location === 'Multi Purposes Building' ? 'selected' : ''}>Multi Purposes Building</option>
-                                    <option value="Red Office" ${ticket.location === 'Red Office' ? 'selected' : ''}>Red Office</option>
-                                    <option value="Security" ${ticket.location === 'Security' ? 'selected' : ''}>Security</option>
-                                    <option value="Store 1" ${ticket.location === 'Store1' ? 'selected' : ''}>Store 1</option>
-                                    <option value="Store 2" ${ticket.location === 'Store2' ? 'selected' : ''}>Store 2</option>
-                                    <option value="Store 3" ${ticket.location === 'Store3' ? 'selected' : ''}>Store 3</option>
-                                    <option value="Store 4" ${ticket.location === 'Store4' ? 'selected' : ''}>Store 4</option>
-                                    <option value="Store 5" ${ticket.location === 'Store5' ? 'selected' : ''}>Store 5</option>
-                                    <option value="Store 6" ${ticket.location === 'Store6' ? 'selected' : ''}>Store 6</option>
-                                    <option value="Warehouse" ${ticket.location === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
-                                    <option value="White Office" ${ticket.location === 'White Office' ? 'selected' : ''}>White Office</option>
-                                    <option value="White Office 2nd Fl" ${ticket.location === 'White Office 2nd Fl' ? 'selected' : ''}>White Office 2nd Floor</option>
-                                    <option value="White Office 3rd Fl" ${ticket.location === 'White Office 3rd Fl' ? 'selected' : ''}>White Office 3rd Floor</option>
-                                    <option value="Welding School" ${ticket.location === 'Welding School' ? 'selected' : ''}>Welding School</option>
-                                    <option value="Workshop9" ${ticket.location === 'Workshop9' ? 'selected' : ''}>Workshop 9</option>
-                                    <option value="Workshop10" ${ticket.location === 'Workshop10' ? 'selected' : ''}>Workshop 10</option>
-                                    <option value="Workshop11" ${ticket.location === 'Workshop11' ? 'selected' : ''}>Workshop 11</option>
-                                    <option value="Workshop12" ${ticket.location === 'Workshop12' ? 'selected' : ''}>Workshop 12</option>
-                                    <option value="Yard" ${ticket.location === 'Yard' ? 'selected' : ''}>Yard</option>
-                                    <option value="Rest Area" ${ticket.location === 'Rest Area' ? 'selected' : ''}>Rest Area</option>
-                                    <option value="Lainlain" ${ticket.location === 'Lainlain' ? 'selected' : ''}>Other Location</option>
-                                </select>
+                        <div class="form-section">
+                            <h4 style="margin-bottom: 1rem;"><i class="fas fa-edit"></i> Ticket Details</h4>
+                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 0.75rem;">
+                                <div class="form-group">
+                                    <label for="updateSubject">Subject *</label>
+                                    <input type="text" id="updateSubject" class="form-control" value="${this.escapeHtml(ticket.subject)}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updatePriority">Priority *</label>
+                                    <select id="updatePriority" class="form-control" required>
+                                        <option value="">Select Priority</option>
+                                        <option value="Low" ${ticket.priority === 'Low' ? 'selected' : ''}>Low</option>
+                                        <option value="Medium" ${ticket.priority === 'Medium' ? 'selected' : ''}>Medium</option>
+                                        <option value="High" ${ticket.priority === 'High' ? 'selected' : ''}>High</option>
+                                        <option value="Critical" ${ticket.priority === 'Critical' ? 'selected' : ''}>Critical</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateStatus">Status *</label>
+                                    <select id="updateStatus" class="form-control" required>
+                                        <option value="">Select Status</option>
+                                        <option value="Open" ${ticket.status === 'Open' ? 'selected' : ''}>Open</option>
+                                        <option value="In Progress" ${ticket.status === 'In Progress' ? 'selected' : ''}>In Progress</option>
+                                        <option value="Resolved" ${ticket.status === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateInventory">Inventory Code</label>
+                                    <input type="text" id="updateInventory" class="form-control" value="${this.escapeHtml(ticket.inventory || '')}" placeholder="e.g., IT-001, LAP-002">
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateDevice">Device Type</label>
+                                    <select id="updateDevice" class="form-control">
+                                        <option value="">Select Device</option>
+                                        <option value="PC Hardware" ${ticket.device === 'PC Hardware' ? 'selected' : ''}>PC Hardware</option>
+                                        <option value="PC Software" ${ticket.device === 'PC Software' ? 'selected' : ''}>PC Software</option>
+                                        <option value="Laptop" ${ticket.device === 'Laptop' ? 'selected' : ''}>Laptop</option>
+                                        <option value="Printer" ${ticket.device === 'Printer' ? 'selected' : ''}>Printer</option>
+                                        <option value="Network" ${ticket.device === 'Network' ? 'selected' : ''}>Network</option>
+                                        <option value="Projector" ${ticket.device === 'Projector' ? 'selected' : ''}>Projector</option>
+                                        <option value="Backup Data" ${ticket.device === 'Backup Data' ? 'selected' : ''}>Backup Data</option>
+                                        <option value="Others" ${ticket.device === 'Others' ? 'selected' : ''}>Others</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateActivity">Activity</label>
+                                    <select id="updateActivity" class="form-control">
+                                        <option value="">Select Activity</option>
+                                        <option value="Weekly Safety Talk" ${(ticket.assignment_activity || ticket.activity) === 'Weekly Safety Talk' ? 'selected' : ''}>Weekly Safety Talk</option>
+                                        <option value="Ceremony Sail Away" ${(ticket.assignment_activity || ticket.activity) === 'Ceremony Sail Away' ? 'selected' : ''}>Ceremony Sail Away</option>
+                                        <option value="Deliver" ${(ticket.assignment_activity || ticket.activity) === 'Deliver' ? 'selected' : ''}>Deliver</option>
+                                        <option value="Software Install" ${(ticket.assignment_activity || ticket.activity) === 'Software Install' ? 'selected' : ''}>Software Install</option>
+                                        <option value="Setup Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Setup Meeting' ? 'selected' : ''}>Setup Meeting</option>
+                                        <option value="Drone Update Area" ${(ticket.assignment_activity || ticket.activity) === 'Drone Update Area' ? 'selected' : ''}>Drone Update Area</option>
+                                        <option value="Drone Lifting" ${(ticket.assignment_activity || ticket.activity) === 'Drone Lifting' ? 'selected' : ''}>Drone Lifting</option>
+                                        <option value="Stand By Meeting" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Meeting' ? 'selected' : ''}>Stand By Meeting</option>
+                                        <option value="Stand By Sunday" ${(ticket.assignment_activity || ticket.activity) === 'Stand By Sunday' ? 'selected' : ''}>Stand By Sunday</option>
+                                        <option value="Back Up Data" ${(ticket.assignment_activity || ticket.activity) === 'Back Up Data' ? 'selected' : ''}>Back Up Data</option>
+                                        <option value="Connect Share Folder" ${(ticket.assignment_activity || ticket.activity) === 'Connect Share Folder' ? 'selected' : ''}>Connect Share Folder</option>
+                                        <option value="Software Config" ${(ticket.assignment_activity || ticket.activity) === 'Software Config' ? 'selected' : ''}>Software Config</option>
+                                        <option value="Install IT Standard Apps" ${(ticket.assignment_activity || ticket.activity) === 'Install IT Standard Apps' ? 'selected' : ''}>Install IT Standard Apps</option>
+                                        <option value="Reinstall Windows" ${(ticket.assignment_activity || ticket.activity) === 'Reinstall Windows' ? 'selected' : ''}>Reinstall Windows</option>
+                                        <option value="Other" ${(ticket.assignment_activity || ticket.activity) === 'Other' ? 'selected' : ''}>Other</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="updateLocation">Location *</label>
+                                    <select id="updateLocation" class="form-control" required>
+                                        <option value="">Select Location</option>
+                                        <option value="Blue Office" ${ticket.location === 'Blue Office' ? 'selected' : ''}>Blue Office</option>
+                                        <option value="Clinic" ${ticket.location === 'Clinic' ? 'selected' : ''}>Clinic</option>
+                                        <option value="Control Room" ${ticket.location === 'Control Room' ? 'selected' : ''}>Control Room</option>
+                                        <option value="Dark Room" ${ticket.location === 'Dark Room' ? 'selected' : ''}>Dark Room</option>
+                                        <option value="Green Office" ${ticket.location === 'Green Office' ? 'selected' : ''}>Green Office</option>
+                                        <option value="HRD" ${ticket.location === 'HRD' ? 'selected' : ''}>HR Department</option>
+                                        <option value="HSE Yard" ${ticket.location === 'HSE Yard' ? 'selected' : ''}>HSE Yard</option>
+                                        <option value="IT Server" ${ticket.location === 'IT Server' ? 'selected' : ''}>IT Server</option>
+                                        <option value="IT Store" ${ticket.location === 'IT Store' ? 'selected' : ''}>IT Store</option>
+                                        <option value="Multi Purposes Building" ${ticket.location === 'Multi Purposes Building' ? 'selected' : ''}>Multi Purposes Building</option>
+                                        <option value="Red Office" ${ticket.location === 'Red Office' ? 'selected' : ''}>Red Office</option>
+                                        <option value="Security" ${ticket.location === 'Security' ? 'selected' : ''}>Security</option>
+                                        <option value="Store 1" ${ticket.location === 'Store1' ? 'selected' : ''}>Store 1</option>
+                                        <option value="Store 2" ${ticket.location === 'Store2' ? 'selected' : ''}>Store 2</option>
+                                        <option value="Store 3" ${ticket.location === 'Store3' ? 'selected' : ''}>Store 3</option>
+                                        <option value="Store 4" ${ticket.location === 'Store4' ? 'selected' : ''}>Store 4</option>
+                                        <option value="Store 5" ${ticket.location === 'Store5' ? 'selected' : ''}>Store 5</option>
+                                        <option value="Store 6" ${ticket.location === 'Store6' ? 'selected' : ''}>Store 6</option>
+                                        <option value="Warehouse" ${ticket.location === 'Warehouse' ? 'selected' : ''}>Warehouse</option>
+                                        <option value="White Office" ${ticket.location === 'White Office' ? 'selected' : ''}>White Office</option>
+                                        <option value="White Office 2nd Fl" ${ticket.location === 'White Office 2nd Fl' ? 'selected' : ''}>White Office 2nd Floor</option>
+                                        <option value="White Office 3rd Fl" ${ticket.location === 'White Office 3rd Fl' ? 'selected' : ''}>White Office 3rd Floor</option>
+                                        <option value="Welding School" ${ticket.location === 'Welding School' ? 'selected' : ''}>Welding School</option>
+                                        <option value="Workshop9" ${ticket.location === 'Workshop9' ? 'selected' : ''}>Workshop 9</option>
+                                        <option value="Workshop10" ${ticket.location === 'Workshop10' ? 'selected' : ''}>Workshop 10</option>
+                                        <option value="Workshop11" ${ticket.location === 'Workshop11' ? 'selected' : ''}>Workshop 11</option>
+                                        <option value="Workshop12" ${ticket.location === 'Workshop12' ? 'selected' : ''}>Workshop 12</option>
+                                        <option value="Yard" ${ticket.location === 'Yard' ? 'selected' : ''}>Yard</option>
+                                        <option value="Rest Area" ${ticket.location === 'Rest Area' ? 'selected' : ''}>Rest Area</option>
+                                        <option value="Lainlain" ${ticket.location === 'Lainlain' ? 'selected' : ''}>Other Location</option>
+                                    </select>
+                                </div>
+                                <div class="form-group" style="margin-top: 1rem;">
+                                    <label for="updateAdminNotes">Admin Notes</label>
+                                    <textarea id="updateAdminNotes" class="form-control" rows="3" placeholder="Admin notes...">${this.escapeHtml(ticket.note || '')}</textarea>
+                                </div>
                             </div>
                         </div>
-
-                        <!-- USER INFO SECTION -->
-                        <div class="form-section" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee;">
+                        <div class="form-section" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
                             <h4 style="margin-bottom: 1rem;"><i class="fas fa-user"></i> User Information</h4>
-                            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1rem;">
+                            <div class="form-grid" style="grid-template-columns: 1fr; gap: 0.75rem;">
                                 <div class="form-group">
                                     <label for="updateUserName">User Name *</label>
                                     <input type="text" id="updateUserName" class="form-control" value="${this.escapeHtml(userDisplay.name)}" ${isSuperAdmin ? '' : 'disabled'} required>
                                 </div>
-                                
                                 <div class="form-group">
                                     <label for="updateUserEmail">User Email *</label>
                                     <input type="email" id="updateUserEmail" class="form-control" value="${this.escapeHtml(userDisplay.email || '')}" ${isSuperAdmin ? '' : 'disabled'} required>
                                 </div>
-                                
                                 <div class="form-group">
                                     <label for="updateUserDepartment">Department *</label>
                                     <select id="updateUserDepartment" class="form-control" ${isSuperAdmin ? '' : 'disabled'} required>
@@ -3352,28 +3375,22 @@ class AdminDashboard {
                                         <option value="Lainlain" ${userDisplay.department === 'Lainlain' ? 'selected' : ''}>Other Department</option>
                                     </select>
                                 </div>
-
                                 <div class="form-group">
                                     <label for="updateUserPhone">Phone</label>
                                     <input type="text" id="updateUserPhone" class="form-control" value="${this.escapeHtml(userDisplay.phone || ticket.user_phone || '')}" ${isSuperAdmin ? '' : 'disabled'} placeholder="Phone number">
-            </div>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="form-group" style="margin-top: 1rem;">
-                            <label for="updateAdminNotes">Admin Notes</label>
-                            <textarea id="updateAdminNotes" class="form-control" rows="3" placeholder="Admin notes...">${this.escapeHtml(ticket.note || '')}</textarea>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
-                                <i class="fas fa-times"></i> Cancel
-                            </button>
-                            <button type="submit" class="btn-primary">
-                                <i class="fas fa-save"></i> Update Ticket
-                            </button>
-                        </div>
                     </form>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="button" class="btn-primary" onclick="document.getElementById('updateTicketForm')?.requestSubmit()">
+                        <i class="fas fa-save"></i> Update Ticket
+                    </button>
                 </div>
             </div>
         `;

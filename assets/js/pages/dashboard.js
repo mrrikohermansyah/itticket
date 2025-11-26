@@ -898,6 +898,7 @@ class Dashboard {
       const memberEmail = selectedOpt ? (selectedOpt.dataset.email || '') : '';
       const activity = document.getElementById('assignment_activity')?.value || '';
       const location = document.getElementById('assignment_location')?.value || '';
+      const priority = document.getElementById('assignment_priority')?.value || 'Medium';
       const assignmentSubject = document.getElementById('assignment_subject')?.value?.trim() || '';
       const assignmentMessage = document.getElementById('assignment_message')?.value?.trim() || '';
 
@@ -929,6 +930,7 @@ class Dashboard {
           scope,
           activity,
           location,
+          priority,
           subject: assignmentSubject || `Assignment: ${activity}`,
           message: assignmentMessage || `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
           target_admin_uid: targetAdmin?.uid || null,
@@ -948,7 +950,7 @@ class Dashboard {
           location: location,
           inventory: '',
           device: 'Others',
-          priority: 'Medium',
+          priority: priority || 'Medium',
           user_id: this.currentUser.id,
           user_name: this.currentUser.full_name || '',
           user_email: this.currentUser.email || '',

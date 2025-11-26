@@ -200,12 +200,11 @@ html[data-theme="dark"] .btn-auth {
 }
 
 .btn-auth:hover {
-  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 7, 10, 0.25);
 }
 
 .btn-auth:active {
-  transform: translateY(0);
+  transform: none;
 }
 
 .btn-auth:disabled {

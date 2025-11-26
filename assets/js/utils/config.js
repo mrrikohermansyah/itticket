@@ -158,6 +158,10 @@ if (typeof module !== "undefined" && module.exports) {
     function setRootTheme(t) {
       document.documentElement.setAttribute('data-theme', t);
       localStorage.setItem('theme', t);
+      var meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) {
+        meta.setAttribute('content', t === 'dark' ? '#151a20' : '#ffffff');
+      }
     }
     function updateToggleButton(t) {
       var btn = document.getElementById('themeToggleBtn');
@@ -169,15 +173,20 @@ if (typeof module !== "undefined" && module.exports) {
     setRootTheme(current);
     document.addEventListener('DOMContentLoaded', function() {
       var currentTheme = document.documentElement.getAttribute('data-theme') || current;
-      updateToggleButton(currentTheme);
       var btn = document.getElementById('themeToggleBtn');
-      if (btn) {
-        btn.addEventListener('click', function() {
-          var next = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
-          setRootTheme(next);
-          updateToggleButton(next);
-        });
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.id = 'themeToggleBtn';
+        btn.className = 'theme-toggle theme-floating';
+        btn.setAttribute('type', 'button');
+        document.body.appendChild(btn);
       }
+      updateToggleButton(currentTheme);
+      btn.addEventListener('click', function() {
+        var next = (document.documentElement.getAttribute('data-theme') === 'dark') ? 'light' : 'dark';
+        setRootTheme(next);
+        updateToggleButton(next);
+      });
     });
   })();
 }

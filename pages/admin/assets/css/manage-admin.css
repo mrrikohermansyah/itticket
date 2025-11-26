@@ -46,6 +46,59 @@ html[data-theme="dark"] .team-member-card {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
 
+html[data-theme="dark"] .form-section,
+html[data-theme="dark"] .team-section {
+  background: #1a1f27;
+  border: 1px solid var(--gray-300);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="dark"] .section-header {
+  background-color: #151a20;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+html[data-theme="dark"] .ticket-form {
+  background-color: #1a1f27;
+  border: 1px solid var(--gray-300);
+}
+
+html[data-theme="dark"] .team-member-role,
+html[data-theme="dark"] .member-role {
+  background: rgba(239, 7, 10, 0.12);
+  color: var(--primary);
+  border: 1px solid rgba(239, 7, 10, 0.3);
+}
+
+html[data-theme="dark"] .specialization-tag {
+  background-color: #1f2530;
+  color: var(--gray-700);
+  border: 1px solid var(--gray-300);
+}
+
+html[data-theme="dark"] .status-active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+html[data-theme="dark"] .status-inactive {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+html[data-theme="dark"] .info-banner {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 480px) {
+  html[data-theme="dark"] .header-content {
+    background: #1a1f27;
+    border-color: var(--gray-300);
+  }
+}
+
 /* ===== BASE STYLES ===== */
 * {
   margin: 0;

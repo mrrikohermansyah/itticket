@@ -9,6 +9,8 @@
   --gray-400: #a1a1aa;
   --gray-600: #52525b;
   --gray-900: #18181b;
+  --scroll-track: #f4f4f5;
+  --scroll-thumb: #b0b6c0;
 }
 
 html[data-theme="dark"] {
@@ -21,6 +23,8 @@ html[data-theme="dark"] {
   --gray-400: #8b90a2;
   --gray-600: #b8bcc9;
   --gray-900: #e6e7eb;
+  --scroll-track: #0f1115;
+  --scroll-thumb: #2a2f3a;
 }
 html.dark {
   --white: #0f1115;
@@ -38,6 +42,10 @@ html[data-theme="dark"] .btn-primary {
   --white: #f5f6f7;
 }
 
+html[data-theme="dark"] .logo {
+  filter: brightness(0) saturate(100%) invert(1);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -51,8 +59,31 @@ body {
   background: var(--white);
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--scroll-thumb);
+  border-radius: 8px;
+  border: 3px solid var(--scroll-track);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--scroll-track);
+}
+
 .theme-toggle {
-  position: fixed;
   display: inline-flex;
   align-items: center;
   justify-content: center;

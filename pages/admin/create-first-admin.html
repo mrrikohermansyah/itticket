@@ -7,80 +7,83 @@
     <title>Create First Admin</title>
     <script src="../../assets/js/utils/config.js"></script>
     <link rel="stylesheet" href="../../assets/css/base/styles.css">
-    <link rel="stylesheet" href="assets/css/create-first-admin.css">
+    <link rel="stylesheet" href="../../assets/css/pages/auth.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
 </head>
 
-<body>
-    <div class="admin-setup">
-        <div class="setup-header">
-            <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="setup-logo">
-            <h2>Create First Administrator</h2>
-            <p>Setup the initial admin account for IT Support System</p>
-            <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="margin-top: 0.75rem;" onclick="toggleTheme()">
-                <i class="fas fa-moon"></i>
-            </button>
+<body class="auth-body">
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo-container">
+        <img src="../../assets/images/meitech-logo.png" alt="Meitech" />
+        <h2>Create First Administrator</h2>
+        <p>Setup the initial admin account for IT Support System</p>
+      </div>
+
+      <form id="setupAdminForm" class="auth-form" method="post">
+        <div class="form-group">
+          <label for="name">Full Name *</label>
+          <input type="text" id="name" name="name" required placeholder="System Administrator" />
         </div>
 
-        <!-- ✅ UBAH METHOD MENJADI POST -->
-        <form id="setupAdminForm" class="setup-form" method="post">
-            <div class="form-group">
-                <label for="name">Full Name *</label>
-                <input type="text" id="name" name="name" required placeholder="System Administrator">
-            </div>
-
-            <div class="form-group">
-                <label for="email">Email *</label>
-                <input type="email" id="email" name="email" required placeholder="admin@meitech.com" autocomplete="off"
-                    autocorrect="off">
-            </div>
-
-            <div class="form-group">
-                <label for="password">Password *</label>
-                <input type="password" id="password" name="password" required minlength="6"
-                    placeholder="Minimum 6 characters">
-            </div>
-
-            <div class="form-group">
-                <label for="role">Administrator Role *</label>
-                <select id="role" name="role" required class="role-select">
-                    <option value="">Select Administrator Role</option>
-
-                    <!-- ✅ 4 ROLE IT YANG DIPERBARUI -->
-                    <optgroup label="IT Roles">
-                        <option value="Super Admin">Super Admin (Full Access)</option>
-                        <option value="IT Engineer">IT Engineer</option>
-                        <option value="IT Tech Support">IT Tech Support</option>
-                        <option value="IT Visual">IT Visual</option>
-                    </optgroup>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <label for="department">Department</label>
-                <input type="text" id="department" name="department" placeholder="IT Department">
-            </div>
-
-            <button type="submit" class="btn-primary">
-                <i class="fas fa-user-shield"></i>
-                Create Administrator Account
-            </button>
-        </form>
-
-        <div id="message" class="message-container"></div>
-
-        <div class="setup-footer">
-            <p><a href="login.html">Back to Admin Login</a></p>
-            <p><a href="../auth/login.html">User Login</a></p>
+        <div class="form-group">
+          <label for="email">Email *</label>
+          <input type="email" id="email" name="email" required placeholder="admin@meitech.com" autocomplete="off" autocorrect="off" />
         </div>
+
+        <div class="form-group">
+          <label for="password">Password *</label>
+          <input type="password" id="password" name="password" required minlength="6" placeholder="Minimum 6 characters" />
+        </div>
+
+        <div class="form-group">
+          <label for="role">Administrator Role *</label>
+          <select id="role" name="role" required>
+            <option value="">Select Administrator Role</option>
+            <optgroup label="IT Roles">
+              <option value="Super Admin">Super Admin (Full Access)</option>
+              <option value="IT Engineer">IT Engineer</option>
+              <option value="IT Tech Support">IT Tech Support</option>
+              <option value="IT Visual">IT Visual</option>
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="department">Department</label>
+          <input type="text" id="department" name="department" placeholder="IT Department" />
+        </div>
+
+        <div id="message" class="error-message" style="display: none;"></div>
+
+        <button type="submit" class="btn-auth" data-original-text="Create Administrator Account">
+          <i class="fas fa-user-shield"></i>
+          Create Administrator Account
+        </button>
+      </form>
+
+      <div class="auth-link">
+        <a href="login.html">Back to Admin Login</a>
+      </div>
+      <div class="auth-link" style="margin-top: 10px;">
+        <a href="../auth/login.html" style="color: #ef070a; font-weight: 500;">User Login</a>
+      </div>
     </div>
+  </div>
 
-    <!-- Load Font Awesome -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
+  <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="position: fixed; right: 1rem; bottom: 1rem; z-index: 1000;" onclick="toggleTheme()">
+    <i class="fas fa-moon"></i>
+  </button>
 
-    <!-- Load JavaScript -->
-    <script type="module" src="assets/js/create-first-admin.js"></script>
+  <!-- Load Font Awesome -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/js/all.min.js"></script>
+
+  <!-- Load JavaScript -->
+  <script type="module" src="assets/js/create-first-admin.js"></script>
     <script>
       (function() {
         const html = document.documentElement;

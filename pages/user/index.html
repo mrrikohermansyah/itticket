@@ -36,8 +36,9 @@
     <link rel="icon" type="image/png" sizes="16x16" href="imgs/meitech.png" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com; base-uri 'self'; form-action 'self'">
     <title>IT Support Ticketing System</title>
+    <script src="../../assets/js/utils/config.js"></script>
 
     <!-- Styles -->
     <link rel="stylesheet" href="../../assets/css/base/styles.css" />
@@ -78,7 +79,7 @@
         </div>
 
         <div class="logout-container">
-          <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="margin-right: 0.75rem;">
+          <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="position: fixed; right: 1rem; bottom: 1rem; z-index: 1000;">
             <i class="fas fa-moon"></i>
           </button>
           <div class="user-info">
