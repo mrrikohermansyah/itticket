@@ -368,7 +368,7 @@ class AdminDashboard {
             const style = document.createElement('style');
             style.id = 'swal-theme';
             style.textContent = `
-                .swal2-popup { border-radius: 16px !important; padding: 1.5rem !important; background: var(--white) !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(640px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
+                .swal2-popup { border-radius: 16px !important; padding: 1.25rem !important; background: var(--white) !important; box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important; width: min(600px, 92vw) !important; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important; }
                 .swal2-title { color: var(--black) !important; font-size: 1.25rem !important; font-weight: 600 !important; letter-spacing: .2px !important; }
                 .swal2-html-container { color: var(--gray-600) !important; font-size: .95rem !important; line-height: 1.6 !important; text-align: left !important; }
                 .swal2-html-container.swal-center { text-align: center !important; }
@@ -377,7 +377,8 @@ class AdminDashboard {
                 .swal2-cancel, .swal2-deny { background-color: #6b7280 !important; color: #ffffff !important; border-radius: 10px !important; padding: .6rem 1rem !important; font-weight: 600 !important; border: none !important; }
                 .swal2-confirm:hover { filter: brightness(0.95) !important; }
                 .swal2-cancel:hover, .swal2-deny:hover { filter: brightness(0.9) !important; }
-                .swal2-modal .swal2-input, .swal2-modal .swal2-textarea, .swal2-select { border: 1px solid var(--gray-200) !important; border-radius: 10px !important; padding: .55rem .75rem !important; }
+                .swal2-modal .swal2-input, .swal2-modal .swal2-textarea, .swal2-select { border: 1px solid var(--border) !important; border-radius: 10px !important; padding: .55rem .75rem !important; background: var(--surface) !important; color: var(--black) !important; }
+                .swal2-modal .swal2-input:focus, .swal2-modal .swal2-textarea:focus, .swal2-select:focus { outline: none !important; border-color: #10b981 !important; }
                 .swal2-icon.swal2-success { border-color: #10b981 !important; }
                 .swal2-icon.swal2-success [class^=swal2-success-line] { background-color: #10b981 !important; }
                 .swal2-icon.swal2-success .swal2-success-ring { border-color: rgba(16,185,129,0.25) !important; }
@@ -2064,35 +2065,33 @@ class AdminDashboard {
                             <p><strong>Current Status:</strong> ${this.escapeHtml(ticket.status)}</p>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="resolveNote">
-                                <i class="fas fa-sticky-note"></i> Resolution Notes *
-                            </label>
-                            <textarea 
-                                id="resolveNote" 
-                                class="swal2-textarea" 
-                                placeholder="Please describe the solution, steps taken, or reason for closure. This will be included in reports and is REQUIRED."
-                                rows="4"
-                                required
-                            >${ticket.note || ''}</textarea>
-                            <small>This note will be visible to the user and included in Excel reports</small>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="resolveStatus">
-                                <i class="fas fa-flag"></i> Final Status *
-                            </label>
-                            <select 
-                                id="resolveStatus" 
-                                class="swal2-select" 
-                                required
-                            >
-                                <option value="">Select Status</option>
-                                <option value="Resolved" selected>Resolved - Issue has been fixed</option>
-                                <option value="Closed">Closed - Ticket completed</option>
-                                <option value="Completed">Completed - Work finished</option>
-                            </select>
-                        </div>
+                        <label for="resolveNote">
+                            <i class="fas fa-sticky-note"></i> Resolution Notes *
+                        </label>
+                        <textarea 
+                            id="resolveNote" 
+                            class="swal2-textarea" 
+                            placeholder="Please describe the solution, steps taken, or reason for closure."
+                            rows="4"
+                            minlength="10"
+                            autocomplete="off"
+                            required
+                        >${ticket.note || ''}</textarea>
+                        <small>This note will be visible to the user and included in Excel reports</small>
+
+                        <label for="resolveStatus">
+                            <i class="fas fa-flag"></i> Final Status *
+                        </label>
+                        <select 
+                            id="resolveStatus" 
+                            class="swal2-select" 
+                            required
+                        >
+                            <option value="">Select Status</option>
+                            <option value="Resolved" selected>Resolved - Issue has been fixed</option>
+                            <option value="Closed">Closed - Ticket completed</option>
+                            <option value="Completed">Completed - Work finished</option>
+                        </select>
                     </div>
                 `,
                 showCancelButton: true,
@@ -2101,6 +2100,10 @@ class AdminDashboard {
                 confirmButtonColor: '#10b981',
                 cancelButtonColor: '#6b7280',
                 focusConfirm: false,
+                didOpen: () => {
+                    const el = document.getElementById('resolveNote');
+                    if (el) el.focus();
+                },
                 preConfirm: () => {
                     const note = document.getElementById('resolveNote').value.trim();
                     const status = document.getElementById('resolveStatus').value;
