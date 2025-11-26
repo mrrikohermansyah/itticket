@@ -2113,6 +2113,42 @@ html[data-theme="dark"] .modal-content.large .form-section {
   bottom: 4.5rem;
 }
 
+/* Floating bulk delete button */
+.bulk-delete-floating {
+  position: fixed;
+  right: 1rem;
+  bottom: 8rem;
+  z-index: 1000;
+  height: 44px;
+  width: 44px;
+  border-radius: 50%;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--danger);
+  color: var(--white);
+  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.08),
+    3px 3px 12px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.bulk-delete-floating:hover {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+html[data-theme="dark"] .bulk-delete-floating {
+  box-shadow: -3px -3px 8px rgba(255, 255, 255, 0.08),
+    3px 3px 12px rgba(0, 0, 0, 0.45);
+}
+@media (max-width: 480px) {
+  .bulk-delete-floating {
+    right: 0.75rem;
+    bottom: 7rem;
+    transform: scale(0.94);
+  }
+}
+
 .scroll-top-btn:hover {
   background: var(--primary-dark);
   transform: translateY(-1px);

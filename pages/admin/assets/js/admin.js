@@ -289,6 +289,7 @@ class AdminDashboard {
         this.tickets = [];
         this.assignments = [];
         this.filteredTickets = [];
+        this.selectedTickets = new Set();
         this.currentFilters = {
             status: 'all',
             priority: 'all',
@@ -338,12 +339,7 @@ class AdminDashboard {
             // Load initial data
             await this.loadTickets();
 
-            // Setup real-time listeners
             this.setupRealTimeListeners();
-
-            // Load assignments for current admin
-            await this.loadAssignments();
-            this.setupAssignmentsRealtime();
 
             
 
@@ -390,6 +386,9 @@ class AdminDashboard {
     // ✅ METHOD BINDING - TERPUSAT
     bindMethods() {
         this.handleTableClick = this.handleTableClick.bind(this);
+        this.handleSelectionChange = this.handleSelectionChange.bind(this);
+        this.selectAllVisibleTickets = this.selectAllVisibleTickets.bind(this);
+        this.bulkDeleteSelected = this.bulkDeleteSelected.bind(this);
         this.handleLogout = this.handleLogout.bind(this);
         this.handleDateChange = this.handleDateChange.bind(this);
         this.handleTodayClick = this.handleTodayClick.bind(this);
@@ -400,6 +399,7 @@ class AdminDashboard {
         this.handleExport = this.handleExport.bind(this);
         this.handleManageTeam = this.handleManageTeam.bind(this);
         this.showNotification = this.showNotification.bind(this);
+        this.updateBulkDeleteVisibility = this.updateBulkDeleteVisibility.bind(this);
     }
 
     // ✅ NOTIFICATION SYSTEM
@@ -532,6 +532,8 @@ class AdminDashboard {
     }
 
     canTakeTicket(ticket) {
+        const scope = (ticket && (ticket.assignment_scope || ticket.scope || '')).toLowerCase();
+        if (ticket && ticket.is_assignment && scope === 'all') return true;
         return !ticket.action_by && !ticket.assigned_to;
     }
 
@@ -641,6 +643,7 @@ class AdminDashboard {
         const tableBody = document.getElementById('ticketsTableBody');
         if (tableBody) {
             tableBody.addEventListener('click', this.handleTableClick);
+            tableBody.addEventListener('change', this.handleSelectionChange);
         }
 
         // Export button
@@ -649,7 +652,21 @@ class AdminDashboard {
             exportBtn.addEventListener('click', this.handleExport);
         }
 
-        
+        // Bulk selection controls
+        const selectAll = document.getElementById('selectAllTickets');
+        if (selectAll) {
+            selectAll.addEventListener('change', (e) => this.selectAllVisibleTickets(e.target.checked));
+        }
+        const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', this.bulkDeleteSelected);
+        }
+        const bulkDeleteFloating = document.getElementById('bulkDeleteFloating');
+        if (bulkDeleteFloating) {
+            bulkDeleteFloating.addEventListener('click', this.bulkDeleteSelected);
+        }
+
+        this.updateBulkDeleteVisibility();
     }
 
     initializeDateFilter() {
@@ -1031,6 +1048,9 @@ class AdminDashboard {
                 location: data.location || '',
                 activity: (data.assignment_activity || data.activity || ''),
                 assignment_activity: (data.assignment_activity || ''),
+                is_assignment: !!data.is_assignment,
+                assignment_scope: data.assignment_scope || data.scope || '',
+                created_by_name: data.created_by_name || data.created_by_email || data.user_name || '',
                 inventory: data.inventory || '',
                 device: data.device || '',
                 message: data.message || '',
@@ -1506,9 +1526,19 @@ class AdminDashboard {
             let actionButtons = this.generateActionButtons(ticket, permissions);
 
             return `
-                <tr>
+                <tr data-ticket-id="${ticket.id}">
+                    <td style="text-align:center;">
+                        <input type="checkbox" class="ticket-select" data-ticket-id="${ticket.id}" ${this.selectedTickets.has(ticket.id) ? 'checked' : ''} aria-label="Select ticket ${ticket.code || ''}">
+                    </td>
                     <td><strong>${ticket.code || 'N/A'}</strong></td>
-                    <td>${ticket.subject || 'No Subject'}</td>
+                    <td>
+                        ${ticket.subject || 'No Subject'}
+                        ${ticket.is_assignment ? `
+                            <div class=\"assignment-inline-meta\">
+                                <small>${(ticket.assignment_scope || '').toLowerCase() === 'all' ? 'All IT' : 'Assignment'} • Created by: ${this.escapeHtml(ticket.created_by_name || ticket.user_name || '-')}</small>
+                            </div>
+                        ` : ''}
+                    </td>
                     <td>
                         <div>${userDisplay.name || 'Unknown'}</div>
                         <small class="text-muted">${userDisplay.email || 'No Email'}</small>
@@ -1538,8 +1568,114 @@ class AdminDashboard {
         const ticketsHtmlArray = await Promise.all(rowPromises);
         tableBody.innerHTML = ticketsHtmlArray.join('');
 
+        // Update master checkbox state
+        const selectAll = document.getElementById('selectAllTickets');
+        if (selectAll) {
+            const visibleIds = this.filteredTickets.map(t => t.id);
+            const allSelected = visibleIds.length > 0 && visibleIds.every(id => this.selectedTickets.has(id));
+            selectAll.checked = allSelected;
+        }
+
         await this.renderTicketsToCards();
         this.updateTableForMobile();
+        this.updateBulkDeleteVisibility();
+    }
+
+    handleSelectionChange(e) {
+        const cb = e.target.closest('.ticket-select');
+        if (!cb) return;
+        const id = cb.dataset.ticketId;
+        if (!id) return;
+        if (cb.checked) this.selectedTickets.add(id); else this.selectedTickets.delete(id);
+
+        const selectAll = document.getElementById('selectAllTickets');
+        if (selectAll) {
+            const visibleIds = this.filteredTickets.map(t => t.id);
+            const allSelected = visibleIds.length > 0 && visibleIds.every(i => this.selectedTickets.has(i));
+            selectAll.checked = allSelected;
+        }
+
+        this.updateBulkDeleteVisibility();
+    }
+
+    selectAllVisibleTickets(checked) {
+        const visibleIds = this.filteredTickets.map(t => t.id);
+        const tableBody = document.getElementById('ticketsTableBody');
+        if (checked) {
+            visibleIds.forEach(id => this.selectedTickets.add(id));
+        } else {
+            visibleIds.forEach(id => this.selectedTickets.delete(id));
+        }
+        if (tableBody) {
+            tableBody.querySelectorAll('.ticket-select').forEach(cb => {
+                const id = cb.dataset.ticketId;
+                if (visibleIds.includes(id)) cb.checked = !!checked;
+            });
+        }
+
+        this.updateBulkDeleteVisibility();
+    }
+
+    async bulkDeleteSelected() {
+        try {
+            const ids = Array.from(this.selectedTickets);
+            if (ids.length === 0) {
+                this.showNotification('Bulk Delete', 'info', 'No tickets selected');
+                return;
+            }
+
+            // Check permission per ticket
+            const deletable = ids.filter(id => {
+                const t = this.tickets.find(x => x.id === id);
+                const p = t ? this.checkPermissions(t) : null;
+                return p && p.canDelete;
+            });
+
+            if (deletable.length === 0) {
+                await this.showPermissionError('delete selected tickets');
+                return;
+            }
+
+            const result = await Swal.fire({
+                title: 'Delete Selected Tickets?',
+                html: `You are about to delete <strong>${deletable.length}</strong> tickets. This cannot be undone.`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Delete',
+                cancelButtonText: 'Cancel'
+            });
+
+            if (!result.isConfirmed) return;
+
+            let success = 0, fail = 0;
+            for (const id of deletable) {
+                try {
+                    await deleteDoc(doc(this.db, 'tickets', id));
+                    success++;
+                    this.selectedTickets.delete(id);
+                } catch (err) {
+                    fail++;
+                }
+            }
+
+            await this.loadTickets();
+
+            const msg = `Deleted: ${success}${fail ? `, Failed: ${fail}` : ''}`;
+            this.showNotification('Bulk Delete', 'success', msg);
+            this.updateBulkDeleteVisibility();
+        } catch (error) {
+            console.error('❌ Bulk delete error:', error);
+            this.showNotification('Bulk Delete Error', 'error', error.message);
+        }
+    }
+
+    updateBulkDeleteVisibility() {
+        const btn = document.getElementById('bulkDeleteFloating');
+        if (!btn) return;
+        const hasVisibleSelected = Array.isArray(this.filteredTickets) && this.filteredTickets.some(t => this.selectedTickets.has(t.id));
+        btn.style.display = hasVisibleSelected ? 'inline-flex' : 'none';
     }
 
     generateActionButtons(ticket, permissions) {
@@ -1553,7 +1689,8 @@ class AdminDashboard {
         `;
 
         // Take Ticket button
-        if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope) === 'all');
+        if ((isAllAssignment || (!ticket.action_by && !ticket.assigned_to)) && permissions.canTake) {
             actionButtons += `
                 <button class="btn-action btn-take" data-action="take" title="Take this ticket">
                     <i class="fas fa-hand-paper"></i> Take
@@ -1637,6 +1774,11 @@ class AdminDashboard {
                     </div>
                     
                     <div class="ticket-title">${escapeHTML(ticket.subject || 'No Subject')}</div>
+                    ${ticket.is_assignment ? `
+                    <div class=\"ticket-assignment-meta\">
+                        <small>${(ticket.assignment_scope || '').toLowerCase() === 'all' ? 'All IT' : 'Assignment'} • Created by: ${escapeHTML(ticket.created_by_name || ticket.user_name || '-')}</small>
+                    </div>
+                    ` : ''}
                     
                     <div class="ticket-user-info">
                         <div class="ticket-user">${userDisplay.name || 'Unknown'}</div>
@@ -1690,7 +1832,8 @@ class AdminDashboard {
             </button>
         `;
 
-        if (!ticket.action_by && !ticket.assigned_to && permissions.canTake) {
+        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope) === 'all');
+        if ((isAllAssignment || (!ticket.action_by && !ticket.assigned_to)) && permissions.canTake) {
             actionButtons += `
                 <button class="btn-card-action btn-take" onclick="adminDashboard.takeTicket('${ticket.id}')" title="Take this ticket">
                     <i class="fas fa-hand-paper"></i> Take
@@ -3502,6 +3645,7 @@ class AdminDashboard {
                 user_department: this.getElementValueSafely('updateUserDepartment'),
                 user_phone: this.getElementValueSafely('updateUserPhone')
             };
+
 
             const newActivity = this.getElementValueSafely('updateActivity');
             if (newActivity) {

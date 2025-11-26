@@ -270,6 +270,7 @@ class Dashboard {
       id: id,
       code: data.code,
       subject: data.subject,
+      user_id: data.user_id || this.currentUser?.id || '',
       user_name: data.user_name,
       user_email: data.user_email,
       user_department: data.user_department,
@@ -293,6 +294,7 @@ class Dashboard {
       archived: data.archived || false,
       admin_id: adminId,
       original_action_by: data.action_by,
+      allow_user_delete: !!data.allow_user_delete,
       deleted_at: data.deleted_at?.toDate ? data.deleted_at.toDate().toISOString() :
         (data.deleted_at || null),
       deleted_by: data.deleted_by || '',
@@ -417,16 +419,12 @@ class Dashboard {
 
   // Method untuk menentukan apakah ticket bisa di-delete oleh user
   canDeleteTicket(ticket) {
-    // 1. User hanya bisa delete ticket yang mereka buat sendiri
     if (ticket.user_id !== this.currentUser.id) {
       return false;
     }
 
-    // 2. Hanya ticket dengan status tertentu yang bisa di-delete
-    const currentStatus = this.getTicketStatusDisplay(ticket);
-    const deletableStatuses = ['Open', 'Pending'];
-
-    return deletableStatuses.includes(currentStatus);
+    const statusDisplay = this.getTicketStatusDisplay(ticket);
+    return !ticket.deleted && statusDisplay === 'Open';
   }
 
   // Render tickets ke UI
@@ -457,6 +455,8 @@ class Dashboard {
     const ticketsHtml = ticketsToShow.map(ticket => {
       const statusDisplay = this.getTicketStatusDisplay(ticket);
       const canDelete = this.canDeleteTicket(ticket);
+      const deleteDisabledAttr = canDelete ? '' : 'disabled';
+      const deleteTitleAttr = canDelete ? '' : 'title="Only deletable when ticket status is Open"';
 
       return `
       <div class="ticket-item ${ticket.id.startsWith('temp-') ? 'ticket-temporary' : ''} ${canDelete ? 'deletable' : ''}">
@@ -510,14 +510,11 @@ class Dashboard {
             </div>
           ` : ''}
           
-          <!-- Tombol Delete -->
-          ${canDelete ? `
-            <div class="ticket-actions">
-              <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}">
-                <i class="fas fa-trash"></i> Delete Ticket
-              </button>
-            </div>
-          ` : ''}
+          <div class="ticket-actions">
+            <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}" ${deleteDisabledAttr} ${deleteTitleAttr}>
+              <i class="fas fa-trash"></i> Delete Ticket
+            </button>
+          </div>
           
           ${ticket.id.startsWith('temp-') ? `
             <div class="ticket-saving">
@@ -554,20 +551,23 @@ class Dashboard {
   async handleDeleteTicket(ticketId, ticketCode) {
     try {
       // Konfirmasi delete
+      const ticketObj = this.tickets.find(t => t.id === ticketId) || null;
+      const statusDisplay = ticketObj ? this.getTicketStatusDisplay(ticketObj) : '';
+      const assignedDisplay = ticketObj ? (ticketObj.action_by || 'Unassigned') : 'Unassigned';
+
       const result = await Swal.fire({
         title: 'Delete Ticket?',
         html: `
           <div class="delete-confirmation">
-            <p>Are you sure you want to delete ticket <strong>${ticketCode}</strong>?</p>
+            <div class="delete-summary">
+              <div class="delete-summary-row"><span class="delete-field">Ticket</span><span class="delete-value">${ticketCode}</span></div>
+              <div class="delete-summary-row"><span class="delete-field">Status</span><span class="delete-value">${statusDisplay}</span></div>
+              <div class="delete-summary-row"><span class="delete-field">Assigned</span><span class="delete-value">${assignedDisplay}</span></div>
+            </div>
             <p class="warning-text">This action cannot be undone!</p>
             <div class="form-group">
               <label for="deleteReason"><strong>Reason for deletion (optional):</strong></label>
-              <textarea 
-                id="deleteReason" 
-                class="swal2-textarea" 
-                placeholder="Please provide a reason for deleting this ticket..."
-                rows="3"
-              ></textarea>
+              <textarea id="deleteReason" class="swal2-textarea" placeholder="Provide a brief reason..." rows="3"></textarea>
             </div>
           </div>
         `,
@@ -974,7 +974,10 @@ class Dashboard {
           assignment_subject: assignmentSubject || `Assignment: ${activity}`,
           assignment_message: assignmentMessage || `Scope: ${scope}${scope === 'single' ? ` | Target: ${targetAdmin?.name || memberEmail || ''}` : ' | All IT'} | Location: ${location}`,
           target_admin_uid: targetAdmin?.uid || null,
-          target_admin_email: targetAdmin?.email || memberEmail || null
+          target_admin_email: targetAdmin?.email || memberEmail || null,
+          created_by_uid: this.currentUser.id,
+          created_by_email: this.currentUser.email,
+          created_by_name: this.currentUser.full_name || this.currentUser.email || 'IT'
         });
 
         const ticketCode = window.generateTicketId(
@@ -1394,7 +1397,7 @@ style.textContent = `
   
   .ticket-temporary {
     opacity: 0.7;
-    background: #f8f9fa;
+    background: var(--gray-50);
   }
   
   .ticket-saving {
@@ -1403,19 +1406,19 @@ style.textContent = `
   }
   
   .ticket-assigned {
-    background: #f8f9fa;
+    background: var(--gray-100);
     padding: 8px 12px;
     border-radius: 6px;
     margin: 8px 0;
-    border-left: 3px solid #ef070a;
+    border-left: 3px solid var(--primary);
   }
   
   .ticket-unassigned {
-    background: #f3f4f6;
+    background: var(--gray-100);
     padding: 8px 12px;
     border-radius: 6px;
     margin: 8px 0;
-    border-left: 3px solid #9ca3af;
+    border-left: 3px solid var(--gray-300);
   }
   
   .unassigned-text {
@@ -1429,15 +1432,15 @@ style.textContent = `
   }
   
   .ticket-notes, .ticket-updates {
-    background: #fff3cd;
+    background: var(--gray-100);
     padding: 8px 12px;
     border-radius: 6px;
     margin: 6px 0;
-    border-left: 3px solid #ffc107;
+    border-left: 3px solid var(--yellow-500);
   }
   
   .ticket-notes small, .ticket-updates small {
-    color: #856404;
+    color: var(--black);
   }
   
   .ticket-actions {
@@ -1449,9 +1452,9 @@ style.textContent = `
   }
   
   .btn-delete-ticket {
-    background: #fef2f2;
-    color: #dc2626;
-    border: 1px solid #fecaca;
+    background: transparent;
+    color: var(--red-500);
+    border: 1px solid var(--red-500);
     padding: 6px 12px;
     border-radius: 6px;
     font-size: 0.875rem;
@@ -1463,9 +1466,9 @@ style.textContent = `
   }
   
   .btn-delete-ticket:hover {
-    background: #fecaca;
-    color: #b91c1c;
-    border-color: #fca5a5;
+    background: var(--red-500);
+    color: var(--white);
+    border-color: var(--red-500);
   }
   
   .btn-delete-ticket:disabled {
@@ -1474,8 +1477,8 @@ style.textContent = `
   }
   
   .ticket-item.deletable {
-    border: 2px solid #f59e0b;
-    background: #fffbeb;
+    border-left: 3px solid var(--red-500);
+    background: transparent;
   }
 
   
@@ -1591,6 +1594,44 @@ const deleteConfirmationStyle = document.createElement('style');
 deleteConfirmationStyle.textContent = `
   .delete-confirmation {
     text-align: left;
+    padding: 0 1rem;
+  }
+  .swal2-popup {
+    background: var(--white) !important;
+    color: var(--black);
+    border: 1px solid var(--gray-200);
+    padding: 1rem !important;
+  }
+  .swal2-title { color: var(--black); }
+  .swal2-html-container { color: var(--black); margin: 0 !important; padding: 0 !important; }
+  .swal2-actions { border-top: 1px solid var(--gray-200); margin-top: 12px; padding-top: 12px; }
+  .delete-summary { 
+    display: grid; 
+    grid-template-columns: 1fr 2fr; 
+    gap: 8px; 
+    background: var(--gray-50); 
+    border: 1px solid var(--gray-200); 
+    border-radius: 8px; 
+    padding: 10px 12px; 
+    margin-bottom: 12px;
+  }
+  .delete-summary-row { display: contents; }
+  .delete-field { color: var(--gray-600); font-weight: 600; }
+  .delete-value { color: var(--black); text-align: right; }
+  .delete-confirmation .form-group { margin: 0; }
+  .swal2-textarea {
+    width: 100% !important;
+    box-sizing: border-box;
+    margin: 0 !important;
+    background: var(--white);
+    color: var(--black);
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+  }
+  html[data-theme="dark"] .swal2-textarea {
+    background: var(--gray-100);
+    color: var(--black);
+    border-color: var(--gray-300);
   }
   
   .warning-text {
