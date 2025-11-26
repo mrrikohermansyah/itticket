@@ -1689,8 +1689,8 @@ class AdminDashboard {
         `;
 
         // Take Ticket button
-        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope) === 'all');
-        if ((isAllAssignment || (!ticket.action_by && !ticket.assigned_to)) && permissions.canTake) {
+        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope || '').toLowerCase() === 'all');
+        if (permissions.canTake) {
             actionButtons += `
                 <button class="btn-action btn-take" data-action="take" title="Take this ticket">
                     <i class="fas fa-hand-paper"></i> Take
@@ -1832,8 +1832,8 @@ class AdminDashboard {
             </button>
         `;
 
-        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope) === 'all');
-        if ((isAllAssignment || (!ticket.action_by && !ticket.assigned_to)) && permissions.canTake) {
+        const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope || '').toLowerCase() === 'all');
+        if (permissions.canTake) {
             actionButtons += `
                 <button class="btn-card-action btn-take" onclick="adminDashboard.takeTicket('${ticket.id}')" title="Take this ticket">
                     <i class="fas fa-hand-paper"></i> Take
@@ -2116,15 +2116,15 @@ class AdminDashboard {
             const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
             updateData.updates = [...currentUpdates, updateNote];
 
-            await updateDoc(ticketRef, updateData);
+        await updateDoc(ticketRef, updateData);
 
-            this.showNotification('Ticket Taken', 'success', 'Ticket has been assigned to you');
-            await this.loadTickets();
+        this.showNotification('Ticket Taken', 'success', 'Ticket has been assigned to you');
+        
 
-        } catch (error) {
-            console.error('❌ Error taking ticket:', error);
-            this.showNotification('Take Error', 'error', 'Failed to take ticket');
-        }
+    } catch (error) {
+        console.error('❌ Error taking ticket:', error);
+        this.showNotification('Take Error', 'error', 'Failed to take ticket');
+    }
     }
 
     async releaseTicket(ticketId) {
@@ -3029,6 +3029,7 @@ class AdminDashboard {
                 else if (actLower === 'software install') activityCode = 'SW';
                 else if (actLower === 'setup meeting') activityCode = 'HW';
                 else if (actLower === 'drone update area' || actLower === 'drone lifting') activityCode = 'DR';
+                else if (actLower === 'back up data') activityCode = 'DR';
                 else if (actLower === 'weekly safety talk' || actLower === 'ceremony sail away' || actLower === 'stand by meeting' || actLower === 'stand by sunday' || actLower === 'other') activityCode = 'OT';
                 const activityName = act;
                 const subjectForExport = ticket.is_assignment ? (ticket.subject || activityName || 'No Subject') : (ticket.subject || 'No Subject');
