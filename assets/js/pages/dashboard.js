@@ -15,6 +15,7 @@ class Dashboard {
     this.authService = firebaseAuthService;
     this.db = db;
     this.unsubscribeTickets = null;
+    this.displayCount = 5;
     this.init();
   }
 
@@ -430,6 +431,9 @@ class Dashboard {
   // Render tickets ke UI
   renderTickets() {
     const ticketsList = document.getElementById('ticketsList');
+    const tableContainer = document.getElementById('userTicketsTableContainer');
+    const tableBody = document.getElementById('userTicketsTableBody');
+    const tableFooter = document.getElementById('userTicketsTableFooter');
     if (!ticketsList) {
       console.error('❌ ticketsList element not found!');
       return;
@@ -440,6 +444,7 @@ class Dashboard {
     );
 
     if (activeTickets.length === 0) {
+      if (tableContainer) tableContainer.style.display = 'none';
       ticketsList.innerHTML = `
       <div class="empty-state">
         <i class="fas fa-ticket-alt"></i>
@@ -450,7 +455,8 @@ class Dashboard {
       return;
     }
 
-    const ticketsToShow = activeTickets.slice(0, 5);
+    const count = Math.max(5, this.displayCount || 5);
+    const ticketsToShow = activeTickets.slice(0, count);
 
     const ticketsHtml = ticketsToShow.map(ticket => {
       const statusDisplay = this.getTicketStatusDisplay(ticket);
@@ -526,11 +532,156 @@ class Dashboard {
     `;
     }).join('');
 
-    ticketsList.innerHTML = ticketsHtml;
+    const total = activeTickets.length;
+    const hasMore = total > count;
+    const showClose = count > 5;
+    const loadMoreHtml = `
+      <div class="load-more-container" style="text-align:center; margin-top: 0.75rem;">
+        ${hasMore ? `
+        <button class="btn-secondary" id="loadMoreTickets">
+          <i class="fas fa-chevron-down"></i> Load More
+        </button>` : ''}
+        ${hasMore ? `
+        <button class="btn-secondary" id="showAllTickets" style="margin-left:0.5rem;">
+          <i class="fas fa-list"></i> Show All
+        </button>` : ''}
+        ${showClose ? `
+        <button class="btn-secondary" id="closeTicketsView" style="margin-left:0.5rem;">
+          <i class="fas fa-times"></i> Close
+        </button>` : ''}
+        <small class="text-muted" style="display:block; margin-top:0.25rem;">Showing ${ticketsToShow.length} of ${total}</small>
+      </div>
+    `;
+
+    ticketsList.innerHTML = ticketsHtml + loadMoreHtml;
+
+    // Render ke tabel
+    if (tableBody) {
+      const rows = ticketsToShow.map(ticket => {
+        const statusDisplay = this.getTicketStatusDisplay(ticket);
+        const canDelete = this.canDeleteTicket(ticket);
+        const createdDate = ticket.created_at ? new Date(ticket.created_at).toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+        const assignedDisplay = ticket.action_by || 'Unassigned';
+        const metaInline = `
+          <div class="row-meta">
+            <span class="meta-chip">${ticket.location || 'N/A'}</span>
+            <span class="meta-chip">${ticket.priority || 'Medium'}</span>
+            <span class="meta-chip">${statusDisplay}</span>
+            <span class="meta-chip">${assignedDisplay}</span>
+            <span class="meta-chip">${createdDate}</span>
+          </div>
+        `;
+        return `
+          <tr class="ticket-row animate-in">
+            <td data-label="Code" style="padding:8px;"><strong>${ticket.code || 'N/A'}</strong></td>
+            <td data-label="Subject" style="padding:8px;">${ticket.subject || 'No Subject'}${metaInline}</td>
+            <td data-label="Location" style="padding:8px;">${ticket.location || 'N/A'}</td>
+            <td data-label="Priority" style="padding:8px;">${ticket.priority || 'Medium'}</td>
+            <td data-label="Status" style="padding:8px;">${statusDisplay}</td>
+            <td data-label="Assigned To" style="padding:8px;">${assignedDisplay}</td>
+            <td data-label="Created" style="padding:8px;">${createdDate}</td>
+            <td data-label="Actions" style="padding:8px;">
+              <button class="btn-delete-ticket" data-ticket-id="${ticket.id}" data-ticket-code="${ticket.code}" ${canDelete ? '' : 'disabled'}>
+                <i class="fas fa-trash"></i> Delete
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+      tableBody.innerHTML = rows;
+    }
+    if (tableFooter) {
+      const tableControls = `
+        <div class="load-more-container animate-in" style="text-align:center;">
+          ${hasMore ? `
+          <button class="btn-secondary" id="loadMoreTicketsTable">
+            <i class="fas fa-chevron-down"></i> Load More
+          </button>` : ''}
+          ${hasMore ? `
+          <button class="btn-secondary" id="showAllTicketsTable" style="margin-left:0.5rem;">
+            <i class="fas fa-list"></i> Show All
+          </button>` : ''}
+          ${showClose ? `
+          <button class="btn-secondary" id="closeTicketsViewTable" style="margin-left:0.5rem;">
+            <i class="fas fa-times"></i> Close
+          </button>` : ''}
+          <small class="text-muted" style="display:block; margin-top:0.25rem;">Showing ${ticketsToShow.length} of ${total}</small>
+        </div>
+      `;
+      tableFooter.innerHTML = tableControls;
+    }
+    if (tableContainer) {
+      tableContainer.style.display = 'block';
+      if (ticketsList) ticketsList.style.display = 'none';
+    }
 
     // Add event listeners untuk tombol delete
     this.attachDeleteEventListeners();
+
+    // Animasi masuk untuk item tiket dan kontrol
+    const items = ticketsList.querySelectorAll('.ticket-item');
+    items.forEach((el, idx) => {
+      el.style.animationDelay = `${Math.min(idx, 8) * 40}ms`;
+      el.classList.add('animate-in');
+    });
+    const controls = ticketsList.querySelector('.load-more-container');
+    if (controls) controls.classList.add('animate-in');
+
+    // Add event listener untuk Load More
+    const loadMoreBtn = document.getElementById('loadMoreTickets');
+    if (loadMoreBtn) {
+      loadMoreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = count + 5;
+        this.renderTickets();
+      });
+    }
+    const showAllBtn = document.getElementById('showAllTickets');
+    if (showAllBtn) {
+      showAllBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = total;
+        this.renderTickets();
+      });
+    }
+    const closeBtn = document.getElementById('closeTicketsView');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = 5;
+        this.renderTickets();
+      });
+    }
+
+    // Table controls
+    const loadMoreBtnT = document.getElementById('loadMoreTicketsTable');
+    if (loadMoreBtnT) {
+      loadMoreBtnT.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = count + 5;
+        this.renderTickets();
+      });
+    }
+    const showAllBtnT = document.getElementById('showAllTicketsTable');
+    if (showAllBtnT) {
+      showAllBtnT.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = total;
+        this.renderTickets();
+      });
+    }
+    const closeBtnT = document.getElementById('closeTicketsViewTable');
+    if (closeBtnT) {
+      closeBtnT.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.displayCount = 5;
+        this.renderTickets();
+      });
+    }
+    this.syncRightPaneHeight();
   }
+
+// CSS Animations untuk daftar tiket dipindah ke luar class
 
   // Method untuk attach event listeners ke tombol delete
   attachDeleteEventListeners() {
@@ -545,6 +696,22 @@ class Dashboard {
         this.handleDeleteTicket(ticketId, ticketCode);
       });
     });
+  }
+
+  syncRightPaneHeight() {
+    try {
+      const leftPane = document.querySelector('.dashboard-columns .left-pane');
+      const rightSection = document.querySelector('.dashboard-columns .right-pane .tickets-section');
+      if (!leftPane || !rightSection) return;
+      const h = leftPane.offsetHeight;
+      rightSection.style.maxHeight = `${h}px`;
+      rightSection.style.overflowY = 'auto';
+      if (!this._resizeBound) {
+        window.addEventListener('resize', () => this.syncRightPaneHeight());
+        this._resizeBound = true;
+      }
+    } catch (e) {
+    }
   }
 
   // Method untuk handle delete ticket
@@ -1659,3 +1826,27 @@ deleteConfirmationStyle.textContent = `
 document.head.appendChild(style);
 document.head.appendChild(successAlertStyle);
 document.head.appendChild(deleteConfirmationStyle);
+// Animations untuk daftar tiket
+const dashboardAnimStyle = document.createElement('style');
+dashboardAnimStyle.textContent = `
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .ticket-item { will-change: opacity, transform; }
+  .ticket-item.animate-in { animation: fadeSlideIn 220ms ease-out both; }
+  .load-more-container.animate-in { animation: fadeSlideIn 200ms ease-out both; }
+  .btn-secondary { transition: background-color 160ms ease, transform 160ms ease, box-shadow 160ms ease; }
+  .btn-secondary:hover { transform: translateY(-1px); }
+`;
+document.head.appendChild(dashboardAnimStyle);
+const responsiveStyle = document.createElement('style');
+responsiveStyle.textContent = `
+  @media (max-width: 768px) {
+    .tickets-table-wrap, #userTicketsTableContainer { display: none !important; }
+    .tickets-list { display: block !important; }
+    .load-more-container button { margin: 0.25rem; }
+    .ticket-item { margin-bottom: 0.75rem; }
+  }
+`;
+document.head.appendChild(responsiveStyle);

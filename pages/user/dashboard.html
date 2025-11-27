@@ -27,6 +27,51 @@
 
     <!-- SweetAlert2 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <style>
+      .dashboard-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1.25rem; align-items: start; }
+      .left-pane, .right-pane { min-width: 0; }
+      .right-pane { overflow: hidden; }
+      .tickets-section { position: relative; }
+      .left-pane .ticket-section, .left-pane #itAssignmentSection { margin-bottom: 1rem; }
+      .tickets-table-wrap { overflow: hidden; }
+      .tickets-table { width: 100%; max-width: 100%; table-layout: auto; border-collapse: collapse; }
+      .tickets-table thead th { position: sticky; top: 0; background: var(--gray-50); z-index: 1; }
+      html[data-theme="dark"] .tickets-table thead th { background: var(--gray-100); }
+      .tickets-table th, .tickets-table td { padding: 4px !important; font-size: 0.85rem; line-height: 1.2; white-space: normal; word-break: normal; overflow: visible; }
+      .row-meta { display: none; margin-top: 4px; gap: 6px; flex-wrap: wrap; }
+      .row-meta .meta-chip { display: inline-block; font-size: 0.72rem; padding: 2px 6px; border: 1px solid var(--gray-200); border-radius: 6px; color: var(--gray-700); }
+      html[data-theme="dark"] .row-meta .meta-chip { border-color: var(--gray-300); color: var(--gray-800); }
+      .tickets-table th:nth-child(2), .tickets-table td:nth-child(2) { min-width: 200px; }
+      .tickets-table th:nth-child(1), .tickets-table td:nth-child(1) { width: 84px; }
+      .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) { width: 100px; }
+      .tickets-table th:nth-child(4), .tickets-table td:nth-child(4) { width: 72px; }
+      .tickets-table th:nth-child(5), .tickets-table td:nth-child(5) { width: 96px; }
+      .tickets-table th:nth-child(6), .tickets-table td:nth-child(6) { width: 120px; }
+      .tickets-table th:nth-child(7), .tickets-table td:nth-child(7) { width: 84px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .tickets-table th:nth-child(8), .tickets-table td:nth-child(8) { width: 84px; }
+      @media (max-width: 900px) {
+        .tickets-table-wrap { overflow: hidden; }
+        .tickets-table thead { display: none; }
+        .tickets-table tr { display: block; border: 1px solid var(--gray-200); border-radius: 8px; margin-bottom: 12px; background: var(--gray-50); }
+        html[data-theme="dark"] .tickets-table tr { background: var(--gray-100); }
+        .tickets-table td { display: grid; grid-template-columns: 140px 1fr; align-items: start; }
+        .tickets-table td::before { content: attr(data-label); font-weight: 600; color: var(--gray-600); padding-right: 8px; }
+      }
+      @media (max-width: 1200px) {
+        .tickets-table th:nth-child(6), .tickets-table td:nth-child(6), /* Assigned */
+        .tickets-table th:nth-child(7), .tickets-table td:nth-child(7)  /* Created */ { display: none; }
+        .tickets-table td:nth-child(2) .row-meta { display: flex; }
+      }
+      @media (max-width: 1050px) {
+        .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) /* Location */ { display: none; }
+        .tickets-table td:nth-child(2) .row-meta { display: flex; }
+      }
+      @media (max-width: 1024px) {
+        .dashboard-columns { grid-template-columns: 1fr; }
+      }
+      #userTicketsTableFooter { position: sticky; bottom: 0; background: var(--gray-50); padding-top: 6px; }
+      html[data-theme="dark"] #userTicketsTableFooter { background: var(--gray-100); }
+    </style>
 </head>
 
 <body class="dashboard-body">
@@ -196,6 +241,8 @@
                     </div>
                 </div>
             </section>
+            <div class="dashboard-columns">
+                <div class="left-pane">
             <section id="itAssignmentSection" class="ticket-section" style="display:none">
                 <div class="section-header">
                     <h2><i class="fas fa-tasks"></i> IT Assignments</h2>
@@ -460,7 +507,8 @@
                     </div>
                 </form>
             </section>
-
+                </div>
+                <div class="right-pane">
             <!-- Recent Tickets Section -->
             <section class="tickets-section">
                 <div class="section-header">
@@ -475,7 +523,27 @@
                         <p>Submit your first support ticket above</p>
                     </div>
                 </div>
+                <div class="tickets-table-wrap" id="userTicketsTableContainer" style="display:none; margin-top: 1rem;">
+                    <table class="tickets-table" id="userTicketsTable" style="width:100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align:left; padding:8px;">Code</th>
+                                <th style="text-align:left; padding:8px;">Subject</th>
+                                <th style="text-align:left; padding:8px;">Location</th>
+                                <th style="text-align:left; padding:8px;">Priority</th>
+                                <th style="text-align:left; padding:8px;">Status</th>
+                                <th style="text-align:left; padding:8px;">Assigned To</th>
+                                <th style="text-align:left; padding:8px;">Created</th>
+                                <th style="text-align:left; padding:8px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="userTicketsTableBody"></tbody>
+                    </table>
+                    <div id="userTicketsTableFooter" style="margin-top:0.75rem;"></div>
+                </div>
             </section>
+                </div>
+            </div>
 
         </div>
     </main>
