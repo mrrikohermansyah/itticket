@@ -713,6 +713,9 @@ class AdminDashboard {
         // Apply all filters sequentially
         let filtered = [...this.tickets];
 
+        // Exclude deleted/archived tickets first
+        filtered = filtered.filter(t => !t.deleted && !t.archived);
+
         // 1. Apply status filter
         if (this.currentFilters.status !== 'all') {
             filtered = filtered.filter(ticket => ticket.status === this.currentFilters.status);
@@ -1013,6 +1016,30 @@ class AdminDashboard {
 
             this.tickets = allTickets;
             this.updateGlobalTicketsData();
+
+            // Cascade soft-delete for broadcast assignments deleted by users
+            const broadcastsToCascade = allTickets.filter(t => t.is_assignment && ((t.assignment_scope || t.scope || '').toLowerCase() === 'all') && t.deleted && !t.cascade_deleted_children);
+            if (broadcastsToCascade.length > 0) {
+                for (const b of broadcastsToCascade) {
+                    try {
+                        const cq = query(collection(this.db, 'tickets'), where('source_assignment_id', '==', b.id));
+                        const csnap = await getDocs(cq);
+                        const updates = [];
+                        csnap.forEach(ds => {
+                            const cref = doc(this.db, 'tickets', ds.id);
+                            updates.push(updateDoc(cref, { deleted: true, deleted_at: serverTimestamp(), last_updated: serverTimestamp() }));
+                        });
+                        if (updates.length > 0) {
+                            await Promise.all(updates);
+                        }
+                        const bref = doc(this.db, 'tickets', b.id);
+                        await updateDoc(bref, { cascade_deleted_children: true, last_updated: serverTimestamp() });
+                    } catch (e) {
+                        console.error('Cascade delete failed for broadcast', b.id, e);
+                    }
+                }
+            }
+
             this.applyAllFilters();
 
             
@@ -1062,6 +1089,8 @@ class AdminDashboard {
                 is_assignment: !!data.is_assignment,
                 assignment_scope: data.assignment_scope || data.scope || '',
                 created_by_name: data.created_by_name || data.created_by_email || data.user_name || '',
+                created_by_email: data.created_by_email || '',
+                created_by_uid: data.created_by_uid || '',
                 inventory: data.inventory || '',
                 device: data.device || '',
                 message: data.message || '',
@@ -1077,7 +1106,10 @@ class AdminDashboard {
                 user_phone: data.user_phone || '',
                 updates: Array.isArray(data.updates) ? data.updates : [],
                 taken_by: Array.isArray(data.taken_by) ? data.taken_by : [],
-                user_id: data.user_id || ''
+                user_id: data.user_id || '',
+                deleted: !!data.deleted,
+                archived: !!data.archived,
+                cascade_deleted_children: !!data.cascade_deleted_children
             };
         } catch (error) {
             console.error(`❌ Error normalizing ticket ${id}:`, error);
@@ -2119,11 +2151,18 @@ class AdminDashboard {
                     inventory: ticket.inventory || '',
                     device: ticket.device || 'Others',
                     priority: ticket.priority || 'Medium',
+                    // Tetap gunakan admin sebagai pemilik dokumen (sesuai rules),
+                    // namun kolom User di UI akan menampilkan creator assignment.
                     user_id: this.adminUser.uid,
                     user_name: this.adminUser.name || this.adminUser.email || '',
                     user_email: this.adminUser.email || '',
                     user_department: this.adminUser.department || 'IT',
                     user_phone: this.adminUser.phone || '',
+                    created_by_uid: ticket.created_by_uid || ticket.user_id || '',
+                    created_by_email: ticket.created_by_email || ticket.user_email || '',
+                    created_by_name: ticket.created_by_name || ticket.user_name || 'IT',
+                    assignment_scope: 'all',
+                    source_assignment_id: ticket.id,
                     status: 'Open',
                     qa: 'Open',
                     created_at: serverTimestamp(),
@@ -2266,6 +2305,18 @@ class AdminDashboard {
             });
 
             if (result.isConfirmed) {
+                const scope = (ticket.assignment_scope || ticket.scope || '').toLowerCase();
+                const isBroadcast = ticket.is_assignment && scope === 'all';
+                if (isBroadcast) {
+                    const q = query(collection(this.db, 'tickets'), where('source_assignment_id', '==', ticketId));
+                    const snap = await getDocs(q);
+                    const deletions = [];
+                    snap.forEach(ds => deletions.push(deleteDoc(doc(this.db, 'tickets', ds.id))));
+                    if (deletions.length > 0) {
+                        await Promise.all(deletions);
+                    }
+                }
+
                 await deleteDoc(doc(this.db, "tickets", ticketId));
 
                 this.showNotification('Ticket Deleted', 'success', 'Ticket has been deleted');
@@ -3394,6 +3445,17 @@ class AdminDashboard {
             const emailFallback = ticket.user_email || '';
             const deptFallback = ticket.user_department || 'N/A';
             const phoneFallback = ticket.user_phone || '';
+
+            // Jika ticket berhubungan dengan assignment (memiliki assignment_activity),
+            // selalu tampilkan creator assignment di kolom User, bukan admin yang take
+            if ((ticket.assignment_activity || '').trim()) {
+                return {
+                    name: ticket.created_by_name || nameFallback,
+                    email: ticket.created_by_email || emailFallback,
+                    department: 'IT',
+                    phone: phoneFallback
+                };
+            }
             if (ticket.user_id) {
                 if (window.userCache && window.userCache[ticket.user_id]) {
                     const u = window.userCache[ticket.user_id];
