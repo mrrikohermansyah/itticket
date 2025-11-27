@@ -562,11 +562,13 @@ class Dashboard {
         const canDelete = this.canDeleteTicket(ticket);
         const createdDate = ticket.created_at ? new Date(ticket.created_at).toLocaleString(undefined, { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'N/A';
         const assignedDisplay = ticket.action_by || 'Unassigned';
+        const priorityLower = (ticket.priority || 'Medium').toLowerCase();
+        const statusClass = statusDisplay.toLowerCase().replace(/\s+/g, '-');
         const metaInline = `
           <div class="row-meta">
             <span class="meta-chip">${ticket.location || 'N/A'}</span>
-            <span class="meta-chip">${ticket.priority || 'Medium'}</span>
-            <span class="meta-chip">${statusDisplay}</span>
+            <span class="meta-chip priority-${priorityLower}">${ticket.priority || 'Medium'}</span>
+            <span class="meta-chip status-${statusClass}">${statusDisplay}</span>
             <span class="meta-chip">${assignedDisplay}</span>
             <span class="meta-chip">${createdDate}</span>
           </div>
@@ -576,8 +578,8 @@ class Dashboard {
             <td data-label="Code" style="padding:8px;"><strong>${ticket.code || 'N/A'}</strong></td>
             <td data-label="Subject" style="padding:8px;">${ticket.subject || 'No Subject'}${metaInline}</td>
             <td data-label="Location" style="padding:8px;">${ticket.location || 'N/A'}</td>
-            <td data-label="Priority" style="padding:8px;">${ticket.priority || 'Medium'}</td>
-            <td data-label="Status" style="padding:8px;">${statusDisplay}</td>
+            <td data-label="Priority" style="padding:8px;"><span class="meta-chip priority-${priorityLower}">${ticket.priority || 'Medium'}</span></td>
+            <td data-label="Status" style="padding:8px;"><span class="meta-chip status-${statusClass}">${statusDisplay}</span></td>
             <td data-label="Assigned To" style="padding:8px;">${assignedDisplay}</td>
             <td data-label="Created" style="padding:8px;">${createdDate}</td>
             <td data-label="Actions" style="padding:8px;">

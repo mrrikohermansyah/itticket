@@ -41,6 +41,18 @@
       .row-meta { display: none; margin-top: 4px; gap: 6px; flex-wrap: wrap; }
       .row-meta .meta-chip { display: inline-block; font-size: 0.72rem; padding: 2px 6px; border: 1px solid var(--gray-200); border-radius: 6px; color: var(--gray-700); }
       html[data-theme="dark"] .row-meta .meta-chip { border-color: var(--gray-300); color: var(--gray-800); }
+      .meta-chip.priority-low { background: #e9f7ef; border-color: #bfe7cf; color: #0f5132; }
+      .meta-chip.priority-medium { background: #fff4e6; border-color: #ffd8a8; color: #7c2d12; }
+      .meta-chip.priority-high { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
+      html[data-theme="dark"] .meta-chip.priority-low { background: #18392a; border-color: #285a41; color: #cde7d6; }
+      html[data-theme="dark"] .meta-chip.priority-medium { background: #3b2f1e; border-color: #5c492e; color: #ffe7c2; }
+      html[data-theme="dark"] .meta-chip.priority-high { background: #3b1f20; border-color: #5c2b2d; color: #ffd1d1; }
+      .meta-chip.status-open { background: #e0f2fe; border-color: #93c5fd; color: #1e3a8a; }
+      .meta-chip.status-in-progress { background: #ede9fe; border-color: #c4b5fd; color: #3730a3; }
+      .meta-chip.status-resolved { background: #e9f7ef; border-color: #bfe7cf; color: #0f5132; }
+      html[data-theme="dark"] .meta-chip.status-open { background: #102a43; border-color: #1e3a8a; color: #cfe8ff; }
+      html[data-theme="dark"] .meta-chip.status-in-progress { background: #1f2040; border-color: #3730a3; color: #e5deff; }
+      html[data-theme="dark"] .meta-chip.status-resolved { background: #18392a; border-color: #285a41; color: #cde7d6; }
       .tickets-table th:nth-child(2), .tickets-table td:nth-child(2) { min-width: 200px; }
       .tickets-table th:nth-child(1), .tickets-table td:nth-child(1) { width: 84px; }
       .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) { width: 100px; }
