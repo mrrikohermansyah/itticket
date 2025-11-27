@@ -3112,6 +3112,7 @@ class AdminDashboard {
                 else if (actLower === 'setup meeting') activityCode = 'HW';
                 else if (actLower === 'drone update area' || actLower === 'drone lifting') activityCode = 'DR';
                 else if (actLower === 'back up data') activityCode = 'DR';
+                else if (actLower === 'network') activityCode = 'NW';
                 else if (actLower === 'weekly safety talk' || actLower === 'ceremony sail away' || actLower === 'stand by meeting' || actLower === 'stand by sunday' || actLower === 'other') activityCode = 'OT';
                 const activityName = act;
                 const subjectForExport = ticket.is_assignment ? (ticket.subject || activityName || 'No Subject') : (ticket.subject || 'No Subject');
