@@ -49,12 +49,14 @@ window.generateTicketId = function (department, deviceType, location = "", fires
   const deviceCodes = {
     "PC Hardware": "HW",
     "PC Software": "SW",
-    Laptop: "LP",
-    Printer: "PR",
-    Network: "NET",
-    Projector: "PJ",
-    "Backup Data": "BK",
+    Laptop: "SW",
+    Printer: "HW",
+    Network: "NW",
+    Projector: "HW",
+    "Backup Data": "DR",
+    Drone: "DR",
     Others: "OT",
+    Other: "OT",
   };
 
   const activityCodes = {
@@ -119,13 +121,15 @@ window.generateTicketId = function (department, deviceType, location = "", fires
 // ==================== 🔹 Device Type Mapping ====================
 const DEVICE_TYPE_MAPPING = {
   "PC Hardware": "HW",
-  Laptop: "HW",
+  Laptop: "SW",
   Printer: "HW",
   Projector: "HW",
   "PC Software": "SW",
   Network: "NW",
   "Backup Data": "DR",
+  Drone: "DR",
   Others: "OT",
+  Other: "OT",
 };
 
 // ==================== 🔹 IT Staff List ====================

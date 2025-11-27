@@ -705,16 +705,16 @@ window.setHeaderStyling = function(sheet) {
 
     window.getDeviceCode = function(deviceType) {
         const deviceMapping = {
-            "PC Hardware": "HW", "Laptop": "HW", "Printer": "HW", "Projector": "HW",
-            "PC Software": "SW", "Network": "NW", "Backup Data": "DR", "Drone": "DR", "Others": "OT"
+            "PC Hardware": "HW", "Laptop": "SW", "Printer": "HW", "Projector": "HW",
+            "PC Software": "SW", "Network": "NW", "Backup Data": "DR", "Drone": "DR", "Others": "OT", "Other": "OT"
         };
         
         const normalizedDevice = (deviceType || "").trim();
         if (deviceMapping[normalizedDevice]) return deviceMapping[normalizedDevice];
         
         const lowerDevice = normalizedDevice.toLowerCase();
-        if (lowerDevice.includes('hardware') || lowerDevice.includes('pc') || lowerDevice.includes('laptop') || 
-            lowerDevice.includes('printer') || lowerDevice.includes('projector')) return "HW";
+        if (lowerDevice.includes('hardware') || lowerDevice.includes('pc') || lowerDevice.includes('printer') || lowerDevice.includes('projector')) return "HW";
+        if (lowerDevice.includes('laptop')) return "SW";
         if (lowerDevice.includes('software')) return "SW";
         if (lowerDevice.includes('network')) return "NW";
         if (lowerDevice.includes('backup') || lowerDevice.includes('data') || lowerDevice.includes('drone')) return "DR";

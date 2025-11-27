@@ -263,6 +263,30 @@ window.normalizeTicketStatusAndCode = async function () {
   }
 };
 
+window.recodeAllTicketCodesWithNewMapping = async function () {
+  try {
+    const snap = await getDocs(collection(db, 'tickets'));
+    const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+    let updated = 0;
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      const dept = data.user_department || data.department || 'Lainlain';
+      const device = data.device || 'Others';
+      const location = data.location || 'Lainlain';
+      const ts = (data.created_at?.toDate ? data.created_at.toDate() : (data.createdAt?.toDate ? data.createdAt.toDate() : new Date()));
+      const newCode = gen ? gen(dept, device, location, docSnap.id, ts) : `${dept}-${location}-${device}`;
+      if (typeof data.code !== 'string' || data.code !== newCode) {
+        await updateDoc(doc(db, 'tickets', docSnap.id), { code: newCode });
+        updated++;
+      }
+    }
+    return updated;
+  } catch (e) {
+    console.error('❌ Failed to recode all tickets:', e);
+    throw e;
+  }
+};
+
 window.backfillResolvedAt = async function () {
   try {
     const snap = await getDocs(collection(db, 'tickets'));

@@ -1,7 +1,7 @@
 import {
   doc, getDoc, setDoc, updateDoc,
   collection, addDoc, getDocs, query, where, orderBy,
-  serverTimestamp, onSnapshot
+  serverTimestamp, onSnapshot, limit, startAfter
 } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { db } from '../utils/firebase-config.js';
 
@@ -16,6 +16,8 @@ class Dashboard {
     this.db = db;
     this.unsubscribeTickets = null;
     this.displayCount = 5;
+    this.pageSize = 20;
+    this.lastVisible = null;
     this.init();
   }
 
@@ -53,6 +55,18 @@ class Dashboard {
 
       this.loadUserInfo();
       this.initializeEventListeners();
+
+      // Render from local cache first (no server reads)
+      try {
+        const cacheKey = `userTickets:${this.currentUser.id}`;
+        const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+        if (cached && Array.isArray(cached.tickets) && cached.tickets.length) {
+          this.tickets = cached.tickets;
+          this.renderTickets();
+          this.updateStats();
+        }
+      } catch (_) {}
+
       await this.setupRealtimeTickets();
 
       // Initialize IT assignment section for specific email
@@ -79,7 +93,7 @@ class Dashboard {
         return;
       }
 
-      const q = query(
+      const baseQuery = query(
         collection(this.db, "tickets"),
         where("user_id", "==", this.currentUser.id),
         orderBy("created_at", "desc")
@@ -91,7 +105,7 @@ class Dashboard {
       }
 
       try {
-        const testSnapshot = await getDocs(q);
+        const testSnapshot = await getDocs(query(baseQuery, limit(1)));
         const initialTickets = [];
         testSnapshot.forEach((docSnap) => {
           const t = this.normalizeTicketData(docSnap.id, docSnap.data());
@@ -115,10 +129,22 @@ class Dashboard {
       }
 
       // ✅ Setup realtime listener dengan error handling
-      this.unsubscribeTickets = onSnapshot(q,
+      this.unsubscribeTickets = onSnapshot(query(baseQuery, limit(this.pageSize)),
         (snapshot) => {
           
+          // Track last visible for pagination
+          const docs = snapshot.docs || [];
+          this.lastVisible = docs.length ? docs[docs.length - 1] : null;
           this.processTicketsSnapshot(snapshot);
+          // Cache latest tickets locally (max 100)
+          try {
+            const cacheKey = `userTickets:${this.currentUser.id}`;
+            const cacheData = {
+              ts: Date.now(),
+              tickets: this.tickets.slice(0, 100)
+            };
+            localStorage.setItem(cacheKey, JSON.stringify(cacheData));
+          } catch (_) {}
         },
         (error) => {
           console.error('❌ Realtime listener error:', error);
@@ -129,6 +155,42 @@ class Dashboard {
     } catch (error) {
       console.error('❌ Error setting up realtime listener:', error);
       this.showFirestoreError();
+    }
+  }
+
+  async loadMoreTickets() {
+    try {
+      if (!this.currentUser || !this.currentUser.id) return;
+      if (!this.lastVisible) return;
+      const moreQuery = query(
+        collection(this.db, "tickets"),
+        where("user_id", "==", this.currentUser.id),
+        orderBy("created_at", "desc"),
+        startAfter(this.lastVisible),
+        limit(this.pageSize)
+      );
+      const snap = await getDocs(moreQuery);
+      const appended = [];
+      snap.forEach((docSnap) => {
+        const t = this.normalizeTicketData(docSnap.id, docSnap.data());
+        appended.push(t);
+      });
+      // Append while avoiding duplicates
+      appended.forEach((t) => {
+        if (!this.tickets.find((x) => x.id === t.id)) {
+          this.tickets.push(t);
+        }
+      });
+      const docs = snap.docs || [];
+      if (docs.length) {
+        this.lastVisible = docs[docs.length - 1];
+      }
+      this.displayCount = Math.max(this.displayCount, (this.displayCount || 5) + appended.length);
+      this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      this.renderTickets();
+      this.updateStats();
+    } catch (e) {
+      console.error('Error loading more tickets:', e);
     }
   }
 
@@ -533,7 +595,7 @@ class Dashboard {
     }).join('');
 
     const total = activeTickets.length;
-    const hasMore = total > count;
+    const hasMore = (total > count) || !!this.lastVisible;
     const showClose = count > 5;
     const loadMoreHtml = `
       <div class="load-more-container" style="text-align:center; margin-top: 0.75rem;">
@@ -634,8 +696,7 @@ class Dashboard {
     if (loadMoreBtn) {
       loadMoreBtn.addEventListener('click', (e) => {
         e.preventDefault();
-        this.displayCount = count + 5;
-        this.renderTickets();
+        this.loadMoreTickets();
       });
     }
     const showAllBtn = document.getElementById('showAllTickets');
@@ -660,8 +721,7 @@ class Dashboard {
     if (loadMoreBtnT) {
       loadMoreBtnT.addEventListener('click', (e) => {
         e.preventDefault();
-        this.displayCount = count + 5;
-        this.renderTickets();
+        this.loadMoreTickets();
       });
     }
     const showAllBtnT = document.getElementById('showAllTicketsTable');
