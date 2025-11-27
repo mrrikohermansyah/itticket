@@ -2,6 +2,7 @@
 import {
     getFirestore,
     collection,
+    addDoc,
     doc,
     getDoc,
     getDocs,
@@ -13,7 +14,8 @@ import {
     serverTimestamp,
     Timestamp,
     deleteField,
-    onSnapshot
+    onSnapshot,
+    arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -533,7 +535,11 @@ class AdminDashboard {
 
     canTakeTicket(ticket) {
         const scope = (ticket && (ticket.assignment_scope || ticket.scope || '')).toLowerCase();
-        if (ticket && ticket.is_assignment && scope === 'all') return true;
+        if (ticket && ticket.is_assignment && scope === 'all') {
+            const alreadyTakenByMe = Array.isArray(ticket.taken_by) && ticket.taken_by.includes(this.adminUser?.uid);
+            if (alreadyTakenByMe) return false;
+            return true;
+        }
         return !ticket.action_by && !ticket.assigned_to;
     }
 
@@ -722,9 +728,14 @@ class AdminDashboard {
             filtered = this.applyDateFilter(filtered);
         }
 
-        // 4. Restrict visibility for non-Super Admin: only own or unassigned
+        // 4. Restrict visibility for non-Super Admin: own, unassigned, or All IT assignments
         if (!this.adminUser || this.adminUser.role !== 'Super Admin') {
             filtered = filtered.filter(ticket => {
+                const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope || '').toLowerCase() === 'all');
+                if (isAllAssignment) {
+                    const alreadyTakenByMe = Array.isArray(ticket.taken_by) && ticket.taken_by.includes(this.adminUser?.uid);
+                    return !alreadyTakenByMe;
+                }
                 const isUnassigned = !ticket.action_by && !ticket.assigned_to;
                 const isMine = this.isAssignedToCurrentAdmin(ticket);
                 return isUnassigned || isMine;
@@ -1065,6 +1076,7 @@ class AdminDashboard {
                 qa: data.qa || '',
                 user_phone: data.user_phone || '',
                 updates: Array.isArray(data.updates) ? data.updates : [],
+                taken_by: Array.isArray(data.taken_by) ? data.taken_by : [],
                 user_id: data.user_id || ''
             };
         } catch (error) {
@@ -2080,8 +2092,6 @@ class AdminDashboard {
 
     async takeTicket(ticketId) {
         try {
-            
-
             const ticketRef = doc(this.db, "tickets", ticketId);
             const ticket = this.tickets.find(t => t.id === ticketId);
 
@@ -2095,6 +2105,81 @@ class AdminDashboard {
                 return;
             }
 
+            const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope || '').toLowerCase() === 'all');
+
+            if (isAllAssignment) {
+                const subject = ticket.assignment_subject || ticket.subject || (ticket.assignment_activity || ticket.activity || 'Assignment');
+                const message = ticket.assignment_message || ticket.message || '';
+                const location = ticket.assignment_location || ticket.location || '';
+
+                const newDocRef = await addDoc(collection(this.db, 'tickets'), {
+                    subject: subject,
+                    message: message,
+                    location: location,
+                    inventory: ticket.inventory || '',
+                    device: ticket.device || 'Others',
+                    priority: ticket.priority || 'Medium',
+                    user_id: this.adminUser.uid,
+                    user_name: this.adminUser.name || this.adminUser.email || '',
+                    user_email: this.adminUser.email || '',
+                    user_department: this.adminUser.department || 'IT',
+                    user_phone: this.adminUser.phone || '',
+                    status: 'Open',
+                    qa: 'Open',
+                    created_at: serverTimestamp(),
+                    last_updated: serverTimestamp(),
+                    updates: [{
+                        status: 'Open',
+                        notes: 'Assignment copy created',
+                        timestamp: new Date().toISOString(),
+                        updatedBy: this.adminUser.name || this.adminUser.email
+                    }],
+                    action_by: '',
+                    note: '',
+                    is_assignment: false,
+                    assignment_activity: ticket.assignment_activity || ticket.activity || ''
+                });
+
+                const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
+                if (typeof gen === 'function') {
+                    const code = gen(this.adminUser.department || 'IT', ticket.device || 'Others', location, newDocRef.id);
+                    await updateDoc(newDocRef, { code });
+                }
+
+                const inProgressUpdate = {
+                    status: 'In Progress',
+                    notes: `Ticket taken by ${this.adminUser.name || this.adminUser.email}`,
+                    timestamp: new Date().toISOString(),
+                    updatedBy: this.adminUser.name || this.adminUser.email
+                };
+
+                await updateDoc(newDocRef, {
+                    action_by: this.adminUser.uid,
+                    assigned_to: this.adminUser.uid,
+                    assigned_name: this.adminUser.name || this.adminUser.email,
+                    status: 'In Progress',
+                    qa: 'In Progress',
+                    last_updated: serverTimestamp(),
+                    updates: arrayUnion(inProgressUpdate)
+                });
+
+                const ticketDoc = await getDoc(ticketRef);
+                const currentData = ticketDoc.data() || {};
+                await updateDoc(ticketRef, {
+                    taken_by: arrayUnion(this.adminUser.uid),
+                    last_updated: serverTimestamp(),
+                    updates: arrayUnion({
+                        status: currentData.status || 'Open',
+                        notes: `Taken by ${this.adminUser.name || this.adminUser.email}`,
+                        timestamp: new Date().toISOString(),
+                        updatedBy: this.adminUser.name || this.adminUser.email
+                    })
+                });
+
+                this.showNotification('Ticket Taken', 'success', 'Ticket has been assigned to you');
+                return;
+            }
+
             const updateData = {
                 action_by: this.adminUser.uid,
                 assigned_to: this.adminUser.uid,
@@ -2103,7 +2188,6 @@ class AdminDashboard {
                 last_updated: serverTimestamp()
             };
 
-            // Add to updates array
             const updateNote = {
                 status: 'In Progress',
                 notes: `Ticket taken by ${this.adminUser.name || this.adminUser.email}`,
@@ -2116,15 +2200,13 @@ class AdminDashboard {
             const currentUpdates = Array.isArray(currentData.updates) ? currentData.updates : [];
             updateData.updates = [...currentUpdates, updateNote];
 
-        await updateDoc(ticketRef, updateData);
+            await updateDoc(ticketRef, updateData);
 
-        this.showNotification('Ticket Taken', 'success', 'Ticket has been assigned to you');
-        
-
-    } catch (error) {
-        console.error('❌ Error taking ticket:', error);
-        this.showNotification('Take Error', 'error', 'Failed to take ticket');
-    }
+            this.showNotification('Ticket Taken', 'success', 'Ticket has been assigned to you');
+        } catch (error) {
+            console.error('❌ Error taking ticket:', error);
+            this.showNotification('Take Error', 'error', 'Failed to take ticket');
+        }
     }
 
     async releaseTicket(ticketId) {
