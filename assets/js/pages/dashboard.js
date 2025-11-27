@@ -984,7 +984,8 @@ class Dashboard {
           this.currentUser.department || 'IT',
           'Others',
           location,
-          ticketRef.id
+          ticketRef.id,
+          activity
         );
         await updateDoc(ticketRef, { code: ticketCode });
       }

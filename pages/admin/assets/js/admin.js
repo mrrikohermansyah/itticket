@@ -2181,7 +2181,7 @@ class AdminDashboard {
 
                 const gen = (typeof window !== 'undefined') ? window.generateTicketId : undefined;
                 if (typeof gen === 'function') {
-                    const code = gen(this.adminUser.department || 'IT', ticket.device || 'Others', location, newDocRef.id);
+                    const code = gen(this.adminUser.department || 'IT', ticket.device || 'Others', location, newDocRef.id, (ticket.assignment_activity || ticket.activity || ''));
                     await updateDoc(newDocRef, { code });
                 }
 
@@ -3159,12 +3159,12 @@ class AdminDashboard {
                 const actLower = act.toLowerCase();
                 let activityCode = '';
                 if (actLower === 'deliver') activityCode = 'MV';
-                else if (actLower === 'software install') activityCode = 'SW';
+                else if (actLower === 'software install' || actLower === 'software config' || actLower === 'install it standard apps' || actLower === 'reinstall windows') activityCode = 'SW';
                 else if (actLower === 'setup meeting') activityCode = 'HW';
-                else if (actLower === 'drone update area' || actLower === 'drone lifting') activityCode = 'DR';
+                else if (actLower === 'drone update area' || actLower === 'drone lifting' || actLower === 'ceremony sail away') activityCode = 'DR';
                 else if (actLower === 'back up data') activityCode = 'DR';
-                else if (actLower === 'network') activityCode = 'NW';
-                else if (actLower === 'weekly safety talk' || actLower === 'ceremony sail away' || actLower === 'stand by meeting' || actLower === 'stand by sunday' || actLower === 'other') activityCode = 'OT';
+                else if (actLower === 'network' || actLower === 'connect share folder') activityCode = 'NW';
+                else if (actLower === 'weekly safety talk' || actLower === 'stand by meeting' || actLower === 'stand by sunday' || actLower === 'other') activityCode = 'OT';
                 const activityName = act;
                 const subjectForExport = ticket.is_assignment ? (ticket.subject || activityName || 'No Subject') : (ticket.subject || 'No Subject');
 

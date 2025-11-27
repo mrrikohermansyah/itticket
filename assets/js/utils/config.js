@@ -14,7 +14,9 @@ const FIREBASE_CONFIG = {
 };
 
 // ==================== 🔹 Ticket ID Generator ====================
-window.generateTicketId = function (department, deviceType, location = "", firestoreId = "", overrideDate) {
+window.generateTicketId = function (department, deviceType, location = "", firestoreId = "", p5, p6) {
+  const overrideDate = p5 instanceof Date ? p5 : (p6 instanceof Date ? p6 : undefined);
+  const activity = typeof p5 === 'string' ? p5 : (typeof p6 === 'string' ? p6 : undefined);
   const timestamp = overrideDate instanceof Date ? overrideDate : new Date();
   const dateStr = timestamp.toISOString().slice(2, 10).replace(/-/g, ""); // YYMMDD
   
@@ -55,6 +57,25 @@ window.generateTicketId = function (department, deviceType, location = "", fires
     Others: "OT",
   };
 
+  const activityCodes = {
+    'weekly safety talk': 'OT',
+    'stand by sunday': 'OT',
+    'stand by meeting': 'OT',
+    'other': 'OT',
+    'ceremony sail away': 'DR',
+    'drone update area': 'DR',
+    'drone lifting': 'DR',
+    'deliver': 'MV',
+    'software install': 'SW',
+    'software config': 'SW',
+    'install it standard apps': 'SW',
+    'reinstall windows': 'SW',
+    'setup meeting': 'HW',
+    'back up data': 'DR',
+    'network': 'NW',
+    'connect share folder': 'NW'
+  };
+
   // Location codes
   const locationCodes = {
     "Blue Office": "BLU",
@@ -83,7 +104,13 @@ window.generateTicketId = function (department, deviceType, location = "", fires
   };
 
   const deptCode = deptCodes[department] || "GEN";
-  const deviceCode = deviceCodes[deviceType] || "OT";
+  let deviceCode = deviceCodes[deviceType] || "OT";
+  if (activity && typeof activity === 'string') {
+    const act = activity.trim().toLowerCase();
+    if (activityCodes[act]) {
+      deviceCode = activityCodes[act];
+    }
+  }
   const locCode = locationCodes[location] || "GEN";
 
   return `${deptCode}-${locCode}-${deviceCode}-${dateStr}-${randomStr}`;
