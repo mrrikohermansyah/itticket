@@ -11,6 +11,8 @@ import {
     query,
     where,
     orderBy,
+    limit,
+    startAfter,
     serverTimestamp,
     Timestamp,
     deleteField,
@@ -336,6 +338,10 @@ class AdminDashboard {
         this.assignmentsUnsubAll = null;
         this.assignmentsUnsubMine = null;
         this.assignmentsUnsubMineEmail = null;
+        this.pageSize = 25;
+        this.lastVisible = null;
+        this.hasMoreTickets = true;
+        this.isShowingAll = false;
 
         this.init();
     }
@@ -426,6 +432,9 @@ class AdminDashboard {
         this.handleManageTeam = this.handleManageTeam.bind(this);
         this.showNotification = this.showNotification.bind(this);
         this.updateBulkDeleteVisibility = this.updateBulkDeleteVisibility.bind(this);
+        this.loadMoreTickets = this.loadMoreTickets.bind(this);
+        this.loadAllTickets = this.loadAllTickets.bind(this);
+        this.updatePaginationControls = this.updatePaginationControls.bind(this);
     }
 
     // ✅ NOTIFICATION SYSTEM
@@ -697,6 +706,15 @@ class AdminDashboard {
         }
 
         this.updateBulkDeleteVisibility();
+
+        const showMoreBtn = document.getElementById('showMoreTickets');
+        if (showMoreBtn) {
+            showMoreBtn.addEventListener('click', this.loadMoreTickets);
+        }
+        const showAllBtn = document.getElementById('showAllTickets');
+        if (showAllBtn) {
+            showAllBtn.addEventListener('click', this.loadAllTickets);
+        }
     }
 
     initializeDateFilter() {
@@ -1017,9 +1035,13 @@ class AdminDashboard {
         try {
             
 
-            const q = query(collection(this.db, "tickets"));
-
-            const querySnapshot = await getDocs(q);
+            const baseQuery = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
+            let querySnapshot;
+            if (this.isShowingAll) {
+                querySnapshot = await getDocs(baseQuery);
+            } else {
+                querySnapshot = await getDocs(query(baseQuery, limit(this.pageSize)));
+            }
             const allTickets = [];
 
             querySnapshot.forEach((doc) => {
@@ -1064,13 +1086,60 @@ class AdminDashboard {
                 }
             }
 
+            this.lastVisible = querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : null;
+            this.hasMoreTickets = !this.isShowingAll && querySnapshot.docs.length === this.pageSize;
             this.applyAllFilters();
+            this.updatePaginationControls();
 
             
 
         } catch (error) {
             console.error('❌ Error loading tickets:', error);
             this.showNotification('Data Error', 'error', 'Failed to load tickets');
+        }
+    }
+
+    updatePaginationControls() {
+        const moreBtn = document.getElementById('showMoreTickets');
+        const allBtn = document.getElementById('showAllTickets');
+        if (moreBtn) {
+            moreBtn.disabled = !this.hasMoreTickets;
+        }
+        if (allBtn) {
+            allBtn.disabled = this.isShowingAll;
+        }
+    }
+
+    async loadMoreTickets() {
+        try {
+            if (!this.hasMoreTickets || !this.lastVisible) return;
+            const baseQuery = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
+            const snap = await getDocs(query(baseQuery, startAfter(this.lastVisible), limit(this.pageSize)));
+            const newTickets = [];
+            snap.forEach((docSnap) => {
+                try {
+                    const data = docSnap.data();
+                    const ticket = this.normalizeTicketData(docSnap.id, data);
+                    newTickets.push(ticket);
+                } catch {}
+            });
+            this.tickets = this.tickets.concat(newTickets);
+            this.updateGlobalTicketsData();
+            this.lastVisible = snap.docs.length > 0 ? snap.docs[snap.docs.length - 1] : this.lastVisible;
+            this.hasMoreTickets = snap.docs.length === this.pageSize;
+            this.applyAllFilters();
+            this.updatePaginationControls();
+        } catch (e) {
+            console.error('❌ Error loading more tickets:', e);
+        }
+    }
+
+    async loadAllTickets() {
+        try {
+            this.isShowingAll = true;
+            await this.loadTickets();
+        } catch (e) {
+            console.error('❌ Error loading all tickets:', e);
         }
     }
 
@@ -1344,7 +1413,7 @@ class AdminDashboard {
 
     setupTicketsRealTimeListener() {
         try {
-            const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
+            const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"), limit(this.pageSize));
 
             this.unsubscribe = onSnapshot(q, (snapshot) => {
                 
