@@ -12,7 +12,7 @@ const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
 // Initialize Firebase
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getAuth, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-import { initializeFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { initializeFirestore, enableMultiTabIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 
 const app = initializeApp(firebaseConfig);
@@ -23,7 +23,7 @@ const db = initializeFirestore(app, {
 });
 
 try {
-    enableIndexedDbPersistence(db);
+    await enableMultiTabIndexedDbPersistence(db);
 } catch (e) {}
 
 try {
