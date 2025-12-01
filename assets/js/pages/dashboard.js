@@ -95,8 +95,7 @@ class Dashboard {
 
       const baseQuery = query(
         collection(this.db, "tickets"),
-        where("user_id", "==", this.currentUser.id),
-        orderBy("created_at", "desc")
+        where("user_id", "==", this.currentUser.id)
       );
 
       // Remove previous listener if exists
@@ -125,6 +124,10 @@ class Dashboard {
       } catch (testError) {
         console.error('❌ Firestore access denied:', testError);
         this.showFirestoreError();
+        const mainEl = document.getElementById('dashboardMain');
+        if (mainEl) {
+          mainEl.style.visibility = 'visible';
+        }
         return; // Stop here if no permission
       }
 
@@ -165,7 +168,6 @@ class Dashboard {
       const moreQuery = query(
         collection(this.db, "tickets"),
         where("user_id", "==", this.currentUser.id),
-        orderBy("created_at", "desc"),
         startAfter(this.lastVisible),
         limit(this.pageSize)
       );
@@ -197,6 +199,10 @@ class Dashboard {
   // Method baru untuk handle Firestore errors
   showFirestoreError() {
     
+    const mainEl = document.getElementById('dashboardMain');
+    if (mainEl) {
+      mainEl.style.visibility = 'visible';
+    }
 
     // Tampilkan message ke user
     const ticketsList = document.getElementById('ticketsList');
