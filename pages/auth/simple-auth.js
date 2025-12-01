@@ -3,7 +3,9 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import {
     getAuth,
     signInWithEmailAndPassword,
-    signOut
+    signOut,
+    setPersistence,
+    browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
     getFirestore,
@@ -32,7 +34,7 @@ const db = getFirestore(app);
 
 class SimpleAuth {
     constructor() {
-        
+        try { setPersistence(auth, browserSessionPersistence); } catch {}
     }
 
     async login(email, password) {
@@ -44,6 +46,7 @@ class SimpleAuth {
             this.hideMessages();
 
             // 1. Firebase Authentication
+            try { await setPersistence(auth, browserSessionPersistence); } catch {}
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 

@@ -11,7 +11,7 @@ const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
 
 // Initialize Firebase
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getAuth, setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 import { initializeFirestore, enableIndexedDbPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
 
@@ -24,6 +24,10 @@ const db = initializeFirestore(app, {
 
 try {
     enableIndexedDbPersistence(db);
+} catch (e) {}
+
+try {
+    await setPersistence(auth, browserSessionPersistence);
 } catch (e) {}
 
 
