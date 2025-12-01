@@ -1,5 +1,7 @@
 // pages/admin/assets/js/admin-auth.js
 import firebaseAuthService from '../../../../../assets/js/services/firebase-auth-service.js';
+import { auth } from '../../../../../assets/js/utils/firebase-config.js';
+import { setPersistence, browserSessionPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 document.addEventListener('DOMContentLoaded', function() {
     const adminLoginForm = document.getElementById('adminLoginForm');
@@ -41,7 +43,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     try {
         
-        
+        await setPersistence(auth, browserSessionPersistence);
+
         const result = await firebaseAuthService.loginAdmin(email, password);
 
         if (!result.success) {

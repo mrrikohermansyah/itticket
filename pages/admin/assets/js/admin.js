@@ -22,6 +22,8 @@ import {
 
 import {
     getAuth,
+    setPersistence,
+    browserSessionPersistence,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -355,6 +357,9 @@ class AdminDashboard {
 
             // Check DOM elements
             this.checkDOMElements();
+
+            // Configure per-tab session persistence for admin
+            try { await setPersistence(this.auth, browserSessionPersistence); } catch {}
 
             // Check authentication
             await this.checkAuth();
