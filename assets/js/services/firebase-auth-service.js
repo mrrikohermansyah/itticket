@@ -5,7 +5,7 @@ import {
     signOut,
     onAuthStateChanged,
     fetchSignInMethodsForEmail
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
     doc,
     setDoc,
@@ -16,7 +16,7 @@ import {
     where,
     getDocs,
     serverTimestamp
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { auth, db } from '../utils/firebase-config.js';
 
 class FirebaseAuthService {
@@ -203,71 +203,124 @@ class FirebaseAuthService {
 
     async loginAdmin(email, password) {
         try {
-            
-
             const userCredential = await signInWithEmailAndPassword(auth, email, password);
             const user = userCredential.user;
 
-            
-
-            // ✅ CEK 1: Cari dengan UID sebagai document ID (standard way)
-            const adminDocByUID = await getDoc(doc(db, "admins", user.uid));
-
-            // ✅ CEK 2: Cari dengan email query (fallback untuk data lama)
-            const adminQuery = await getDocs(
-                query(collection(db, "admins"), where("email", "==", email))
-            );
-
             let adminData = null;
-            let documentId = null;
-
-            
-
-            // Priority 1: UID match (standard)
-            if (adminDocByUID.exists()) {
-                adminData = adminDocByUID.data();
-                documentId = user.uid;
-                
-            }
-            // Priority 2: Email query (fallback - perlu migrasi)
-            else if (!adminQuery.empty) {
-                const foundDoc = adminQuery.docs[0];
-                adminData = foundDoc.data();
-                documentId = foundDoc.id;
-                
-
-                // ✅ AUTO-MIGRATE: Pindahkan ke document ID yang benar
-                await this.migrateAdminToCorrectUID(user.uid, documentId, adminData);
-            }
-            // Priority 3: Cek di users collection
-            else {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (userDoc.exists() && userDoc.data().role !== 'user') {
-                    adminData = userDoc.data();
-                    
-
-                    // Auto-migrate dari users ke admins
-                    await this.migrateUserToAdmin(user.uid, adminData);
+            try {
+                const adminDocByUID = await getDoc(doc(db, "admins", user.uid));
+                if (adminDocByUID.exists()) {
+                    adminData = adminDocByUID.data();
                 } else {
-                    
+                    const userDoc = await getDoc(doc(db, "users", user.uid));
+                    if (userDoc.exists() && userDoc.data().role !== 'user') {
+                        adminData = userDoc.data();
+                        await this.migrateUserToAdmin(user.uid, adminData);
+                    }
+                    // Cari dokumen admin berdasarkan email bila dokumen berdasarkan UID tidak ditemukan
+                    if (!adminData) {
+                        try {
+                            const q = query(collection(db, 'admins'), where('email', '==', (email || '').toLowerCase()));
+                            const byEmail = await getDocs(q);
+                            if (!byEmail.empty) {
+                                const found = byEmail.docs[0];
+                                const data = found.data();
+                                await setDoc(doc(db, 'admins', user.uid), {
+                                    ...data,
+                                    uid: user.uid,
+                                    migrated_from: found.id,
+                                    last_updated: new Date().toISOString()
+                                });
+                                try { await updateDoc(doc(db, 'admins', found.id), { migrated_to: user.uid, last_updated: new Date().toISOString() }); } catch (_) {}
+                                adminData = data;
+                            }
+                        } catch (_) {}
+                    }
+                }
+            } catch (firestoreError) {
+                // Jangan gagalkan login karena kegagalan baca Firestore – lanjutkan ke whitelist
+            }
+
+            if (!adminData) {
+                let isAllowed = false;
+                try {
+                    const settingsSnap = await getDoc(doc(db, 'secure_settings', 'allowed_admin_emails'));
+                    if (settingsSnap.exists()) {
+                        const s = settingsSnap.data();
+                        const allowAll = !!s.allow_all;
+                        const list = Array.isArray(s.emails) ? s.emails.map(e => (e || '').toLowerCase()) : [];
+                        isAllowed = allowAll || list.includes((email || '').toLowerCase());
+                    }
+                } catch (_) {}
+                if (!isAllowed) {
+                    const allowedEmails = [
+                        'sit@meb.com',
+                        'ade.reinalwi@meitech-ekabintan.com',
+                        'wahyu.nugroho@meitech-ekabintan.com',
+                        'riko.hermansyah@meitech-ekabintan.com',
+                        'abdurahman.hakim@meitech-ekabintan.com',
+                        'it@meb.com'
+                    ];
+                    isAllowed = allowedEmails.includes((email || '').toLowerCase());
+                }
+                if (isAllowed) {
+                    try {
+                        const userRef = doc(db, 'users', user.uid);
+                        const userDoc = await getDoc(userRef);
+                        const base = userDoc.exists() ? userDoc.data() : {};
+                        const nextUser = {
+                            employee_id: base.employee_id || '',
+                            full_name: base.full_name || email.split('@')[0],
+                            email: base.email || email,
+                            phone: base.phone || '',
+                            department: base.department || 'IT',
+                            location: base.location || '',
+                            role: 'admin',
+                            is_active: true,
+                            updated_at: new Date().toISOString(),
+                            created_at: base.created_at || new Date().toISOString()
+                        };
+                        if (userDoc.exists()) {
+                            await updateDoc(userRef, nextUser);
+                        } else {
+                            await setDoc(userRef, nextUser);
+                        }
+                        const created = {
+                            name: nextUser.full_name,
+                            email: nextUser.email,
+                            role: 'admin',
+                            department: nextUser.department,
+                            is_active: true,
+                            created_at: new Date().toISOString(),
+                            created_by: user.uid,
+                            is_existing_user: !!userDoc.exists()
+                        };
+                        await setDoc(doc(db, 'admins', user.uid), created);
+                        adminData = created;
+                    } catch (e) {
+                        // Jika gagal tulis Firestore, tetap izinkan login minimal
+                        adminData = {
+                            name: email.split('@')[0],
+                            email: email,
+                            role: 'admin',
+                            department: 'IT',
+                            is_active: true
+                        };
+                    }
+                }
+                if (!adminData) {
                     throw new Error('Admin access not granted. Please contact administrator.');
                 }
             }
 
-            // Check active status
-            const isActive = adminData.is_active !== undefined ? adminData.is_active : adminData.isActive;
-            if (!isActive) {
+            const isActive = (adminData?.is_active ?? adminData?.isActive ?? true);
+            if (isActive === false) {
                 throw new Error('Admin account is deactivated.');
             }
 
-            
-
             return {
                 success: true,
-                user: {
-                    uid: user.uid,
-                    ...adminData
-                },
+                user: { uid: user.uid, ...adminData },
                 message: 'Admin login successful!'
             };
 
@@ -324,9 +377,49 @@ class FirebaseAuthService {
         }
     }
 
+    async ensureAdminRecord(uid, email) {
+        try {
+            const userRef = doc(db, 'users', uid);
+            const userDoc = await getDoc(userRef);
+            const base = userDoc.exists() ? userDoc.data() : {};
+            const currentRole = (base.role || 'user');
+            const nextUser = {
+                employee_id: base.employee_id || '',
+                full_name: base.full_name || base.name || (email || '').split('@')[0],
+                email: base.email || email,
+                phone: base.phone || '',
+                department: base.department || 'IT',
+                location: base.location || '',
+                role: currentRole !== 'user' ? currentRole : 'admin',
+                is_active: true,
+                updated_at: new Date().toISOString(),
+                created_at: base.created_at || new Date().toISOString()
+            };
+            if (userDoc.exists()) {
+                await updateDoc(userRef, nextUser);
+            } else {
+                await setDoc(userRef, nextUser);
+            }
+
+            const adminRef = doc(db, 'admins', uid);
+            const adminData = {
+                name: nextUser.full_name,
+                email: nextUser.email,
+                role: nextUser.role,
+                department: nextUser.department,
+                is_active: true,
+                created_at: new Date().toISOString(),
+                created_by: uid
+            };
+            await setDoc(adminRef, adminData, { merge: true });
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
     async logout() {
         try {
-            const auth = getAuth();
             await signOut(auth);
 
             // ✅ CLEAR LOCAL STORAGE ATAU SESSION

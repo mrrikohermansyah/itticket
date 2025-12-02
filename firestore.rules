@@ -60,7 +60,10 @@ service cloud.firestore {
       allow create: if (isSignedIn() && validUserTicketCreate())
                     || (!isSignedIn() && validPublicTicketCreate());
 
-      allow read: if isAdmin() || (isSignedIn() && resource.data.user_id == request.auth.uid);
+      allow read: if isAdmin() 
+                    || (isSignedIn() 
+                        && (resource.data.user_id == request.auth.uid 
+                            || resource.data.user_email == request.auth.token.email));
 
       allow update: if isAdmin()
                     || (isSignedIn()

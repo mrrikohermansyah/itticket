@@ -2,8 +2,81 @@ import {
   doc, getDoc, setDoc, updateDoc,
   collection, addDoc, getDocs, query, where, orderBy,
   serverTimestamp, onSnapshot, limit, startAfter
-} from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { db } from '../utils/firebase-config.js';
+
+const __createLogUI = () => {
+  try {
+    if (document.getElementById('debugLogPanel')) return;
+    const panel = document.createElement('div');
+    panel.id = 'debugLogPanel';
+    panel.style.position = 'fixed';
+    panel.style.bottom = '12px';
+    panel.style.right = '12px';
+    panel.style.width = 'min(420px, 92vw)';
+    panel.style.maxHeight = '40vh';
+    panel.style.overflow = 'auto';
+    panel.style.background = 'var(--surface)';
+    panel.style.border = '1px solid var(--border)';
+    panel.style.borderRadius = '10px';
+    panel.style.boxShadow = '0 12px 32px rgba(0,0,0,0.12)';
+    panel.style.padding = '8px';
+    panel.style.fontSize = '.85rem';
+    panel.style.zIndex = '9999';
+    panel.style.display = 'none';
+    const header = document.createElement('div');
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
+    header.style.marginBottom = '6px';
+    const title = document.createElement('div');
+    title.textContent = 'Debug Logs';
+    const toggle = document.createElement('button');
+    toggle.textContent = 'Close';
+    toggle.className = 'btn-secondary';
+    toggle.onclick = () => { panel.style.display = 'none'; };
+    const list = document.createElement('div');
+    list.id = 'debugLogList';
+    list.style.display = 'grid';
+    list.style.gap = '4px';
+    header.appendChild(title);
+    header.appendChild(toggle);
+    panel.appendChild(header);
+    panel.appendChild(list);
+    document.body.appendChild(panel);
+  } catch (_) {}
+};
+__createLogUI();
+window.__dashLogs = [];
+window.__dashLog = (type, message, detail) => {
+  try {
+    const ts = new Date().toISOString();
+    const entry = { ts, type, message, detail };
+    window.__dashLogs.unshift(entry);
+    if (window.__dashLogs.length > 200) window.__dashLogs.pop();
+    const list = document.getElementById('debugLogList');
+    if (list) {
+      const row = document.createElement('div');
+      row.style.display = 'grid';
+      row.style.gridTemplateColumns = '120px 80px 1fr';
+      row.style.alignItems = 'start';
+      const colTs = document.createElement('div');
+      colTs.textContent = ts;
+      const colType = document.createElement('div');
+      colType.textContent = type;
+      const colMsg = document.createElement('div');
+      const msgText = typeof message === 'string' ? message : String(message);
+      const detText = detail ? (typeof detail === 'string' ? detail : JSON.stringify(detail)) : '';
+      colMsg.textContent = detText ? (msgText + ' | ' + detText) : msgText;
+      row.appendChild(colTs);
+      row.appendChild(colType);
+      row.appendChild(colMsg);
+      list.prepend(row);
+    }
+    const prefix = type === 'error' ? '❌' : (type === 'warn' ? '⚠️' : 'ℹ️');
+    console.log(prefix, ts, message, detail || '');
+  } catch (_) {}
+};
 
 // Import instance
 import firebaseAuthService from '../services/firebase-auth-service.js';
@@ -18,6 +91,8 @@ class Dashboard {
     this.displayCount = 5;
     this.pageSize = 20;
     this.lastVisible = null;
+    this.cacheTTL = 60000;
+    this.deferRealtimeUntil = 0;
     this.init();
   }
 
@@ -52,9 +127,15 @@ class Dashboard {
           location: ''
         };
       }
+      window.__dashLog('info','User loaded', { id: this.currentUser.id, email: this.currentUser.email });
 
       this.loadUserInfo();
       this.initializeEventListeners();
+
+      const mainElImmediate = document.getElementById('dashboardMain');
+      if (mainElImmediate) {
+        mainElImmediate.style.visibility = 'visible';
+      }
 
       // Render from local cache first (no server reads)
       try {
@@ -64,10 +145,19 @@ class Dashboard {
           this.tickets = cached.tickets;
           this.renderTickets();
           this.updateStats();
+          window.__dashLog('info','Loaded tickets from cache', { count: this.tickets.length });
+          if (cached.ts && (Date.now() - cached.ts) < this.cacheTTL) {
+            this.deferRealtimeUntil = cached.ts + this.cacheTTL;
+          }
         }
       } catch (_) {}
-
-      await this.setupRealtimeTickets();
+      if (this.deferRealtimeUntil && Date.now() < this.deferRealtimeUntil) {
+        const delay = this.deferRealtimeUntil - Date.now();
+        setTimeout(() => { try { this.setupRealtimeTickets(); } catch (_) {} }, delay);
+      } else {
+        await this.setupRealtimeTickets();
+      }
+      window.__dashLog('info','Realtime setup requested');
 
       // Initialize IT assignment section for specific email
       if (this.currentUser && (this.currentUser.email || '').toLowerCase() === 'it@meb.com') {
@@ -78,7 +168,7 @@ class Dashboard {
 
     } catch (error) {
       console.error('❌ Dashboard init error:', error);
-      // Jangan redirect dulu, biarkan user tetap di dashboard
+      window.__dashLog('error','Dashboard init error', error?.message || String(error));
       this.showError('System initializing...');
     }
   }
@@ -92,8 +182,9 @@ class Dashboard {
         
         return;
       }
+      window.__dashLog('info','SetupRealtime start', { id: this.currentUser.id });
 
-      const baseQuery = query(
+      let baseQuery = query(
         collection(this.db, "tickets"),
         where("user_id", "==", this.currentUser.id)
       );
@@ -103,32 +194,9 @@ class Dashboard {
         this.unsubscribeTickets();
       }
 
-      try {
-        const testSnapshot = await getDocs(query(baseQuery, limit(1)));
-        const initialTickets = [];
-        testSnapshot.forEach((docSnap) => {
-          const t = this.normalizeTicketData(docSnap.id, docSnap.data());
-          initialTickets.push(t);
-        });
-        this.tickets = initialTickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-        this.renderTickets();
-        this.updateStats();
-        const mainEl = document.getElementById('dashboardMain');
-        if (mainEl) {
-          mainEl.style.visibility = 'visible';
-          mainEl.classList.add('enter-animate');
-          mainEl.addEventListener('animationend', () => {
-            mainEl.classList.remove('enter-animate');
-          }, { once: true });
-        }
-      } catch (testError) {
-        console.error('❌ Firestore access denied:', testError);
-        this.showFirestoreError();
-        const mainEl = document.getElementById('dashboardMain');
-        if (mainEl) {
-          mainEl.style.visibility = 'visible';
-        }
-        return; // Stop here if no permission
+      const mainEl = document.getElementById('dashboardMain');
+      if (mainEl) {
+        mainEl.style.visibility = 'visible';
       }
 
       // ✅ Setup realtime listener dengan error handling
@@ -139,6 +207,7 @@ class Dashboard {
           const docs = snapshot.docs || [];
           this.lastVisible = docs.length ? docs[docs.length - 1] : null;
           this.processTicketsSnapshot(snapshot);
+          window.__dashLog('info','Realtime snapshot', { changes: snapshot.docChanges().length, size: snapshot.size });
           // Cache latest tickets locally (max 100)
           try {
             const cacheKey = `userTickets:${this.currentUser.id}`;
@@ -151,12 +220,14 @@ class Dashboard {
         },
         (error) => {
           console.error('❌ Realtime listener error:', error);
+          window.__dashLog('error','Realtime listener error', error?.message || String(error));
           this.showFirestoreError();
         }
       );
 
     } catch (error) {
       console.error('❌ Error setting up realtime listener:', error);
+      window.__dashLog('error','SetupRealtime failed', error?.message || String(error));
       this.showFirestoreError();
     }
   }
@@ -191,8 +262,10 @@ class Dashboard {
       this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
       this.renderTickets();
       this.updateStats();
+      window.__dashLog('info','Loaded more tickets', { appended: appended.length, total: this.tickets.length });
     } catch (e) {
       console.error('Error loading more tickets:', e);
+      window.__dashLog('error','Error loading more tickets', e?.message || String(e));
     }
   }
 
@@ -221,6 +294,7 @@ class Dashboard {
         this.setupRealtimeTickets();
       });
     }
+    window.__dashLog('warn','User-visible Firestore error state shown');
   }
 
   // Pisahkan processing logic
@@ -1434,8 +1508,8 @@ class Dashboard {
         console.debug('[TicketSubmit] auth.uid=', this.currentUser.id, ' payload.user_id will be set to same uid');
       }
 
-      // ✅ BUAT TICKET DULU UNTUK DAPAT ID
-      const ticketRef = await addDoc(collection(this.db, "tickets"), {
+      // ✅ BUAT TICKET DULU UNTUK DAPAT ID (dengan timeout agar tidak hang)
+      const payload = {
         // Data sementara tanpa code
         subject: formData.subject,
         message: formData.message,
@@ -1460,7 +1534,10 @@ class Dashboard {
         }],
         action_by: '',
         note: ''
-      });
+      };
+      const addPromise = addDoc(collection(this.db, "tickets"), payload);
+      const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Ticket creation timeout (20s)')), 20000));
+      const ticketRef = await Promise.race([addPromise, timeoutPromise]);
 
       
 
@@ -1475,9 +1552,7 @@ class Dashboard {
       
 
       // ✅ UPDATE TICKET DENGAN CODE YANG SUDAH DIGENERATE
-      await updateDoc(ticketRef, {
-        code: ticketCode
-      });
+      try { await updateDoc(ticketRef, { code: ticketCode }); } catch (e) { window.__dashLog('warn','Failed to update code', e?.message || String(e)); }
 
       // ✅ TAMPILKAN SWEETALERT SUCCESS DENGAN DURASI
       await this.showSuccessAlert(ticketCode, formData);
@@ -1485,11 +1560,15 @@ class Dashboard {
 
     } catch (error) {
       console.error('[TicketSubmit] code=', error?.code, ' message=', error?.message);
-      const msg = (error && (error.code === 'permission-denied' || /insufficient permissions/i.test(error?.message)))
-        ? 'Permission denied. Please sign in again or contact support.'
+      const isPerm = (error && (error.code === 'permission-denied' || /insufficient permissions/i.test(error?.message)));
+      const msg = isPerm
+        ? 'Permission denied. Please sign in again atau hubungi IT.'
         : (error.message || 'Failed to create ticket');
       console.error('❌ Error creating ticket:', error);
       this.showError(msg);
+      try {
+        await Swal.fire({ title: 'Ticket Failed', text: msg, icon: 'error', confirmButtonColor: '#ef070a' });
+      } catch (_) {}
     } finally {
       submitBtn.disabled = false;
       if (btnText) btnText.style.display = 'block';
@@ -1603,10 +1682,13 @@ class Dashboard {
   }
 }
 
+try { window.Dashboard = Dashboard; } catch (_) {}
+
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   
   new Dashboard();
+  try { window.__dashModuleLoaded = true; } catch (_) {}
 });
 
 // Add CSS animation for notifications

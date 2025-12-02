@@ -85,7 +85,7 @@ body {
 }
 
 .admin-container {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 0 1rem;
 }
@@ -101,7 +101,7 @@ body {
 }
 
 .header-content {
-  max-width: 1400px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 1rem;
   display: flex;
@@ -182,6 +182,7 @@ body {
   align-items: center;
   gap: 0.375rem;
   text-decoration: none;
+  margin-bottom: 0.5rem;
 }
 
 .btn-primary {

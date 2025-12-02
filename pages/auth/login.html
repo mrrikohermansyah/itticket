@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Login - IT Support</title>
     <script src="../../assets/js/utils/config.js"></script>
-    <!-- TAMBAHKAN INI -->
     <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
 
     <!-- Gunakan auth.css -->
@@ -65,6 +64,45 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <!-- <script type="module" src="../../assets/js/pages/auth.js"></script> -->
     <script type="module" src="simple-auth.js"></script>
+    <script type="module">
+      try {
+        if (!window.__simpleAuthLoaded) {
+          const form = document.getElementById('loginForm');
+          const emailInput = document.getElementById('email');
+          const passInput = document.getElementById('password');
+          const btn = document.querySelector('.btn-auth');
+          const setLoading = (b) => { if (!btn) return; btn.disabled = !!b; btn.innerHTML = b ? '<i class="fas fa-spinner fa-spin"></i> Signing In...' : (btn.dataset.originalText || 'Login'); };
+          const showError = (msg) => { const el = document.getElementById('errorMessage'); if (el) { el.textContent = msg; el.style.display = 'block'; } };
+          const showSuccess = (msg) => { const el = document.getElementById('successMessage'); if (el) { el.textContent = msg; el.style.display = 'block'; } };
+          const params = new URLSearchParams(window.location.search);
+          if (emailInput && params.get('email')) emailInput.value = params.get('email');
+          if (passInput && params.get('password')) passInput.value = params.get('password');
+          if (form) {
+            form.addEventListener('submit', async (e) => {
+              e.preventDefault();
+              setLoading(true);
+              try {
+                const { default: SimpleAuth } = await import('./simple-auth.js');
+                const sa = new SimpleAuth();
+                const email = emailInput?.value || '';
+                const password = passInput?.value || '';
+                const res = await sa.login(email, password);
+                if (res?.success) {
+                  showSuccess('Login successful! Redirecting...');
+                  setTimeout(() => {
+                    window.location.href = res.userType === 'admin' ? '../admin/index.html' : '../user/dashboard.html';
+                  }, 400);
+                }
+              } catch (err) {
+                showError(err?.message || 'Login gagal');
+              } finally {
+                setLoading(false);
+              }
+            });
+          }
+        }
+      } catch (_) {}
+    </script>
 </body>
 
 </html>

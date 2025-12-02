@@ -2,19 +2,19 @@
 <html lang="en">
   <head>
     <!-- Web App Manifest -->
-    <link rel="manifest" href="manifest.json" />
+    
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#3b82f6" />
 
     <!-- Apple Touch Icons (untuk iOS) -->
-    <link rel="apple-touch-icon" href="imgs/meitech.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="imgs/meitech.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="imgs/meitech.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="imgs/meitech.png" />
+    <link rel="apple-touch-icon" href="../../assets/images/meitech.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="../../assets/images/meitech.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="../../assets/images/meitech.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="../../assets/images/meitech.png" />
 
     <!-- Apple Launch Screen (untuk iOS Splash Screen) -->
-    <link rel="apple-touch-startup-image" href="imgs/meitech.png" />
+    <link rel="apple-touch-startup-image" href="../../assets/images/meitech.png" />
 
     <!-- Meta untuk iOS -->
     <!-- Untuk iOS Safari -->
@@ -31,21 +31,20 @@
     <meta name="msapplication-config" content="browserconfig.xml" />
 
     <!-- Favicon untuk browser biasa -->
-    <link rel="icon" type="image/x-icon" href="imgs/meitech.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="imgs/meitech.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="imgs/meitech.png" />
+    <link rel="icon" type="image/x-icon" href="../../assets/images/meitech.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="../../assets/images/meitech.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="../../assets/images/meitech.png" />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com; base-uri 'self'; form-action 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'">
     <title>IT Support Ticketing System</title>
     <script src="../../assets/js/utils/config.js"></script>
+    <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
 
     <!-- Styles -->
     <link rel="stylesheet" href="../../assets/css/base/styles.css" />
-    <link rel="stylesheet" href="css/styles.css" />
-    <link rel="stylesheet" href="css/dropdown.css" />
-    <link rel="stylesheet" href="css/logout.css" />
-    <link rel="icon" type="image/png" href="imgs/meitech.png" />
+    
+    <link rel="icon" type="image/png" href="../../assets/images/meitech.png" />
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -71,7 +70,7 @@
       <!-- Header dengan tombol logout -->
       <header class="header">
         <div class="logo-container">
-          <img src="imgs/meitech-logo.png" alt="Company Logo" class="logo" />
+          <img src="../../assets/images/meitech-logo.png" alt="Company Logo" class="logo" />
           <div class="header-text">
             <h1>IT Support Ticketing System</h1>
             <p>Report technical issues and get support from our IT team</p>
@@ -324,7 +323,7 @@
 
     <!-- Floating Admin Bubble -->
     <a
-      href="admin/index.html"
+      href="../admin/index.html"
       class="admin-bubble"
       id="adminBubble"
       target="_blank"
@@ -347,25 +346,8 @@
     <!-- SweetAlert2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://smtpjs.com/v3/smtp.js"></script>
-    <script>
-      window.CONFIG = {
-        RECAPTCHA_V3_SITE_KEY: "6LcwPxAsAAAAAPguM-TsDsmczv1p3CZKGh4qAR-M",
-        APPCHECK_ENABLED: true,
-        APPCHECK_DEBUG: true,
-        APPCHECK_DEBUG_TOKEN: "99812416-b14d-4446-a739-0668b19a008f",
-        FIREBASE_CONFIG: {
-          apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
-          authDomain: "itticketing-f926e.firebaseapp.com",
-          projectId: "itticketing-f926e",
-          storageBucket: "itticketing-f926e.firebasestorage.app",
-          messagingSenderId: "10687213121",
-          appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
-          measurementId: "G-8H0EP72PC2"
-        }
-      };
-    </script>
-    <script type="module" src="js/app.js"></script>
-    <script src="js/dropdown.js"></script>
+    
+    
 
     <script>
       // Fungsi untuk menangani logout
@@ -394,7 +376,7 @@
               confirmButtonText: "OK",
             }).then(() => {
               // Redirect ke halaman login
-              window.location.href = "userlogin.html";
+              window.location.href = "../auth/login.html";
             });
           }
         });
@@ -412,7 +394,7 @@
             user.email || "user@company.com";
         } else {
           // Jika tidak ada data user, redirect ke halaman login
-          window.location.href = "userlogin.html";
+          window.location.href = "../auth/login.html";
         }
       }
 

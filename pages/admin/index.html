@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com https://recaptcha.google.com; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdnjs.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'">
   <script src="../../assets/js/utils/config.js"></script>
   <!-- TAMBAHKAN INI -->
   <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
@@ -62,7 +62,7 @@
   </header>
 
   <!-- Main Content -->
-  <main class="admin-main" style="visibility:hidden">
+  <main class="admin-main">
     <div class="admin-container">
       <!-- Statistics Section -->
       <section class="stats-section">
@@ -106,20 +106,6 @@
               <div class="stat-number" id="totalHighPriority">0</div>
               <div class="stat-label">High Priority</div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="tickets-section" id="assignmentsSection">
-        <div class="section-header">
-          <h2><i class="fas fa-list-check"></i> Assignments</h2>
-          <p>Assignments targeted to you or all IT</p>
-        </div>
-        <div class="tickets-list" id="assignmentsList">
-          <div class="empty-state">
-            <i class="fas fa-clipboard-list"></i>
-            <h3>No assignments</h3>
-            <p>Assignments created by IT will appear here</p>
           </div>
         </div>
       </section>
@@ -179,6 +165,7 @@
                 <th>Subject</th>
                 <th>User</th>
                 <th>Department</th>
+                <th>Assigned Email</th>
                 <th>Location</th>
                 <th>Priority</th>
                 <th>Status</th>
@@ -199,9 +186,12 @@
             <h3>No tickets found</h3>
             <p>There are no tickets matching your criteria</p>
           </div>
-          <div class="list-controls" id="ticketsListControls" style="display:flex; gap:.5rem; align-items:center; justify-content:flex-end; margin-top:12px;">
+          <div class="list-controls" id="ticketsListControls" style="display:flex; gap:.5rem; align-items:center; justify-content:flex-end; margin-top:12px; padding-right: 10px;">
             <button type="button" class="btn-primary" id="showMoreTickets">Show More</button>
             <button type="button" class="btn-secondary" id="showAllTickets">Show All</button>
+            <button type="button" class="btn-secondary" id="resetTicketsView" title="Reset">
+              <i class="fas fa-times"></i>
+            </button>
           </div>
           
         </div>
@@ -309,10 +299,7 @@
         "Backup Data": "DR",
         "Others": "OT"
       },
-      RECAPTCHA_V3_SITE_KEY: "6LcwPxAsAAAAAPguM-TsDsmczv1p3CZKGh4qAR-M",
-      APPCHECK_ENABLED: true,
-      APPCHECK_DEBUG: true,
-      APPCHECK_DEBUG_TOKEN: "99812416-b14d-4446-a739-0668b19a008f"
+      
     };
     window.allTickets = [];
   </script>

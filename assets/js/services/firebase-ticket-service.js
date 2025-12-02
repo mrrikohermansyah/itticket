@@ -10,7 +10,7 @@ import {
     limit,
     getDoc,
     Timestamp
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from '../utils/firebase-config.js';
 import '../utils/config.js';
 
@@ -56,7 +56,6 @@ class FirebaseTicketService {
             const ticketsQuery = query(
                 collection(db, 'tickets'),
                 where('user_id', '==', userId),
-                orderBy('created_at', 'desc'),
                 limit(50)
             );
             
@@ -73,6 +72,7 @@ class FirebaseTicketService {
                 });
             });
             
+            tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             return tickets;
             
         } catch (error) {
@@ -83,8 +83,7 @@ class FirebaseTicketService {
     async getAllTickets(filters = {}) {
         try {
             let ticketsQuery = query(
-                collection(db, 'tickets'),
-                orderBy('created_at', 'desc')
+                collection(db, 'tickets')
             );
             
             // Apply filters
@@ -121,6 +120,7 @@ class FirebaseTicketService {
                 });
             });
             
+            tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
             return tickets;
             
         } catch (error) {

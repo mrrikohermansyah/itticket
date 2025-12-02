@@ -1,10 +1,10 @@
 // pages/admin/assets/js/manage-team.js
-import firebaseAuthService from '../../../../../assets/js/services/firebase-auth-service.js';
+import firebaseAuthService from '../../../../assets/js/services/firebase-auth-service.js';
 import { 
     doc, 
     getDoc 
-} from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { db } from '../../../../../assets/js/utils/firebase-config.js';
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { db } from '../../../../assets/js/utils/firebase-config.js';
 
 class TeamManagement {
     constructor() {
@@ -15,7 +15,8 @@ class TeamManagement {
     this.handleTeamClick = this.handleTeamClick.bind(this);
     this.handleLogout = this.handleLogout.bind(this);
     this.showPermissionError = this.showPermissionError.bind(this);
-    this.showCannotModifySelfError = this.showCannotModifySelfError.bind(this);
+        this.showCannotModifySelfError = this.showCannotModifySelfError.bind(this);
+        this.cacheTTL = 60000;
     
     this.init();
 }
@@ -25,7 +26,20 @@ class TeamManagement {
         await this.testServiceMethods();
         this.initializeEventListeners();
         this.toggleAddFormVisibility();
-        await this.loadTeamData();
+        let usedCache = false;
+        try {
+            const key = `adminsCache:${this.adminUser?.uid || 'global'}`;
+            const cached = JSON.parse(localStorage.getItem(key) || 'null');
+            const now = Date.now();
+            if (cached && Array.isArray(cached.items) && cached.items.length && cached.ts && (now - cached.ts) < this.cacheTTL) {
+                this.itTeam = cached.items;
+                this.renderTeam();
+                usedCache = true;
+            }
+        } catch (_) {}
+        if (!usedCache) {
+            await this.loadTeamData();
+        }
     }
     // ✅ TEST METHOD - Tambahkan di class
 // ✅ TEST METHOD - Tambahkan di testServiceMethods()
@@ -120,7 +134,12 @@ async loadAllAdmins() {
             // console.log('✅ Used direct Firestore query');
         }
         
-        // console.log('📋 All admins loaded:', allAdmins.length);
+            // console.log('📋 All admins loaded:', allAdmins.length);
+            try {
+                const key = `adminsCache:${this.adminUser?.uid || 'global'}`;
+                const cache = { ts: Date.now(), items: allAdmins };
+                localStorage.setItem(key, JSON.stringify(cache));
+            } catch (_) {}
         // console.log('📊 Breakdown:', {
         //     total: allAdmins.length,
         //     active: allAdmins.filter(a => a.is_active).length,

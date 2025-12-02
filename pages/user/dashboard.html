@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>User Dashboard - IT Support</title>
     <script src="../../assets/js/utils/config.js"></script>
-    <!-- TAMBAHKAN INI -->
     <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
     <link rel="icon" type="image/x-icon" href="../../assets/images/meitech.png">
     <!-- Tambahkan di head -->
@@ -571,6 +570,19 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="module" src="../../assets/js/pages/dashboard.js"></script>
-</body>
+    <script type="module">
+      try {
+        const m = document.getElementById('dashboardMain');
+        if (m) m.style.visibility = 'visible';
+        if (!window.__dashModuleLoaded) {
+          await import('../../assets/js/pages/dashboard.js');
+          if (window.Dashboard) {
+            new window.Dashboard();
+            try { window.__dashModuleLoaded = true; } catch (_) {}
+          }
+        }
+      } catch (_) {}
+    </script>
+  </body>
 
 </html>

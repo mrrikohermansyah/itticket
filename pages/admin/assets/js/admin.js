@@ -1,6 +1,5 @@
 // Import Firebase modules dengan LENGKAP
 import {
-    getFirestore,
     collection,
     addDoc,
     doc,
@@ -21,32 +20,17 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
-    getAuth,
     setPersistence,
     browserSessionPersistence,
     onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { auth, db } from '../../../../assets/js/utils/firebase-config.js';
 
 // Import auth service
 import firebaseAuthService from '../../../../assets/js/services/firebase-auth-service.js';
 
-// Firebase configuration
-const firebaseConfig = window.CONFIG?.FIREBASE_CONFIG || {
-    apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
-    authDomain: "itticketing-f926e.firebaseapp.com",
-    projectId: "itticketing-f926e",
-    storageBucket: "itticketing-f926e.firebasestorage.app",
-    messagingSenderId: "10687213121",
-    appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
-    measurementId: "G-8H0EP72PC2"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+// Use shared Firebase instances from firebase-config.js
 
 // Bulk resolve helper
 window.bulkResolveTicketsByDateRange = async function(startDateStr, endDateStr) {
@@ -340,17 +324,22 @@ class AdminDashboard {
         this.assignmentsUnsubAll = null;
         this.assignmentsUnsubMine = null;
         this.assignmentsUnsubMineEmail = null;
-        this.pageSize = 25;
+        this.pageSize = 10;
         this.lastVisible = null;
         this.hasMoreTickets = true;
         this.isShowingAll = false;
+        this.cacheTTL = 60000;
+        this.deferRealtimeUntil = 0;
 
         this.init();
     }
 
     async init() {
         try {
-            
+            const mainElEarly = document.querySelector('.admin-main');
+            if (mainElEarly) {
+                mainElEarly.style.visibility = 'visible';
+            }
 
             // Bind methods
             this.bindMethods();
@@ -373,16 +362,35 @@ class AdminDashboard {
             
             this.restoreFilters();
 
-            // Load initial data
-            await this.loadTickets();
-
-            this.setupRealTimeListeners();
-
-            
-
             const mainEl = document.querySelector('.admin-main');
             if (mainEl) {
                 mainEl.style.visibility = 'visible';
+            }
+
+            // Load initial data
+            this.isShowingAll = false;
+            let usedCache = false;
+            try {
+                const key = `adminTickets:${this.adminUser?.uid || 'global'}`;
+                const cached = JSON.parse(localStorage.getItem(key) || 'null');
+                const now = Date.now();
+                if (cached && Array.isArray(cached.tickets) && cached.tickets.length && cached.ts && (now - cached.ts) < this.cacheTTL) {
+                    this.tickets = cached.tickets;
+                    this.applyAllFilters();
+                    this.updatePaginationControls();
+                    this.deferRealtimeUntil = cached.ts + this.cacheTTL;
+                    usedCache = true;
+                }
+            } catch (_) {}
+            if (!usedCache) {
+                await this.loadTickets();
+            }
+            await this.loadAssignments();
+
+            this.setupRealTimeListeners();
+            this.setupAssignmentsRealtime();
+
+            if (mainEl) {
                 mainEl.classList.add('page-enter-animate');
                 mainEl.addEventListener('animationend', function () {
                     mainEl.classList.remove('page-enter-animate');
@@ -391,6 +399,10 @@ class AdminDashboard {
 
         } catch (error) {
             console.error('❌ Admin Dashboard init error:', error);
+            const mainEl = document.querySelector('.admin-main');
+            if (mainEl) {
+                mainEl.style.visibility = 'visible';
+            }
             this.showNotification('Initialization Error', 'error', error.message);
         }
     }
@@ -439,6 +451,7 @@ class AdminDashboard {
         this.updateBulkDeleteVisibility = this.updateBulkDeleteVisibility.bind(this);
         this.loadMoreTickets = this.loadMoreTickets.bind(this);
         this.loadAllTickets = this.loadAllTickets.bind(this);
+        this.resetTicketsView = this.resetTicketsView.bind(this);
         this.updatePaginationControls = this.updatePaginationControls.bind(this);
     }
 
@@ -527,17 +540,61 @@ class AdminDashboard {
                 return;
             }
 
-            const adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
+            let adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
             if (!adminSnap.exists() || adminSnap.data().is_active === false) {
-                localStorage.removeItem('adminUser');
-                window.location.href = 'login.html';
-                return;
+                try {
+                    const q = query(collection(this.db, 'admins'), where('email', '==', firebaseUser.email));
+                    const byEmail = await getDocs(q);
+                    if (!byEmail.empty) {
+                        const found = byEmail.docs[0];
+                        const data = found.data();
+                        await setDoc(doc(this.db, 'admins', firebaseUser.uid), {
+                            ...data,
+                            uid: firebaseUser.uid,
+                            migrated_from: found.id,
+                            last_updated: new Date().toISOString()
+                        });
+                        try { await deleteDoc(doc(this.db, 'admins', found.id)); } catch (e) {}
+                        this.adminUser = { uid: firebaseUser.uid, ...data };
+                        localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+                        console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
+                        return;
+                    }
+                    // Jika tidak ditemukan, paksa buat minimal admin record
+                    try {
+                        await firebaseAuthService.ensureAdminRecord(firebaseUser.uid, firebaseUser.email || '');
+                        adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
+                        if (adminSnap.exists()) {
+                            this.adminUser = { uid: firebaseUser.uid, ...adminSnap.data() };
+                            localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+                            console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
+                            return;
+                        }
+                    } catch (_) {}
+                } catch (e) {}
+                // Teruskan dengan sesi minimal agar UI tetap berjalan
+                this.adminUser = { uid: firebaseUser.uid, email: firebaseUser.email || '', role: 'Admin', is_active: true };
+                localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+                console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
+                // lanjut
             }
 
             this.adminUser = { uid: firebaseUser.uid, ...adminSnap.data() };
             localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+            console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
         } catch (error) {
             console.error('Admin auth check failed:', error);
+            // Gunakan sesi minimal jika auth sudah ada
+            try {
+                const u = await new Promise((resolve) => {
+                    const unsub = onAuthStateChanged(this.auth, (x) => { unsub(); resolve(x); });
+                });
+                if (u) {
+                    this.adminUser = { uid: u.uid, email: u.email || '', role: 'Admin', is_active: true };
+                    localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
+                    return;
+                }
+            } catch (_) {}
             localStorage.removeItem('adminUser');
             window.location.href = 'login.html';
         }
@@ -597,6 +654,11 @@ class AdminDashboard {
             return true;
         }
 
+        // Check broadcast/target assignment fields
+        if ((ticket.target_admin_uid && ticket.target_admin_uid === this.adminUser.uid)) {
+            return true;
+        }
+
         // Check by name (compatibility)
         if (this.adminUser.name &&
             (ticket.action_by === this.adminUser.name || ticket.assigned_to === this.adminUser.name)) {
@@ -605,7 +667,12 @@ class AdminDashboard {
 
         // Check by email (fallback)
         if (this.adminUser.email &&
-            (ticket.action_by === this.adminUser.email || ticket.assigned_to === this.adminUser.email)) {
+            (ticket.action_by === this.adminUser.email || ticket.assigned_to === this.adminUser.email || ticket.target_admin_email === this.adminUser.email)) {
+            return true;
+        }
+
+        // Check if taken_by includes current admin
+        if (Array.isArray(ticket.taken_by) && ticket.taken_by.includes(this.adminUser.uid)) {
             return true;
         }
 
@@ -720,6 +787,10 @@ class AdminDashboard {
         if (showAllBtn) {
             showAllBtn.addEventListener('click', this.loadAllTickets);
         }
+        const resetViewBtn = document.getElementById('resetTicketsView');
+        if (resetViewBtn) {
+            resetViewBtn.addEventListener('click', this.resetTicketsView);
+        }
     }
 
     initializeDateFilter() {
@@ -773,24 +844,17 @@ class AdminDashboard {
             filtered = filtered.filter(ticket => ticket.priority === this.currentFilters.priority);
         }
 
-        // 3. Apply date filter
+        // 3. Apply date filter (only if valid)
         if (this.currentFilters.date.isActive) {
             filtered = this.applyDateFilter(filtered);
         }
 
-        // 4. Restrict visibility for non-Super Admin: own, unassigned, or All IT assignments
-        if (!this.adminUser || this.adminUser.role !== 'Super Admin') {
-            filtered = filtered.filter(ticket => {
-                const isAllAssignment = ticket.is_assignment && ((ticket.assignment_scope || ticket.scope || '').toLowerCase() === 'all');
-                if (isAllAssignment) {
-                    const alreadyTakenByMe = Array.isArray(ticket.taken_by) && ticket.taken_by.includes(this.adminUser?.uid);
-                    return !alreadyTakenByMe;
-                }
-                const isUnassigned = !ticket.action_by && !ticket.assigned_to;
-                const isMine = this.isAssignedToCurrentAdmin(ticket);
-                return isUnassigned || isMine;
-            });
+        // Fallback: jika hasil filter kosong tetapi data ada, tampilkan semua
+        if (filtered.length === 0 && this.tickets.length > 0) {
+            filtered = [...this.tickets];
         }
+
+        // 4. Admin dapat melihat semua tiket; filter di atas sudah cukup
 
         this.filteredTickets = filtered;
         this.renderTickets();
@@ -845,8 +909,13 @@ class AdminDashboard {
             if (!raw) raw = localStorage.getItem('adminFilters');
             if (!raw) return;
             const saved = JSON.parse(raw);
-            const startDate = saved?.date?.startDate ? new Date(saved.date.startDate) : null;
-            const endDate = saved?.date?.endDate ? new Date(saved.date.endDate) : null;
+            const parseDate = (v) => {
+                if (!v) return null;
+                const d = new Date(v);
+                return (d instanceof Date && !isNaN(d.getTime())) ? d : null;
+            };
+            const startDate = parseDate(saved?.date?.startDate);
+            const endDate = parseDate(saved?.date?.endDate);
             this.currentFilters = {
                 status: saved?.status || 'all',
                 priority: saved?.priority || 'all',
@@ -864,14 +933,25 @@ class AdminDashboard {
         if (!this.currentFilters.date.isActive) return tickets;
 
         const { startDate, endDate } = this.currentFilters.date;
+        const isValidDate = (d) => d instanceof Date && !isNaN(d.getTime());
+        const hasStart = isValidDate(startDate);
+        const hasEnd = isValidDate(endDate);
+        if (!hasStart && !hasEnd) return tickets;
 
         return tickets.filter(ticket => {
-            if (!ticket.created_at) return false;
-
-            const ticketDate = new Date(ticket.created_at);
+            let ticketDate = null;
+            if (ticket.created_at) {
+                const d1 = new Date(ticket.created_at);
+                if (!isNaN(d1.getTime())) ticketDate = d1;
+            }
+            if (!ticketDate && ticket.last_updated) {
+                const d2 = new Date(ticket.last_updated);
+                if (!isNaN(d2.getTime())) ticketDate = d2;
+            }
+            if (!ticketDate) return false;
 
             // Case 1: Both start and end date provided
-            if (startDate && endDate) {
+            if (hasStart && hasEnd) {
                 const startOfDay = new Date(startDate);
                 startOfDay.setHours(0, 0, 0, 0);
 
@@ -882,14 +962,14 @@ class AdminDashboard {
             }
 
             // Case 2: Only start date provided
-            if (startDate && !endDate) {
+            if (hasStart && !hasEnd) {
                 const startOfDay = new Date(startDate);
                 startOfDay.setHours(0, 0, 0, 0);
                 return ticketDate >= startOfDay;
             }
 
             // Case 3: Only end date provided
-            if (!startDate && endDate) {
+            if (!hasStart && hasEnd) {
                 const endOfDay = new Date(endDate);
                 endOfDay.setHours(23, 59, 59, 999);
                 return ticketDate <= endOfDay;
@@ -900,7 +980,6 @@ class AdminDashboard {
     }
 
     handleDateChange() {
-        
 
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
@@ -910,8 +989,13 @@ class AdminDashboard {
             return;
         }
 
-        const startDate = startDateInput.value ? new Date(startDateInput.value) : null;
-        const endDate = endDateInput.value ? new Date(endDateInput.value) : null;
+        const parseInputDate = (v) => {
+            if (!v) return null;
+            const d = new Date(v);
+            return (d instanceof Date && !isNaN(d.getTime())) ? d : null;
+        };
+        const startDate = parseInputDate(startDateInput.value);
+        const endDate = parseInputDate(endDateInput.value);
 
         // Validation: end date cannot be before start date
         if (startDate && endDate && endDate < startDate) {
@@ -1040,12 +1124,24 @@ class AdminDashboard {
         try {
             
 
-            const baseQuery = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
             let querySnapshot;
-            if (this.isShowingAll) {
-                querySnapshot = await getDocs(baseQuery);
-            } else {
-                querySnapshot = await getDocs(query(baseQuery, limit(this.pageSize)));
+            try {
+                const baseQuery = query(collection(this.db, "tickets"), orderBy("created_at", "desc"));
+                if (this.isShowingAll) {
+                    querySnapshot = await getDocs(baseQuery);
+                } else {
+                    querySnapshot = await getDocs(query(baseQuery, limit(this.pageSize)));
+                }
+            } catch (e) {
+                console.warn('Fallback tickets query without orderBy due to error:', e?.message || e);
+                querySnapshot = await getDocs(collection(this.db, 'tickets'));
+            }
+            // If empty, try fallback without orderBy
+            if (!querySnapshot || querySnapshot.docs.length === 0) {
+                // Coba pastikan admin record lalu ulangi sekali
+                try { if (this.adminUser?.uid) await firebaseAuthService.ensureAdminRecord(this.adminUser.uid, this.adminUser.email || ''); } catch (_) {}
+                const fallbackSnap = await getDocs(collection(this.db, 'tickets'));
+                querySnapshot = fallbackSnap;
             }
             const allTickets = [];
 
@@ -1067,6 +1163,11 @@ class AdminDashboard {
 
             this.tickets = allTickets;
             this.updateGlobalTicketsData();
+            try {
+                const key = `adminTickets:${this.adminUser?.uid || 'global'}`;
+                const cache = { ts: Date.now(), tickets: this.tickets.slice(0, 100) };
+                localStorage.setItem(key, JSON.stringify(cache));
+            } catch (_) {}
 
             // Cascade soft-delete for broadcast assignments deleted by users
             const broadcastsToCascade = allTickets.filter(t => t.is_assignment && ((t.assignment_scope || t.scope || '').toLowerCase() === 'all') && t.deleted && !t.cascade_deleted_children);
@@ -1093,6 +1194,39 @@ class AdminDashboard {
 
             this.lastVisible = querySnapshot.docs.length > 0 ? querySnapshot.docs[querySnapshot.docs.length - 1] : null;
             this.hasMoreTickets = !this.isShowingAll && querySnapshot.docs.length === this.pageSize;
+            console.info('Loaded tickets:', this.tickets.length);
+            // Jika masih kosong, coba fetch spesifik untuk admin yang login
+            if ((!Array.isArray(this.tickets) || this.tickets.length === 0) && this.adminUser) {
+                try {
+                    const uid = this.adminUser.uid;
+                    const email = this.adminUser.email || '';
+                    const queries = [
+                        query(collection(this.db, 'tickets'), where('assigned_to', '==', uid)),
+                        query(collection(this.db, 'tickets'), where('action_by', '==', uid)),
+                        query(collection(this.db, 'tickets'), where('target_admin_uid', '==', uid)),
+                        ...(email ? [query(collection(this.db, 'tickets'), where('target_admin_email', '==', email))] : [])
+                    ];
+                    const snaps = await Promise.all(queries.map(q => getDocs(q).catch(() => null)));
+                    const targeted = [];
+                    for (const s of snaps) {
+                        if (!s) continue;
+                        s.forEach(docSnap => {
+                            const data = docSnap.data();
+                            const t = this.normalizeTicketData(docSnap.id, data);
+                            targeted.push(t);
+                        });
+                    }
+                    if (targeted.length > 0) {
+                        // Hilangkan duplikat id
+                        const map = new Map();
+                        for (const t of targeted) map.set(t.id, t);
+                        this.tickets = Array.from(map.values()).sort((a,b) => (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0));
+                        this.updateGlobalTicketsData();
+                    }
+                } catch (e) {
+                    console.warn('Targeted fetch failed:', e?.message || e);
+                }
+            }
             this.applyAllFilters();
             this.updatePaginationControls();
 
@@ -1100,6 +1234,33 @@ class AdminDashboard {
 
         } catch (error) {
             console.error('❌ Error loading tickets:', error);
+            // Jika permission denied, pastikan admin record lalu coba sekali lagi
+            try {
+                if (this.adminUser?.uid) {
+                    const ok = await firebaseAuthService.ensureAdminRecord(this.adminUser.uid, this.adminUser.email || '');
+                    if (ok) {
+                        try {
+                            const snap2 = await getDocs(collection(this.db, 'tickets'));
+                            const allTickets = [];
+                            snap2.forEach((docSnap) => {
+                                try {
+                                    const data = docSnap.data();
+                                    const ticket = this.normalizeTicketData(docSnap.id, data);
+                                    allTickets.push(ticket);
+                                } catch {}
+                            });
+                            allTickets.sort((a,b) => (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0));
+                            this.tickets = allTickets;
+                            this.updateGlobalTicketsData();
+                            this.applyAllFilters();
+                            this.updatePaginationControls();
+                            return;
+                        } catch (e2) {
+                            console.warn('Retry load tickets failed:', e2?.message || e2);
+                        }
+                    }
+                }
+            } catch (_) {}
             this.showNotification('Data Error', 'error', 'Failed to load tickets');
         }
     }
@@ -1148,31 +1309,41 @@ class AdminDashboard {
         }
     }
 
+    async resetTicketsView() {
+        try {
+            this.isShowingAll = false;
+            await this.loadTickets();
+        } catch (e) {
+            console.error('❌ Error resetting tickets view:', e);
+        }
+    }
+
+    parseDateToISO(v) {
+        try {
+            if (!v) return null;
+            if (v?.toDate && typeof v.toDate === 'function') {
+                return v.toDate().toISOString();
+            }
+            if (v instanceof Date) {
+                return v.toISOString();
+            }
+            const s = String(v);
+            let d = new Date(s);
+            if (!isNaN(d.getTime())) return d.toISOString();
+            const t = s.replace(' at ', ' ').replace(/ UTC[+\-]\d+/i, '');
+            d = new Date(t);
+            if (!isNaN(d.getTime())) return d.toISOString();
+            const m = Date.parse(t);
+            if (!isNaN(m)) return new Date(m).toISOString();
+            return null;
+        } catch { return null; }
+    }
+
     normalizeTicketData(id, data) {
         try {
-            const created_at = data.created_at?.toDate
-                ? data.created_at.toDate().toISOString()
-                : (data.created_at
-                    ? data.created_at
-                    : (data.createdAt?.toDate
-                        ? data.createdAt.toDate().toISOString()
-                        : (data.createdAt || new Date().toISOString())
-                      )
-                  );
-
-            const last_updated = data.last_updated?.toDate
-                ? data.last_updated.toDate().toISOString()
-                : (data.last_updated
-                    ? data.last_updated
-                    : (data.updatedAt?.toDate
-                        ? data.updatedAt.toDate().toISOString()
-                        : (data.updatedAt || new Date().toISOString())
-                      )
-                  );
-
-            const resolved_at = data.resolved_at?.toDate
-                ? data.resolved_at.toDate().toISOString()
-                : (data.resolved_at || null);
+            const created_at = this.parseDateToISO(data.created_at) || this.parseDateToISO(data.createdAt) || new Date().toISOString();
+            const last_updated = this.parseDateToISO(data.last_updated) || this.parseDateToISO(data.updatedAt) || created_at;
+            const resolved_at = this.parseDateToISO(data.resolved_at) || null;
 
             return {
                 id: id || '',
@@ -1186,6 +1357,8 @@ class AdminDashboard {
                 assignment_activity: (data.assignment_activity || ''),
                 is_assignment: !!data.is_assignment,
                 assignment_scope: data.assignment_scope || data.scope || '',
+                target_admin_uid: data.target_admin_uid || '',
+                target_admin_email: data.target_admin_email || '',
                 created_by_name: data.created_by_name || data.created_by_email || data.user_name || '',
                 created_by_email: data.created_by_email || '',
                 created_by_uid: data.created_by_uid || '',
@@ -1199,6 +1372,7 @@ class AdminDashboard {
                 resolved_at: resolved_at,
                 action_by: data.action_by || '',
                 assigned_to: data.assigned_to || '',
+                assigned_name: data.assigned_name || '',
                 note: data.note || '',
                 qa: data.qa || '',
                 user_phone: data.user_phone || '',
@@ -1418,12 +1592,70 @@ class AdminDashboard {
 
     setupTicketsRealTimeListener() {
         try {
-            const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"), limit(this.pageSize));
-
-            this.unsubscribe = onSnapshot(q, (snapshot) => {
-                
-                this.loadTickets();
-            });
+            const now = Date.now();
+            if (this.deferRealtimeUntil && now < this.deferRealtimeUntil) {
+                const delay = this.deferRealtimeUntil - now;
+                setTimeout(() => { try { this.setupTicketsRealTimeListener(); } catch (_) {} }, delay);
+                return;
+            }
+            try {
+                const q = query(collection(this.db, "tickets"), orderBy("created_at", "desc"), limit(this.pageSize));
+                this.unsubscribe = onSnapshot(q, (snapshot) => {
+                    const newTickets = [];
+                    snapshot.forEach((docSnap) => {
+                        try {
+                            const data = docSnap.data();
+                            const t = this.normalizeTicketData(docSnap.id, data);
+                            newTickets.push(t);
+                        } catch {}
+                    });
+                    newTickets.sort((a,b) => (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0));
+                    this.tickets = newTickets;
+                    this.updateGlobalTicketsData();
+                    try {
+                        const key = `adminTickets:${this.adminUser?.uid || 'global'}`;
+                        const cache = { ts: Date.now(), tickets: this.tickets.slice(0, 100) };
+                        localStorage.setItem(key, JSON.stringify(cache));
+                    } catch (_) {}
+                    this.lastVisible = snapshot.docs.length > 0 ? snapshot.docs[snapshot.docs.length - 1] : null;
+                    this.hasMoreTickets = !this.isShowingAll && snapshot.docs.length === this.pageSize;
+                    this.applyAllFilters();
+                    this.updatePaginationControls();
+                }, (error) => {
+                    console.warn('Realtime listener error, switching to fallback:', error?.message || error);
+                    if (this.unsubscribe) this.unsubscribe();
+                    this.unsubscribe = onSnapshot(collection(this.db, 'tickets'), (snap) => {
+                        const arr = [];
+                        snap.forEach((ds) => { try { arr.push(this.normalizeTicketData(ds.id, ds.data())); } catch {} });
+                        arr.sort((a,b) => (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0));
+                        this.tickets = arr;
+                        this.updateGlobalTicketsData();
+                        try {
+                            const key = `adminTickets:${this.adminUser?.uid || 'global'}`;
+                            const cache = { ts: Date.now(), tickets: this.tickets.slice(0, 100) };
+                            localStorage.setItem(key, JSON.stringify(cache));
+                        } catch (_) {}
+                        this.applyAllFilters();
+                        this.updatePaginationControls();
+                    });
+                });
+            } catch (err) {
+                console.warn('Realtime listener orderBy failed, using collection fallback:', err?.message || err);
+                this.unsubscribe = onSnapshot(collection(this.db, 'tickets'), (snap) => {
+                    const arr = [];
+                    snap.forEach((ds) => { try { arr.push(this.normalizeTicketData(ds.id, ds.data())); } catch {} });
+                    arr.sort((a,b) => (b.created_at ? new Date(b.created_at).getTime() : 0) - (a.created_at ? new Date(a.created_at).getTime() : 0));
+                    this.tickets = arr;
+                    this.updateGlobalTicketsData();
+                    try {
+                        const key = `adminTickets:${this.adminUser?.uid || 'global'}`;
+                        const cache = { ts: Date.now(), tickets: this.tickets.slice(0, 100) };
+                        localStorage.setItem(key, JSON.stringify(cache));
+                    } catch (_) {}
+                    this.applyAllFilters();
+                    this.updatePaginationControls();
+                });
+            }
 
             
         } catch (error) {
@@ -1663,6 +1895,18 @@ class AdminDashboard {
         const rowPromises = this.filteredTickets.map(async (ticket) => {
             const permissions = this.checkPermissions(ticket);
             const assignedAdminDisplay = await this.getAssignedAdminDisplayInfo(ticket);
+            const assignedInfo = await this.getAssignedAdminInfo(ticket);
+            const isEmail = (v) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(String(v||''));
+            const assignedEmail = (
+                // 1) If assigned to current admin, use current admin email
+                (ticket.assigned_to && this.adminUser && ticket.assigned_to === this.adminUser.uid && this.adminUser.email) ? this.adminUser.email :
+                // 2) From admins/<uid>
+                (assignedInfo && assignedInfo.assignedTo && assignedInfo.assignedTo.email) ? assignedInfo.assignedTo.email :
+                // 3) If assigned_to already an email string
+                (isEmail(ticket.assigned_to) ? String(ticket.assigned_to) :
+                // 4) target_admin_email for assignment tickets
+                (ticket.target_admin_email || '-'))
+            );
             const userDisplay = await this.getUserDisplayInfo(ticket);
 
             let actionButtons = this.generateActionButtons(ticket, permissions);
@@ -1686,6 +1930,7 @@ class AdminDashboard {
                         <small class="text-muted">${userDisplay.email || 'No Email'}</small>
                     </td>
                     <td>${userDisplay.department || 'N/A'}</td>
+                    <td>${assignedEmail}</td>
                     <td>${ticket.location || 'N/A'}</td>
                     <td>
                         <span class="priority-badge priority-${(ticket.priority || 'medium').toLowerCase()}">
@@ -3384,10 +3629,7 @@ class AdminDashboard {
         const inProgressTickets = this.filteredTickets.filter(ticket => ticket.status === 'In Progress').length;
         const resolvedTickets = this.filteredTickets.filter(ticket => ticket.status === 'Resolved').length;
         const highPriorityTickets = this.filteredTickets.filter(ticket => ticket.priority === 'High').length;
-        const myTickets = this.filteredTickets.filter(ticket =>
-            ticket.action_by === this.adminUser?.uid ||
-            ticket.assigned_to === this.adminUser?.uid
-        ).length;
+        const myTickets = this.tickets.filter(ticket => this.isAssignedToCurrentAdmin(ticket)).length;
 
         this.updateElementText('totalOpenTickets', openTickets);
         this.updateElementText('totalInProgress', inProgressTickets);
@@ -4037,26 +4279,40 @@ class AdminDashboard {
     }
 
     async handleLogout() {
-        const result = await Swal.fire({
-            title: 'Logout Confirmation',
-            text: 'Are you sure you want to logout?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#ef4444',
-            cancelButtonColor: '#6b7280',
-            confirmButtonText: 'Yes, Logout',
-            cancelButtonText: 'Cancel',
-            customClass: { htmlContainer: 'swal-center' }
-        });
+        try {
+            console.info('Logout button clicked');
+            let confirmed = false;
+            if (window.Swal && typeof Swal.fire === 'function') {
+                const result = await Swal.fire({
+                    title: 'Logout Confirmation',
+                    text: 'Are you sure you want to logout?',
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonColor: '#ef4444',
+                    cancelButtonColor: '#6b7280',
+                    confirmButtonText: 'Yes, Logout',
+                    cancelButtonText: 'Cancel',
+                    customClass: { htmlContainer: 'swal-center' }
+                });
+                confirmed = !!result.isConfirmed;
+            } else {
+                confirmed = window.confirm('Are you sure you want to logout?');
+            }
 
-        if (result.isConfirmed) {
+            if (!confirmed) return;
+
             try {
                 await firebaseAuthService.logout();
             } catch (error) {
-                
+                console.warn('Logout via service failed, continuing client-side cleanup:', error?.message || error);
             }
 
-            localStorage.removeItem('adminUser');
+            try { localStorage.removeItem('adminUser'); } catch {}
+            window.location.href = 'login.html';
+        } catch (e) {
+            console.error('Logout handler error:', e);
+            // Fallback hard redirect to login
+            try { localStorage.removeItem('adminUser'); } catch {}
             window.location.href = 'login.html';
         }
     }
@@ -4087,11 +4343,16 @@ class AdminDashboard {
     }
 }
 
-// Initialize admin dashboard
-document.addEventListener('DOMContentLoaded', function () {
+// Initialize admin dashboard (robust against DOMContentLoaded race)
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+        const adminDashboard = new AdminDashboard();
+        window.adminDashboard = adminDashboard;
+    });
+} else {
     const adminDashboard = new AdminDashboard();
     window.adminDashboard = adminDashboard;
-});
+}
 
 window.addEventListener('beforeunload', function () {
     if (window.adminDashboard) {

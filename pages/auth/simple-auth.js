@@ -1,34 +1,22 @@
-// ✅ IMPORT FIREBASE SDK 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+// ✅ IMPORT FIREBASE SDK
 import {
-    getAuth,
     signInWithEmailAndPassword,
     signOut,
     setPersistence,
     browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import {
-    getFirestore,
     doc,
     getDoc,
-    setDoc
+    setDoc,
+    collection,
+    getDocs,
+    query,
+    where
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { auth, db } from "../../assets/js/utils/firebase-config.js";
 
-// Firebase configuration
-const firebaseConfig = {
-    apiKey: "AIzaSyCQR--hn0RDvDduCjA2Opa9HLzyYn_GFIs",
-    authDomain: "itticketing-f926e.firebaseapp.com",
-    projectId: "itticketing-f926e",
-    storageBucket: "itticketing-f926e.firebasestorage.app",
-    messagingSenderId: "10687213121",
-    appId: "1:10687213121:web:af3b530a7c45d3ca2d8a7e",
-    measurementId: "G-8H0EP72PC2"
-};
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
+// Menggunakan instance bersama dari firebase-config.js
 
  
 
@@ -38,7 +26,7 @@ class SimpleAuth {
     }
 
     async login(email, password) {
-        try {
+    try {
             
 
             // Show loading state
@@ -61,11 +49,8 @@ class SimpleAuth {
                 if (adminDoc.exists()) {
                     userData = adminDoc.data();
                     userType = 'admin';
-                    
                 }
-            } catch (error) {
-                
-            }
+            } catch (error) {}
 
             // 3. If not admin, check in users collection
             if (!userData) {
@@ -73,12 +58,10 @@ class SimpleAuth {
                     const userDoc = await getDoc(doc(db, "users", user.uid));
                     if (userDoc.exists()) {
                         userData = userDoc.data();
-                        userType = 'user';
-                        
+                        const role = (userData.role || 'user').toString().toLowerCase();
+                        userType = role !== 'user' ? 'admin' : 'user';
                     }
-                } catch (error) {
-                    
-                }
+                } catch (error) {}
             }
 
             // 4. If no record exists, create basic user record
@@ -94,10 +77,20 @@ class SimpleAuth {
                 await setDoc(doc(db, "users", user.uid), userData);
             }
 
-            // 5. Show success message
+            // 5. Persist lightweight user info for legacy pages
+            try {
+                const legacyUser = {
+                    name: userData.full_name || userData.name || (email.split('@')[0]),
+                    email: email,
+                    role: userType
+                };
+                localStorage.setItem('userData', JSON.stringify(legacyUser));
+            } catch (_) {}
+
+            // 6. Show success message
             this.showSuccess('Login successful! Redirecting...');
 
-            // 6. Return complete user info
+            // 7. Return complete user info
             return {
                 success: true,
                 user: {
@@ -109,32 +102,39 @@ class SimpleAuth {
             };
 
         } catch (error) {
-            console.error('❌ Login failed:', error);
-
-            let errorMessage = 'Login failed. ';
-
-            switch (error.code) {
+            console.error('❌ Login failed:', { code: error?.code, message: error?.message });
+            let errorMessage = '';
+            switch (error?.code) {
                 case 'auth/invalid-email':
-                    errorMessage = 'Invalid email address.';
+                    errorMessage = 'Email tidak valid.';
                     break;
                 case 'auth/user-not-found':
-                    errorMessage = 'No account found with this email.';
+                    errorMessage = 'Akun tidak ditemukan.';
                     break;
                 case 'auth/wrong-password':
-                    errorMessage = 'Incorrect password.';
+                    errorMessage = 'Password salah.';
                     break;
                 case 'auth/too-many-requests':
-                    errorMessage = 'Too many failed attempts. Try again later.';
+                    errorMessage = 'Terlalu banyak percobaan. Coba lagi nanti.';
                     break;
                 case 'auth/network-request-failed':
-                    errorMessage = 'Network error. Please check your internet connection.';
+                    errorMessage = 'Jaringan bermasalah. Periksa koneksi internet.';
+                    break;
+                case 'auth/unauthorized-domain':
+                    errorMessage = 'Domain ini belum diizinkan di Firebase Auth.';
+                    break;
+                case 'auth/invalid-api-key':
+                    errorMessage = 'Konfigurasi API key Firebase tidak valid.';
+                    break;
+                case 'auth/invalid-credential':
+                    errorMessage = 'Kredensial tidak valid. Periksa email/password atau domain yang diizinkan.';
                     break;
                 default:
-                    errorMessage += error.message;
+                    errorMessage = (error?.message || 'Login gagal');
             }
 
-            this.showError(errorMessage);
-            throw new Error(errorMessage);
+            this.showError(errorMessage, error?.code);
+            throw new Error(`${errorMessage} (code: ${error?.code || 'unknown'})`);
         } finally {
             this.setLoadingState(false);
         }
@@ -163,15 +163,15 @@ class SimpleAuth {
         }
     }
 
-    showError(message) {
+    showError(message, code) {
         const errorElement = document.getElementById('errorMessage');
         if (errorElement) {
-            errorElement.textContent = message;
+            errorElement.textContent = code ? `${message} (code: ${code})` : message;
             errorElement.style.display = 'block';
         }
 
         // Juga show SweetAlert untuk error penting
-        if (message.includes('Incorrect password') || message.includes('No account found')) {
+        if (message.includes('Password salah') || message.includes('Akun tidak ditemukan')) {
             Swal.fire({
                 title: 'Login Failed',
                 text: message,
@@ -203,6 +203,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const simpleAuth = new SimpleAuth();
     const loginForm = document.getElementById('loginForm');
+    try { if (window.location.search) { history.replaceState(null, '', window.location.pathname); } } catch (_) {}
 
     if (loginForm) {
         loginForm.addEventListener('submit', async (e) => {
@@ -239,3 +240,4 @@ document.addEventListener('DOMContentLoaded', function () {
 
 // Export for other files if needed
 export default SimpleAuth;
+try { window.__simpleAuthLoaded = true; } catch (_) {}
