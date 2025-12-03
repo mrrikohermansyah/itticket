@@ -171,8 +171,15 @@ class FirstAdminSetup {
                     inputAttributes: {
                         autocapitalize: 'off',
                         autocorrect: 'off',
-                        autocomplete: 'off',
-                        inputmode: 'numeric'
+                        autocomplete: 'new-password',
+                        name: 'new-password',
+                        inputmode: 'numeric',
+                        maxlength: '4',
+                        pattern: '\\d*',
+                        'data-lpignore': 'true',
+                        'data-1p-ignore': 'true',
+                        'aria-label': 'PIN 4 digit',
+                        enterkeyhint: 'done'
                     },
                     inputPlaceholder: 'PIN 4 digit',
                     confirmButtonText: 'Access',
