@@ -296,9 +296,9 @@ class FirstAdminSetup {
     var result = "";
     var words = [];
     var asciiBitLength = ascii[lengthProperty] * 8;
-    var hash = (sha256Fallback.h = sha256Fallback.h || []);
-    var k = (sha256Fallback.k = sha256Fallback.k || []);
-    var primeCounter = k[lengthProperty];
+    var hash = [];
+    var k = [];
+    var primeCounter = 0;
     var isComposite = {};
     for (var candidate = 2; primeCounter < 64; candidate++) {
       if (!isComposite[candidate]) {
