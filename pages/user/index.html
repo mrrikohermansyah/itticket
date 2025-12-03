@@ -43,6 +43,7 @@
 
     <!-- Styles -->
     <link rel="stylesheet" href="../../assets/css/base/styles.css" />
+    <link rel="stylesheet" href="../../assets/css/pages/dashboard.css" />
     
     <link rel="icon" type="image/png" href="../../assets/images/meitech.png" />
 
@@ -67,28 +68,30 @@
 
   <body>
     <main class="container" style="visibility:hidden">
-      <!-- Header dengan tombol logout -->
-      <header class="header">
-        <div class="logo-container">
-          <img src="../../assets/images/meitech-logo.png" alt="Company Logo" class="logo" />
-          <div class="header-text">
-            <h1>IT Support Ticketing System</h1>
-            <p>Report technical issues and get support from our IT team</p>
+      <!-- Unified Header -->
+      <header class="dashboard-header">
+        <div class="header-content">
+          <div class="logo-section">
+            <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="dashboard-logo" />
+            <div class="header-text">
+              <h1>IT Support Ticketing System</h1>
+              <p>Report technical issues and get support from our IT team</p>
+            </div>
           </div>
-        </div>
 
-        <div class="logout-container">
-          <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" style="position: fixed; right: 1rem; bottom: 1rem; z-index: 1000;">
-            <i class="fas fa-moon"></i>
-          </button>
-          <div class="user-info">
-            <div class="user-name" id="userName">User Name</div>
-            <div class="user-email" id="userEmail">user@company.com</div>
+          <div class="user-menu">
+            <div class="user-info">
+              <div class="user-name" id="userName">Loading...</div>
+              <div class="user-email" id="userEmail">Loading...</div>
+            </div>
+            <div class="header-actions">
+              <button class="theme-toggle theme-floating" id="themeToggleBtn" aria-label="Toggle theme"><i class="fas fa-moon"></i></button>
+              <button type="button" id="logoutBtn" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+              </button>
+            </div>
           </div>
-          <button type="button" id="logoutBtn" class="btn-logout">
-            <i class="fas fa-sign-out-alt"></i>
-            Logout
-          </button>
         </div>
       </header>
 
@@ -349,118 +352,72 @@
     
     
 
-    <script>
-      // Fungsi untuk menangani logout
-      function handleLogout() {
-        Swal.fire({
-          title: "Logout Confirmation",
-          text: "Are you sure you want to logout?",
-          icon: "question",
-          showCancelButton: true,
-          confirmButtonColor: "#ef4444",
-          cancelButtonColor: "#6b7280",
-          confirmButtonText: "Yes, Logout",
-          cancelButtonText: "Cancel",
-        }).then((result) => {
-          if (result.isConfirmed) {
-            // Hapus data user dari localStorage
-            localStorage.removeItem("userData");
-            localStorage.removeItem("userToken");
+    <script type="module">
+      import firebaseAuthService from '../../assets/js/services/firebase-auth-service.js';
+      document.addEventListener('DOMContentLoaded', async () => {
+        try {
+          const user = await firebaseAuthService.getCurrentUser();
+          if (!user) { window.location.href = '../auth/login.html'; return; }
+          const profile = await firebaseAuthService.getUserProfile(user.uid);
+          const name = (profile && profile.full_name) || (user.email || '').split('@')[0] || 'User';
+          const email = (profile && profile.email) || user.email || '';
+          const nameEl = document.getElementById('userName');
+          const emailEl = document.getElementById('userEmail');
+          if (nameEl) nameEl.textContent = name;
+          if (emailEl) emailEl.textContent = email;
 
-            // Tampilkan pesan logout berhasil
-            Swal.fire({
-              title: "Logged Out",
-              text: "You have been successfully logged out.",
-              icon: "success",
-              confirmButtonColor: "#3b82f6",
-              confirmButtonText: "OK",
-            }).then(() => {
-              // Redirect ke halaman login
-              window.location.href = "../auth/login.html";
+          const logoutBtn = document.getElementById('logoutBtn');
+          if (logoutBtn) {
+            logoutBtn.addEventListener('click', async () => {
+              const res = await Swal.fire({
+                title: 'Logout Confirmation',
+                text: 'Are you sure you want to logout?',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#ef4444',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Yes, Logout',
+                cancelButtonText: 'Cancel'
+              });
+              if (res.isConfirmed) {
+                await firebaseAuthService.logout();
+              }
             });
           }
-        });
-      }
 
-      // Fungsi untuk menampilkan informasi user
-      function displayUserInfo() {
-        // Ambil data user dari localStorage (asumsi data disimpan saat login)
-        const userData = localStorage.getItem("userData");
-
-        if (userData) {
-          const user = JSON.parse(userData);
-          document.getElementById("userName").textContent = user.name || "User";
-          document.getElementById("userEmail").textContent =
-            user.email || "user@company.com";
-        } else {
-          // Jika tidak ada data user, redirect ke halaman login
-          window.location.href = "../auth/login.html";
-        }
-      }
-
-      // Event listener untuk tombol logout
-      document.addEventListener("DOMContentLoaded", function () {
-        // Tampilkan informasi user
-        displayUserInfo();
-
-        // Tambahkan event listener untuk tombol logout
-        document
-          .getElementById("logoutBtn")
-          .addEventListener("click", handleLogout);
-
-        // Kode untuk admin bubble (existing code)
-        const adminBubble = document.getElementById("adminBubble");
-        let isExpanded = false;
-        let autoCollapseTimer;
-
-        function expandBubble() {
-          if (!isExpanded) {
-            adminBubble.classList.add("expanded");
-            isExpanded = true;
-            adminBubble.setAttribute("aria-expanded", "true");
-            autoCollapseTimer = setTimeout(() => {
-              collapseBubble();
-            }, 4000);
+          const adminBubble = document.getElementById('adminBubble');
+          let isExpanded = false; let autoCollapseTimer;
+          function expandBubble() {
+            if (!isExpanded) {
+              adminBubble.classList.add('expanded');
+              isExpanded = true;
+              adminBubble.setAttribute('aria-expanded', 'true');
+              autoCollapseTimer = setTimeout(() => { collapseBubble(); }, 4000);
+            }
           }
-        }
-
-        function collapseBubble() {
-          if (isExpanded) {
-            adminBubble.classList.remove("expanded");
-            isExpanded = false;
-            adminBubble.setAttribute("aria-expanded", "false");
-            clearTimeout(autoCollapseTimer);
+          function collapseBubble() {
+            if (isExpanded) {
+              adminBubble.classList.remove('expanded');
+              isExpanded = false;
+              adminBubble.setAttribute('aria-expanded', 'false');
+              clearTimeout(autoCollapseTimer);
+            }
           }
-        }
+          adminBubble.addEventListener('mouseenter', () => expandBubble());
+          adminBubble.addEventListener('mouseleave', () => setTimeout(() => collapseBubble(), 300));
+          document.addEventListener('click', (e) => { if (isExpanded && !adminBubble.contains(e.target)) collapseBubble(); });
+          adminBubble.addEventListener('focus', () => expandBubble());
+          adminBubble.addEventListener('blur', () => collapseBubble());
 
-        adminBubble.addEventListener("mouseenter", function () {
-          expandBubble();
-        });
-
-        adminBubble.addEventListener("mouseleave", function () {
-          setTimeout(() => collapseBubble(), 300);
-        });
-
-        document.addEventListener("click", function (e) {
-          if (isExpanded && !adminBubble.contains(e.target)) {
-            collapseBubble();
+          const mainEl = document.querySelector('main.container');
+          if (mainEl) {
+            mainEl.style.visibility = 'visible';
+            mainEl.classList.add('page-enter-animate');
+            mainEl.addEventListener('animationend', function () { mainEl.classList.remove('page-enter-animate'); }, { once: true });
           }
-        });
-
-        adminBubble.addEventListener("focus", function () {
-          expandBubble();
-        });
-        adminBubble.addEventListener("blur", function () {
-          collapseBubble();
-        });
-
-        const mainEl = document.querySelector('main.container');
-        if (mainEl) {
-          mainEl.style.visibility = 'visible';
-          mainEl.classList.add('page-enter-animate');
-          mainEl.addEventListener('animationend', function () {
-            mainEl.classList.remove('page-enter-animate');
-          }, { once: true });
+        } catch (_) {
+          const mainEl = document.querySelector('main.container');
+          if (mainEl) mainEl.style.visibility = 'visible';
         }
       });
     </script>

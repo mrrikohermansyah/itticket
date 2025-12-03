@@ -118,7 +118,7 @@ body {
 }
 
 .admin-logo {
-  height: 40px;
+  height: 48px;
   width: auto;
 }
 
@@ -164,6 +164,13 @@ body {
 .header-actions {
   display: flex;
   gap: 0.75rem;
+}
+.header-actions .theme-toggle {
+  height: 36px;
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ===== BUTTON STYLES ===== */
