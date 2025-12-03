@@ -82,6 +82,14 @@
       }
       #userTicketsTableFooter { position: sticky; bottom: 0; background: var(--gray-50); padding-top: 6px; }
       html[data-theme="dark"] #userTicketsTableFooter { background: var(--gray-100); }
+      #userTicketsFilterBar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px 10px; }
+      html[data-theme="dark"] #userTicketsFilterBar { background: var(--gray-100); border-color: var(--gray-300); }
+      #userTicketsFilterBar label { color: var(--gray-700); font-size: 0.85rem; }
+      html[data-theme="dark"] #userTicketsFilterBar label { color: var(--gray-800); }
+      #userTicketsFilterBar .form-control, #userTicketsFilterBar select, #userTicketsFilterBar input[type="date"] { height: 32px; padding: 4px 8px; border: 1px solid var(--gray-200); border-radius: 6px; background: var(--white); color: var(--black); }
+      html[data-theme="dark"] #userTicketsFilterBar .form-control, html[data-theme="dark"] #userTicketsFilterBar select, html[data-theme="dark"] #userTicketsFilterBar input[type="date"] { background: var(--gray-100); border-color: var(--gray-300); color: var(--black); }
+      #userTicketsFilterBar .form-control:focus, #userTicketsFilterBar select:focus, #userTicketsFilterBar input[type="date"]:focus { outline: none; border-color: var(--primary); }
+      #userFilterClear { height: 32px; }
     </style>
 </head>
 
@@ -533,6 +541,21 @@
                         <h3>No tickets yet</h3>
                         <p>Submit your first support ticket above</p>
                     </div>
+                </div>
+                <div id="userTicketsFilterBar" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.5rem;">
+                  <label for="userStatusFilter" style="font-weight:600;">Status</label>
+                  <select id="userStatusFilter" class="form-control" style="min-width:160px;">
+                    <option value="All" selected>All</option>
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                  <label for="userDateStartFilter" style="font-weight:600;">From</label>
+                  <input type="date" id="userDateStartFilter" class="form-control" style="min-width:160px;" />
+                  <label for="userDateEndFilter" style="font-weight:600;">To</label>
+                  <input type="date" id="userDateEndFilter" class="form-control" style="min-width:160px;" />
+                  <button id="userFilterClear" class="btn-secondary" style="margin-left:auto;">Clear</button>
                 </div>
                 <div class="tickets-table-wrap" id="userTicketsTableContainer" style="display:none; margin-top: 1rem;">
                     <table class="tickets-table" id="userTicketsTable" style="width:100%; border-collapse: collapse;">

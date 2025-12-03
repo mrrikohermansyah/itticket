@@ -93,6 +93,9 @@ class Dashboard {
     this.lastVisible = null;
     this.cacheTTL = 60000;
     this.deferRealtimeUntil = 0;
+    this.userFilterStatus = 'All';
+    this.userFilterStart = null;
+    this.userFilterEnd = null;
     this.init();
   }
 
@@ -200,7 +203,7 @@ class Dashboard {
       }
 
       // ✅ Setup realtime listener dengan error handling
-      this.unsubscribeTickets = onSnapshot(query(baseQuery, limit(this.pageSize)),
+      this.unsubscribeTickets = onSnapshot(query(baseQuery, orderBy('created_at', 'desc'), limit(this.pageSize)),
         (snapshot) => {
           
           // Track last visible for pagination
@@ -221,7 +224,20 @@ class Dashboard {
         (error) => {
           console.error('❌ Realtime listener error:', error);
           window.__dashLog('error','Realtime listener error', error?.message || String(error));
-          this.showFirestoreError();
+          // Fallback: listen without orderBy, sort client-side
+          try {
+            if (this.unsubscribeTickets) { this.unsubscribeTickets(); }
+            this.unsubscribeTickets = onSnapshot(baseQuery, (snap) => {
+              const arr = [];
+              snap.forEach((ds) => { try { arr.push(this.normalizeTicketData(ds.id, ds.data())); } catch {} });
+              arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+              this.tickets = arr;
+              this.renderTickets();
+              this.updateStats();
+            });
+          } catch (_) {
+            this.showFirestoreError();
+          }
         }
       );
 
@@ -239,6 +255,7 @@ class Dashboard {
       const moreQuery = query(
         collection(this.db, "tickets"),
         where("user_id", "==", this.currentUser.id),
+        orderBy('created_at', 'desc'),
         startAfter(this.lastVisible),
         limit(this.pageSize)
       );
@@ -299,52 +316,20 @@ class Dashboard {
 
   // Pisahkan processing logic
   processTicketsSnapshot(snapshot) {
-    
-
     const adminCache = new Map();
-    const processPromises = [];
-
-    for (const change of snapshot.docChanges()) {
-      const doc = change.doc;
-      let ticket = this.normalizeTicketData(doc.id, doc.data());
-
-      // Skip deleted tickets
-      if (ticket.deleted) {
-        const index = this.tickets.findIndex(t => t.id === doc.id);
-        if (index !== -1) this.tickets.splice(index, 1);
-        continue;
+    const next = [];
+    snapshot.forEach((docSnap) => {
+      const t = this.normalizeTicketData(docSnap.id, docSnap.data());
+      if (!t.deleted && !t.archived) {
+        next.push(t);
       }
-
-      // Process admin names
-      if (ticket.admin_id) {
-        processPromises.push(this.resolveAdminName(ticket, adminCache));
-      }
-
-      if (change.type === "added") {
-        const existingIndex = this.tickets.findIndex(t => t.id === doc.id);
-        if (existingIndex === -1) {
-          this.tickets.unshift(ticket);
-        }
-      }
-      if (change.type === "modified") {
-        const index = this.tickets.findIndex(t => t.id === doc.id);
-        if (index !== -1) {
-          this.tickets[index] = ticket;
-        } else {
-          this.tickets.unshift(ticket);
-        }
-      }
-      if (change.type === "removed") {
-        this.tickets = this.tickets.filter(t => t.id !== doc.id);
-      }
-    }
-
-    // Wait for all admin names to resolve
-    Promise.all(processPromises).then(() => {
-      this.tickets.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    });
+    const resolvePromises = next.map(t => t.admin_id ? this.resolveAdminName(t, adminCache) : Promise.resolve());
+    Promise.all(resolvePromises).then(() => {
+      next.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      this.tickets = next;
       this.renderTickets();
       this.updateStats();
-      
     });
   }
 
@@ -581,9 +566,22 @@ class Dashboard {
       return;
     }
 
-    const activeTickets = this.tickets.filter(ticket =>
-      !ticket.deleted && !ticket.archived
-    );
+    const activeTickets = this.tickets.filter(ticket => !ticket.deleted && !ticket.archived);
+
+    let filtered = activeTickets.slice();
+    if (this.userFilterStatus && this.userFilterStatus !== 'All') {
+      filtered = filtered.filter(t => this.getTicketStatusDisplay(t) === this.userFilterStatus);
+    }
+    if (this.userFilterStart || this.userFilterEnd) {
+      filtered = filtered.filter(t => {
+        const d = new Date(t.created_at);
+        if (!d || isNaN(d.getTime())) return false;
+        const sOk = this.userFilterStart ? d >= new Date(this.userFilterStart) : true;
+        const eOk = this.userFilterEnd ? d <= new Date(this.userFilterEnd + 'T23:59:59') : true;
+        return sOk && eOk;
+      });
+    }
+    filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
     if (activeTickets.length === 0) {
       if (tableContainer) tableContainer.style.display = 'none';
@@ -598,7 +596,7 @@ class Dashboard {
     }
 
     const count = Math.max(5, this.displayCount || 5);
-    const ticketsToShow = activeTickets.slice(0, count);
+    const ticketsToShow = filtered.slice(0, count);
 
     const ticketsHtml = ticketsToShow.map(ticket => {
       const statusDisplay = this.getTicketStatusDisplay(ticket);
@@ -674,7 +672,7 @@ class Dashboard {
     `;
     }).join('');
 
-    const total = activeTickets.length;
+    const total = filtered.length;
     const hasMore = (total > count) || !!this.lastVisible;
     const showClose = count > 5;
     const loadMoreHtml = `
@@ -1111,6 +1109,41 @@ class Dashboard {
     if (ticketForm) {
       ticketForm.addEventListener('submit', (e) => this.handleTicketSubmit(e));
       ticketForm.addEventListener('reset', () => this.hideMessages());
+    }
+
+    const statusFilter = document.getElementById('userStatusFilter');
+    const startFilter = document.getElementById('userDateStartFilter');
+    const endFilter = document.getElementById('userDateEndFilter');
+    const clearFilter = document.getElementById('userFilterClear');
+    if (statusFilter) {
+      statusFilter.addEventListener('change', (e) => {
+        this.userFilterStatus = e.target.value || 'All';
+        this.renderTickets();
+      });
+    }
+    if (startFilter) {
+      startFilter.addEventListener('change', (e) => {
+        this.userFilterStart = e.target.value || null;
+        this.renderTickets();
+      });
+    }
+    if (endFilter) {
+      endFilter.addEventListener('change', (e) => {
+        this.userFilterEnd = e.target.value || null;
+        this.renderTickets();
+      });
+    }
+    if (clearFilter) {
+      clearFilter.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (statusFilter) statusFilter.value = 'All';
+        if (startFilter) startFilter.value = '';
+        if (endFilter) endFilter.value = '';
+        this.userFilterStatus = 'All';
+        this.userFilterStart = null;
+        this.userFilterEnd = null;
+        this.renderTickets();
+      });
     }
 
     const profileModal = document.getElementById('profileModal');
