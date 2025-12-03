@@ -535,19 +535,28 @@ class AdminDashboard {
             });
 
             if (!firebaseUser) {
-                localStorage.removeItem('adminUser');
                 window.location.href = 'login.html';
                 return;
             }
 
             let adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
-            if (!adminSnap.exists() || adminSnap.data().is_active === false) {
+            if (adminSnap.exists()) {
+                const data = adminSnap.data();
+                if (data.is_active === false || !!data.deleted_at) {
+                    window.location.href = 'login.html';
+                    return;
+                }
+            } else {
                 try {
                     const q = query(collection(this.db, 'admins'), where('email', '==', firebaseUser.email));
                     const byEmail = await getDocs(q);
                     if (!byEmail.empty) {
                         const found = byEmail.docs[0];
                         const data = found.data();
+                        if (data.is_active === false || !!data.deleted_at) {
+                            window.location.href = 'login.html';
+                            return;
+                        }
                         await setDoc(doc(this.db, 'admins', firebaseUser.uid), {
                             ...data,
                             uid: firebaseUser.uid,
@@ -556,48 +565,22 @@ class AdminDashboard {
                         });
                         try { await deleteDoc(doc(this.db, 'admins', found.id)); } catch (e) {}
                         this.adminUser = { uid: firebaseUser.uid, ...data };
-                        localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
                         console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
                         return;
                     }
-                    // Jika tidak ditemukan, paksa buat minimal admin record
-                    try {
-                        await firebaseAuthService.ensureAdminRecord(firebaseUser.uid, firebaseUser.email || '');
-                        adminSnap = await getDoc(doc(this.db, 'admins', firebaseUser.uid));
-                        if (adminSnap.exists()) {
-                            this.adminUser = { uid: firebaseUser.uid, ...adminSnap.data() };
-                            localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
-                            console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
-                            return;
-                        }
-                    } catch (_) {}
+                    window.location.href = 'login.html';
+                    return;
                 } catch (e) {}
-                // Teruskan dengan sesi minimal agar UI tetap berjalan
-                this.adminUser = { uid: firebaseUser.uid, email: firebaseUser.email || '', role: 'Admin', is_active: true };
-                localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
-                console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
-                // lanjut
+                window.location.href = 'login.html';
+                return;
             }
 
             this.adminUser = { uid: firebaseUser.uid, ...adminSnap.data() };
-            localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
             console.info('Current admin user:', { uid: this.adminUser.uid, email: this.adminUser.email, role: this.adminUser.role, is_active: this.adminUser.is_active });
         } catch (error) {
             console.error('Admin auth check failed:', error);
-            // Gunakan sesi minimal jika auth sudah ada
-            try {
-                const u = await new Promise((resolve) => {
-                    const unsub = onAuthStateChanged(this.auth, (x) => { unsub(); resolve(x); });
-                });
-                if (u) {
-                    this.adminUser = { uid: u.uid, email: u.email || '', role: 'Admin', is_active: true };
-                    localStorage.setItem('adminUser', JSON.stringify(this.adminUser));
-                    return;
-                }
-            } catch (_) {}
-            localStorage.removeItem('adminUser');
             window.location.href = 'login.html';
-        }
+            }
     }
 
     // ✅ PERMISSION METHODS

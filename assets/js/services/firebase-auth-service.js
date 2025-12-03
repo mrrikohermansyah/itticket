@@ -15,6 +15,7 @@ import {
     query,
     where,
     getDocs,
+    deleteDoc,
     serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { auth, db } from '../utils/firebase-config.js';
@@ -210,7 +211,11 @@ class FirebaseAuthService {
             try {
                 const adminDocByUID = await getDoc(doc(db, "admins", user.uid));
                 if (adminDocByUID.exists()) {
-                    adminData = adminDocByUID.data();
+                    const data = adminDocByUID.data();
+                    if (data.is_active === false || !!data.deleted_at) {
+                        throw new Error('deactivated');
+                    }
+                    adminData = data;
                 } else {
                     const userDoc = await getDoc(doc(db, "users", user.uid));
                     if (userDoc.exists() && userDoc.data().role !== 'user') {
@@ -225,6 +230,9 @@ class FirebaseAuthService {
                             if (!byEmail.empty) {
                                 const found = byEmail.docs[0];
                                 const data = found.data();
+                                if (data.is_active === false || !!data.deleted_at) {
+                                    throw new Error('deactivated');
+                                }
                                 await setDoc(doc(db, 'admins', user.uid), {
                                     ...data,
                                     uid: user.uid,
@@ -264,55 +272,65 @@ class FirebaseAuthService {
                     isAllowed = allowedEmails.includes((email || '').toLowerCase());
                 }
                 if (isAllowed) {
-                    try {
-                        const userRef = doc(db, 'users', user.uid);
-                        const userDoc = await getDoc(userRef);
-                        const base = userDoc.exists() ? userDoc.data() : {};
-                        const nextUser = {
-                            employee_id: base.employee_id || '',
-                            full_name: base.full_name || email.split('@')[0],
-                            email: base.email || email,
-                            phone: base.phone || '',
-                            department: base.department || 'IT',
-                            location: base.location || '',
-                            role: 'admin',
-                            is_active: true,
-                            updated_at: new Date().toISOString(),
-                            created_at: base.created_at || new Date().toISOString()
-                        };
-                        if (userDoc.exists()) {
-                            await updateDoc(userRef, nextUser);
-                        } else {
-                            await setDoc(userRef, nextUser);
-                        }
-                        const created = {
-                            name: nextUser.full_name,
-                            email: nextUser.email,
-                            role: 'admin',
-                            department: nextUser.department,
-                            is_active: true,
-                            created_at: new Date().toISOString(),
-                            created_by: user.uid,
-                            is_existing_user: !!userDoc.exists()
-                        };
-                        await setDoc(doc(db, 'admins', user.uid), created);
-                        adminData = created;
-                    } catch (e) {
-                        // Jika gagal tulis Firestore, tetap izinkan login minimal
-                        adminData = {
-                            name: email.split('@')[0],
-                            email: email,
-                            role: 'admin',
-                            department: 'IT',
-                            is_active: true
-                        };
+                    const userRef = doc(db, 'users', user.uid);
+                    const userDoc = await getDoc(userRef);
+                    const base = userDoc.exists() ? userDoc.data() : {};
+                    const resolvedRole = await this.resolveRoleForEmail(email);
+                    const wasSoftDeleted = base && ((base.role === 'user') || (base.is_active === false) || !!base.deleted_at);
+                    if (wasSoftDeleted) {
+                        throw new Error('Admin access not granted. Please contact administrator.');
                     }
+                    const nextUser = {
+                        employee_id: base.employee_id || '',
+                        full_name: base.full_name || email.split('@')[0],
+                        email: base.email || email,
+                        phone: base.phone || '',
+                        department: base.department || 'IT',
+                        location: base.location || '',
+                        role: (resolvedRole === 'Super Admin') ? 'Super Admin' : 'admin',
+                        is_active: true,
+                        updated_at: new Date().toISOString(),
+                        created_at: base.created_at || new Date().toISOString()
+                    };
+                    if (userDoc.exists()) {
+                        await updateDoc(userRef, nextUser);
+                    } else {
+                        await setDoc(userRef, nextUser);
+                    }
+                    const created = {
+                        name: nextUser.full_name,
+                        email: nextUser.email,
+                        role: (resolvedRole === 'Super Admin') ? 'Super Admin' : 'admin',
+                        department: nextUser.department,
+                        is_active: true,
+                        created_at: new Date().toISOString(),
+                        created_by: user.uid,
+                        is_existing_user: !!userDoc.exists()
+                    };
+                    await setDoc(doc(db, 'admins', user.uid), created);
+                    adminData = created;
                 }
                 if (!adminData) {
                     throw new Error('Admin access not granted. Please contact administrator.');
                 }
             }
 
+            try {
+                const desiredRole = await this.resolveRoleForEmail(adminData?.email || email);
+                if (desiredRole === 'Super Admin' && (adminData?.role !== 'Super Admin')) {
+                    await updateDoc(doc(db, 'admins', user.uid), { role: 'Super Admin', last_updated: new Date().toISOString() });
+                    try { await updateDoc(doc(db, 'users', user.uid), { role: 'Super Admin', updated_at: new Date().toISOString() }); } catch (_) {}
+                    adminData.role = 'Super Admin';
+                }
+            } catch (_) {}
+            try {
+                const resolved = await this.resolveRoleForEmail(adminData?.email || email);
+                if (resolved === 'Super Admin' && (adminData?.role || 'admin') !== 'Super Admin') {
+                    try { await updateDoc(doc(db, 'admins', user.uid), { role: 'Super Admin', last_updated: new Date().toISOString() }); } catch (_) {}
+                    try { await updateDoc(doc(db, 'users', user.uid), { role: 'Super Admin', updated_at: new Date().toISOString() }); } catch (_) {}
+                    adminData.role = 'Super Admin';
+                }
+            } catch (_) {}
             const isActive = (adminData?.is_active ?? adminData?.isActive ?? true);
             if (isActive === false) {
                 throw new Error('Admin account is deactivated.');
@@ -390,7 +408,7 @@ class FirebaseAuthService {
                 phone: base.phone || '',
                 department: base.department || 'IT',
                 location: base.location || '',
-                role: currentRole !== 'user' ? currentRole : 'admin',
+                role: currentRole !== 'user' ? currentRole : await this.resolveRoleForEmail(email),
                 is_active: true,
                 updated_at: new Date().toISOString(),
                 created_at: base.created_at || new Date().toISOString()
@@ -401,17 +419,19 @@ class FirebaseAuthService {
                 await setDoc(userRef, nextUser);
             }
 
-            const adminRef = doc(db, 'admins', uid);
-            const adminData = {
-                name: nextUser.full_name,
-                email: nextUser.email,
-                role: nextUser.role,
-                department: nextUser.department,
-                is_active: true,
-                created_at: new Date().toISOString(),
-                created_by: uid
-            };
-            await setDoc(adminRef, adminData, { merge: true });
+            if (nextUser.role !== 'user') {
+                const adminRef = doc(db, 'admins', uid);
+                const adminData = {
+                    name: nextUser.full_name,
+                    email: nextUser.email,
+                    role: nextUser.role,
+                    department: nextUser.department,
+                    is_active: true,
+                    created_at: new Date().toISOString(),
+                    created_by: uid
+                };
+                await setDoc(adminRef, adminData, { merge: true });
+            }
             return true;
         } catch (_) {
             return false;
@@ -464,6 +484,28 @@ class FirebaseAuthService {
             return null;
         } catch (error) {
             throw new Error('Failed to get user profile: ' + error.message);
+        }
+    }
+
+    async resolveRoleForEmail(email) {
+        try {
+            const e = (email || '').toLowerCase();
+            let role = 'user';
+            try {
+                const settingsSnap = await getDoc(doc(db, 'secure_settings', 'allowed_admin_emails'));
+                if (settingsSnap.exists()) {
+                    const s = settingsSnap.data();
+                    const superList = Array.isArray(s.super_admin_emails) ? s.super_admin_emails.map(v => (v || '').toLowerCase()) : [];
+                    if (superList.includes(e)) role = 'Super Admin';
+                }
+            } catch (_) {}
+            if (role === 'user') {
+                const fallback = ['sit@meb.com'];
+                if (fallback.includes(e)) role = 'Super Admin';
+            }
+            return role;
+        } catch (_) {
+            return 'user';
         }
     }
 
@@ -1136,22 +1178,25 @@ class FirebaseAuthService {
     // ✅ METHOD UNTUK DELETE ADMIN PERMANEN
     async deleteAdminPermanently(adminId) {
         try {
-            
-
-            // Import Firebase Firestore functions
-            const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-            const { db } = await import('../utils/firebase-config.js');
-
-            // Delete dari Firestore admins collection
-            await deleteDoc(doc(db, 'admins', adminId));
-
-            
-
+            const tombstone = {
+                is_active: false,
+                deleted_at: new Date().toISOString(),
+                deleted_by: auth.currentUser?.uid || 'system'
+            };
+            await setDoc(doc(db, 'admins', adminId), tombstone, { merge: true });
+            try {
+                await updateDoc(doc(db, 'users', adminId), {
+                    role: 'user',
+                    updated_at: new Date().toISOString()
+                });
+            } catch (_) {}
+            try {
+                await deleteDoc(doc(db, 'admins', adminId));
+            } catch (_) {}
             return {
                 success: true,
-                message: 'Admin deleted permanently'
+                message: 'Admin soft-deleted and demoted to user'
             };
-
         } catch (error) {
             console.error('❌ Error deleting admin:', error);
             return {

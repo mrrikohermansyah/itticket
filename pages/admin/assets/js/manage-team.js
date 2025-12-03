@@ -2,7 +2,10 @@
 import firebaseAuthService from '../../../../assets/js/services/firebase-auth-service.js';
 import { 
     doc, 
-    getDoc 
+    getDoc,
+    deleteDoc,
+    setDoc,
+    updateDoc
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 import { db } from '../../../../assets/js/utils/firebase-config.js';
 
@@ -20,6 +23,16 @@ class TeamManagement {
     
     this.init();
 }
+
+    async getDB() {
+        try { if (db) return db; } catch (_) {}
+        try { if (window.db) return window.db; } catch (_) {}
+        const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const { getApp, initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
+        let app;
+        try { app = getApp(); } catch (_) { const cfg = window.CONFIG?.FIREBASE_CONFIG || {}; app = initializeApp(cfg); }
+        return getFirestore(app);
+    }
 
     async init() {
         await this.checkAuth();
@@ -125,8 +138,9 @@ async loadAllAdmins() {
         else {
             // Fallback: Query Firestore langsung
             // console.log('🔄 Falling back to direct Firestore query...');
-            const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-            const querySnapshot = await getDocs(collection(db, 'admins'));
+            const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+            const database = await this.getDB();
+            const querySnapshot = await getDocs(collection(database, 'admins'));
             allAdmins = querySnapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data()
@@ -203,7 +217,8 @@ async loadAllAdmins() {
             // console.log('🔍 Checking admin access for UID:', uid);
             
             // Check in admins collection first
-            const adminDoc = await getDoc(doc(db, 'admins', uid));
+            const database = await this.getDB();
+            const adminDoc = await getDoc(doc(database, 'admins', uid));
             if (adminDoc.exists()) {
                 const adminData = adminDoc.data();
                 // console.log('✅ Found in admins collection:', adminData);
@@ -211,7 +226,7 @@ async loadAllAdmins() {
             }
 
             // Check in users collection with admin role
-            const userDoc = await getDoc(doc(db, 'users', uid));
+            const userDoc = await getDoc(doc(database, 'users', uid));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 // console.log('📋 User data:', userData);
@@ -730,23 +745,30 @@ async deleteMemberPermanently(memberId) {
     }
 }
 
-// ✅ FALLBACK METHOD: Direct Firestore Delete
+// ✅ FALLBACK METHOD: Soft delete (block login) tanpa menghapus dokumen
 async deleteAdminDirectly(adminId) {
     try {
-        // console.log('🗑️ Deleting admin directly from Firestore:', adminId);
-        
-        const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js');
-        
-        // Delete dari Firestore
-        await deleteDoc(doc(db, 'admins', adminId));
-        
-        // console.log('✅ Admin deleted directly from Firestore');
-        
+        const database = await this.getDB();
+        const tombstone = {
+            is_active: false,
+            deleted_at: new Date().toISOString(),
+            deleted_by: this.adminUser?.uid || 'system'
+        };
+        await setDoc(doc(database, 'admins', adminId), tombstone, { merge: true });
+        try {
+            await updateDoc(doc(database, 'users', adminId), {
+                role: 'user',
+                updated_at: new Date().toISOString()
+            });
+        } catch (_) {}
+        // Attempt hard delete after soft delete
+        try {
+            await deleteDoc(doc(database, 'admins', adminId));
+        } catch (_) {}
         return {
             success: true,
-            message: 'Admin deleted permanently'
+            message: 'Admin soft-deleted and demoted; hard delete attempted'
         };
-        
     } catch (error) {
         console.error('❌ Error in direct Firestore delete:', error);
         return {

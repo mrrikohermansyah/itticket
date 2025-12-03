@@ -39,25 +39,14 @@ function initAdminAuth() {
 
         try {
             await setPersistence(auth, browserSessionPersistence);
-            const cred = await signInWithEmailAndPassword(auth, email, password);
-            const user = cred.user;
-            try { await firebaseAuthService.ensureAdminRecord(user.uid, email); } catch (_) {}
-            localStorage.setItem('adminUser', JSON.stringify({ uid: user.uid, email, role: 'Admin', loginTime: new Date().toISOString() }));
+            const result = await firebaseAuthService.loginAdmin(email, password);
+            if (!result?.success) throw new Error(result?.message || 'Admin login failed');
             window.location.href = 'index.html';
         } catch (error) {
             let userFriendlyError = 'Login failed. Please check your credentials.';
             if (error.code === 'auth/wrong-password') userFriendlyError = 'Invalid email or password.';
             else if (error.code === 'auth/user-not-found') {
-                try {
-                    const cred2 = await createUserWithEmailAndPassword(auth, email, password);
-                    const user2 = cred2.user;
-                    try { await firebaseAuthService.ensureAdminRecord(user2.uid, email); } catch (_) {}
-                    localStorage.setItem('adminUser', JSON.stringify({ uid: user2.uid, email, role: 'Admin', loginTime: new Date().toISOString() }));
-                    window.location.href = 'index.html';
-                    return;
-                } catch (regErr) {
-                    userFriendlyError = 'Account not found and cannot be created automatically.';
-                }
+                userFriendlyError = 'Account not found. Please contact system administrator to be added as admin.';
             } else if (error.code === 'auth/invalid-email') userFriendlyError = 'Please enter a valid email address.';
             else if (error.code === 'auth/unauthorized-domain') userFriendlyError = 'Domain ini belum diizinkan. Gunakan http://localhost:5501 atau tambahkan domain ke Firebase.';
             else if (error.code === 'auth/network-request-failed') userFriendlyError = 'Jaringan bermasalah. Periksa koneksi internet Anda.';
@@ -81,10 +70,7 @@ function initAdminAuth() {
         }
     }
 
-    const adminUser = localStorage.getItem('adminUser');
-    if (adminUser && window.location.pathname.includes('login.html')) {
-        try { JSON.parse(adminUser); } catch (e) { localStorage.removeItem('adminUser'); }
-    }
+    // Tidak menggunakan localStorage untuk adminUser
 }
 
 if (document.readyState === 'loading') {

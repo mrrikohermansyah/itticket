@@ -727,8 +727,14 @@ window.setHeaderStyling = function(sheet) {
         if (!a) return 'OT';
         if (a === 'deliver') return 'MV';
         if (a === 'software install') return 'SW';
+        if (a === 'software config') return 'SW';
+        if (a === 'install it standard apps') return 'SW';
+        if (a === 'reinstall windows') return 'SW';
         if (a === 'setup meeting') return 'HW';
+        if (a === 'network') return 'NET';
+        if (a === 'connect share folder') return 'NET';
         if (a === 'drone update area' || a === 'drone lifting') return 'DR';
+        if (a === 'back up data') return 'DR';
         if (a === 'weekly safety talk' || a === 'ceremony sail away' || a === 'stand by meeting' || a === 'stand by sunday' || a === 'other') return 'OT';
         return 'OT';
     };
@@ -804,10 +810,7 @@ window.setHeaderStyling = function(sheet) {
                 return window.adminDashboard.adminUser;
             }
             
-            const adminUser = localStorage.getItem('adminUser');
-            if (adminUser) {
-                return JSON.parse(adminUser);
-            }
+            // Tidak menggunakan localStorage untuk mendapatkan admin user
             
             if (window.firebaseAuthService && typeof window.firebaseAuthService.getCurrentUser === 'function') {
                 const user = window.firebaseAuthService.getCurrentUser();
