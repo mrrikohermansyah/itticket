@@ -126,7 +126,11 @@ class FirstAdminSetup {
       }
 
       const data = settingsSnap.data();
-      const expectedHash = data?.create_first_admin_sha256;
+      let expectedHash = data?.create_first_admin_sha256;
+      expectedHash = String(expectedHash == null ? "" : expectedHash)
+        .trim()
+        .toLowerCase()
+        .replace(/^sha256:/, "");
 
       if (!expectedHash || typeof expectedHash !== "string") {
         await Swal.fire({
@@ -229,6 +233,12 @@ class FirstAdminSetup {
             showConfirmButton: false,
           });
         } else {
+          try {
+            console.warn("PIN hash mismatch", {
+              computed: hash,
+              expected: expectedHash,
+            });
+          } catch (_) {}
           attempts += 1;
           localStorage.setItem(attemptsKey, String(attempts));
           if (attempts >= 5) {
