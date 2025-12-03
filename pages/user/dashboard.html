@@ -90,6 +90,28 @@
       html[data-theme="dark"] #userTicketsFilterBar .form-control, html[data-theme="dark"] #userTicketsFilterBar select, html[data-theme="dark"] #userTicketsFilterBar input[type="date"] { background: var(--gray-100); border-color: var(--gray-300); color: var(--black); }
       #userTicketsFilterBar .form-control:focus, #userTicketsFilterBar select:focus, #userTicketsFilterBar input[type="date"]:focus { outline: none; border-color: var(--primary); }
       #userFilterClear { height: 32px; }
+
+      /* Mobile header optimization */
+      @media (max-width: 600px) {
+        .dashboard-header { padding: 8px 12px; }
+        .dashboard-header .header-content { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+        .logo-section { display: flex; align-items: center; }
+        .logo-section .dashboard-logo { height: 36px; width: auto; }
+        .header-text { display: none; }
+        .user-menu { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
+        .user-info { display: flex; flex-direction: column; gap: 2px; }
+        .user-name { font-size: 1rem; line-height: 1.2; }
+        .user-email { display: none; }
+        .header-actions { display: flex !important; flex-direction: row; align-items: center; gap: 6px; }
+        .header-actions .theme-toggle { height: 36px; width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+        .header-actions button { height: 36px; min-width: 36px; padding: 0; }
+        .header-actions .btn-profile,
+        .header-actions .btn-logout { display: inline-flex; align-items: center; justify-content: center; width: 32px; overflow: hidden; text-indent: -9999px; background: transparent !important; color: var(--primary) !important; border: 1px solid var(--primary); border-radius: 8px; }
+        .header-actions .btn-profile i,
+        .header-actions .btn-logout i { text-indent: 0; font-size: 16px; margin: 0; }
+        .header-actions .btn-profile:hover,
+        .header-actions .btn-logout:hover { background: var(--primary) !important; color: var(--white) !important; }
+      }
     </style>
 </head>
 
@@ -99,6 +121,10 @@
         <div class="header-content">
             <div class="logo-section">
                 <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="dashboard-logo">
+                <div class="header-text">
+                    <h1>IT Support Ticketing System</h1>
+                    <p>User Dashboard</p>
+                </div>
             </div>
 
             <div class="user-menu">
@@ -121,10 +147,6 @@
                 </div>
             </div>
 
-            <div class="header-text">
-                <h1>IT Support Ticketing System</h1>
-                <p>User Dashboard</p>
-            </div>
         </div>
     </header>
     
