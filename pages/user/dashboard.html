@@ -1,615 +1,1077 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>User Dashboard - IT Support</title>
     <script src="../../assets/js/utils/config.js"></script>
-    <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
-    <link rel="icon" type="image/x-icon" href="../../assets/images/meitech.png">
+    <script
+      type="module"
+      src="../../assets/js/utils/firebase-config.js"
+    ></script>
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="../../assets/images/meitech.png"
+    />
     <!-- Tambahkan di head -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
 
     <!-- Styles -->
-    <link rel="stylesheet" href="../../assets/css/base/styles.css">
-    <link rel="stylesheet" href="../../assets/css/pages/dashboard.css">
+    <link rel="stylesheet" href="../../assets/css/base/styles.css" />
+    <link rel="stylesheet" href="../../assets/css/pages/dashboard.css" />
 
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
 
     <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
 
     <!-- SweetAlert2 -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"
+    />
     <style>
-      .dashboard-columns { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 1.25rem; align-items: start; }
-      .left-pane, .right-pane { min-width: 0; }
-      .right-pane { overflow: hidden; }
-      .tickets-section { position: relative; }
-      .left-pane .ticket-section, .left-pane #itAssignmentSection { margin-bottom: 1rem; }
-      .tickets-table-wrap { overflow: hidden; }
-      .tickets-table { width: 100%; max-width: 100%; table-layout: auto; border-collapse: collapse; }
-      .tickets-table thead th { position: sticky; top: 0; background: var(--gray-50); z-index: 1; }
-      html[data-theme="dark"] .tickets-table thead th { background: var(--gray-100); }
-      .tickets-table th, .tickets-table td { padding: 4px !important; font-size: 0.85rem; line-height: 1.2; white-space: normal; word-break: normal; overflow: visible; }
-      .row-meta { display: none; margin-top: 4px; gap: 6px; flex-wrap: wrap; }
-      .row-meta .meta-chip { display: inline-block; font-size: 0.72rem; padding: 2px 6px; border: 1px solid var(--gray-200); border-radius: 6px; color: var(--gray-700); }
-      html[data-theme="dark"] .row-meta .meta-chip { border-color: var(--gray-300); color: var(--gray-800); }
-      .meta-chip.priority-low { background: #e9f7ef; border-color: #bfe7cf; color: #0f5132; }
-      .meta-chip.priority-medium { background: #fff4e6; border-color: #ffd8a8; color: #7c2d12; }
-      .meta-chip.priority-high { background: #fee2e2; border-color: #fca5a5; color: #7f1d1d; }
-      html[data-theme="dark"] .meta-chip.priority-low { background: #18392a; border-color: #285a41; color: #cde7d6; }
-      html[data-theme="dark"] .meta-chip.priority-medium { background: #3b2f1e; border-color: #5c492e; color: #ffe7c2; }
-      html[data-theme="dark"] .meta-chip.priority-high { background: #3b1f20; border-color: #5c2b2d; color: #ffd1d1; }
-      .meta-chip.status-open { background: #e0f2fe; border-color: #93c5fd; color: #1e3a8a; }
-      .meta-chip.status-in-progress { background: #ede9fe; border-color: #c4b5fd; color: #3730a3; }
-      .meta-chip.status-resolved { background: #e9f7ef; border-color: #bfe7cf; color: #0f5132; }
-      html[data-theme="dark"] .meta-chip.status-open { background: #102a43; border-color: #1e3a8a; color: #cfe8ff; }
-      html[data-theme="dark"] .meta-chip.status-in-progress { background: #1f2040; border-color: #3730a3; color: #e5deff; }
-      html[data-theme="dark"] .meta-chip.status-resolved { background: #18392a; border-color: #285a41; color: #cde7d6; }
-      .tickets-table th:nth-child(2), .tickets-table td:nth-child(2) { min-width: 200px; }
-      .tickets-table th:nth-child(1), .tickets-table td:nth-child(1) { width: 84px; }
-      .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) { width: 100px; }
-      .tickets-table th:nth-child(4), .tickets-table td:nth-child(4) { width: 72px; }
-      .tickets-table th:nth-child(5), .tickets-table td:nth-child(5) { width: 96px; }
-      .tickets-table th:nth-child(6), .tickets-table td:nth-child(6) { width: 120px; }
-      .tickets-table th:nth-child(7), .tickets-table td:nth-child(7) { width: 84px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-      .tickets-table th:nth-child(8), .tickets-table td:nth-child(8) { width: 84px; }
+      .dashboard-columns {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 1.25rem;
+        align-items: start;
+      }
+      .left-pane,
+      .right-pane {
+        min-width: 0;
+      }
+      .right-pane {
+        overflow: hidden;
+      }
+      .tickets-section {
+        position: relative;
+      }
+      .left-pane .ticket-section,
+      .left-pane #itAssignmentSection {
+        margin-bottom: 1rem;
+      }
+      .tickets-table-wrap {
+        overflow: hidden;
+      }
+      .tickets-table {
+        width: 100%;
+        max-width: 100%;
+        table-layout: auto;
+        border-collapse: collapse;
+      }
+      .tickets-table thead th {
+        position: sticky;
+        top: 0;
+        background: var(--gray-50);
+        z-index: 1;
+      }
+      html[data-theme="dark"] .tickets-table thead th {
+        background: var(--gray-100);
+      }
+      .tickets-table th,
+      .tickets-table td {
+        padding: 4px !important;
+        font-size: 0.85rem;
+        line-height: 1.2;
+        white-space: normal;
+        word-break: normal;
+        overflow: visible;
+      }
+      .row-meta {
+        display: none;
+        margin-top: 4px;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+      .row-meta .meta-chip {
+        display: inline-block;
+        font-size: 0.72rem;
+        padding: 2px 6px;
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        color: var(--gray-700);
+      }
+      html[data-theme="dark"] .row-meta .meta-chip {
+        border-color: var(--gray-300);
+        color: var(--gray-800);
+      }
+      .meta-chip.priority-low {
+        background: #e9f7ef;
+        border-color: #bfe7cf;
+        color: #0f5132;
+      }
+      .meta-chip.priority-medium {
+        background: #fff4e6;
+        border-color: #ffd8a8;
+        color: #7c2d12;
+      }
+      .meta-chip.priority-high {
+        background: #fee2e2;
+        border-color: #fca5a5;
+        color: #7f1d1d;
+      }
+      html[data-theme="dark"] .meta-chip.priority-low {
+        background: #18392a;
+        border-color: #285a41;
+        color: #cde7d6;
+      }
+      html[data-theme="dark"] .meta-chip.priority-medium {
+        background: #3b2f1e;
+        border-color: #5c492e;
+        color: #ffe7c2;
+      }
+      html[data-theme="dark"] .meta-chip.priority-high {
+        background: #3b1f20;
+        border-color: #5c2b2d;
+        color: #ffd1d1;
+      }
+      .meta-chip.status-open {
+        background: #e0f2fe;
+        border-color: #93c5fd;
+        color: #1e3a8a;
+      }
+      .meta-chip.status-in-progress {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+        color: #3730a3;
+      }
+      .meta-chip.status-resolved {
+        background: #e9f7ef;
+        border-color: #bfe7cf;
+        color: #0f5132;
+      }
+      html[data-theme="dark"] .meta-chip.status-open {
+        background: #102a43;
+        border-color: #1e3a8a;
+        color: #cfe8ff;
+      }
+      html[data-theme="dark"] .meta-chip.status-in-progress {
+        background: #1f2040;
+        border-color: #3730a3;
+        color: #e5deff;
+      }
+      html[data-theme="dark"] .meta-chip.status-resolved {
+        background: #18392a;
+        border-color: #285a41;
+        color: #cde7d6;
+      }
+      .tickets-table th:nth-child(2),
+      .tickets-table td:nth-child(2) {
+        min-width: 200px;
+      }
+      .tickets-table th:nth-child(1),
+      .tickets-table td:nth-child(1) {
+        width: 84px;
+      }
+      .tickets-table th:nth-child(3),
+      .tickets-table td:nth-child(3) {
+        width: 100px;
+      }
+      .tickets-table th:nth-child(4),
+      .tickets-table td:nth-child(4) {
+        width: 72px;
+      }
+      .tickets-table th:nth-child(5),
+      .tickets-table td:nth-child(5) {
+        width: 96px;
+      }
+      .tickets-table th:nth-child(6),
+      .tickets-table td:nth-child(6) {
+        width: 120px;
+      }
+      .tickets-table th:nth-child(7),
+      .tickets-table td:nth-child(7) {
+        width: 84px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .tickets-table th:nth-child(8),
+      .tickets-table td:nth-child(8) {
+        width: 84px;
+      }
       @media (max-width: 900px) {
-        .tickets-table-wrap { overflow: hidden; }
-        .tickets-table thead { display: none; }
-        .tickets-table tr { display: block; border: 1px solid var(--gray-200); border-radius: 8px; margin-bottom: 12px; background: var(--gray-50); }
-        html[data-theme="dark"] .tickets-table tr { background: var(--gray-100); }
-        .tickets-table td { display: grid; grid-template-columns: 140px 1fr; align-items: start; }
-        .tickets-table td::before { content: attr(data-label); font-weight: 600; color: var(--gray-600); padding-right: 8px; }
+        .tickets-table-wrap {
+          overflow: hidden;
+        }
+        .tickets-table thead {
+          display: none;
+        }
+        .tickets-table tr {
+          display: block;
+          border: 1px solid var(--gray-200);
+          border-radius: 8px;
+          margin-bottom: 12px;
+          background: var(--gray-50);
+        }
+        html[data-theme="dark"] .tickets-table tr {
+          background: var(--gray-100);
+        }
+        .tickets-table td {
+          display: grid;
+          grid-template-columns: 140px 1fr;
+          align-items: start;
+        }
+        .tickets-table td::before {
+          content: attr(data-label);
+          font-weight: 600;
+          color: var(--gray-600);
+          padding-right: 8px;
+        }
       }
       @media (max-width: 1200px) {
         .tickets-table th:nth-child(6), .tickets-table td:nth-child(6), /* Assigned */
-        .tickets-table th:nth-child(7), .tickets-table td:nth-child(7)  /* Created */ { display: none; }
-        .tickets-table td:nth-child(2) .row-meta { display: flex; }
+        .tickets-table th:nth-child(7), .tickets-table td:nth-child(7)  /* Created */ {
+          display: none;
+        }
+        .tickets-table td:nth-child(2) .row-meta {
+          display: flex;
+        }
       }
       @media (max-width: 1050px) {
-        .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) /* Location */ { display: none; }
-        .tickets-table td:nth-child(2) .row-meta { display: flex; }
+        .tickets-table th:nth-child(3), .tickets-table td:nth-child(3) /* Location */ {
+          display: none;
+        }
+        .tickets-table td:nth-child(2) .row-meta {
+          display: flex;
+        }
       }
       @media (max-width: 1024px) {
-        .dashboard-columns { grid-template-columns: 1fr; }
+        .dashboard-columns {
+          grid-template-columns: 1fr;
+        }
       }
-      #userTicketsTableFooter { position: sticky; bottom: 0; background: var(--gray-50); padding-top: 6px; }
-      html[data-theme="dark"] #userTicketsTableFooter { background: var(--gray-100); }
-      #userTicketsFilterBar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px 10px; }
-      html[data-theme="dark"] #userTicketsFilterBar { background: var(--gray-100); border-color: var(--gray-300); }
-      #userTicketsFilterBar label { color: var(--gray-700); font-size: 0.85rem; }
-      html[data-theme="dark"] #userTicketsFilterBar label { color: var(--gray-800); }
-      #userTicketsFilterBar .form-control, #userTicketsFilterBar select, #userTicketsFilterBar input[type="date"] { height: 32px; padding: 4px 8px; border: 1px solid var(--gray-200); border-radius: 6px; background: var(--white); color: var(--black); }
-      html[data-theme="dark"] #userTicketsFilterBar .form-control, html[data-theme="dark"] #userTicketsFilterBar select, html[data-theme="dark"] #userTicketsFilterBar input[type="date"] { background: var(--gray-100); border-color: var(--gray-300); color: var(--black); }
-      #userTicketsFilterBar .form-control:focus, #userTicketsFilterBar select:focus, #userTicketsFilterBar input[type="date"]:focus { outline: none; border-color: var(--primary); }
-      #userFilterClear { height: 32px; }
+      #userTicketsTableFooter {
+        position: sticky;
+        bottom: 0;
+        background: var(--gray-50);
+        padding-top: 6px;
+      }
+      html[data-theme="dark"] #userTicketsTableFooter {
+        background: var(--gray-100);
+      }
+      #userTicketsFilterBar {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-top: 8px;
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: 8px;
+        padding: 8px 10px;
+      }
+      html[data-theme="dark"] #userTicketsFilterBar {
+        background: var(--gray-100);
+        border-color: var(--gray-300);
+      }
+      #userTicketsFilterBar label {
+        color: var(--gray-700);
+        font-size: 0.85rem;
+      }
+      html[data-theme="dark"] #userTicketsFilterBar label {
+        color: var(--gray-800);
+      }
+      #userTicketsFilterBar .form-control,
+      #userTicketsFilterBar select,
+      #userTicketsFilterBar input[type="date"] {
+        height: 32px;
+        padding: 4px 8px;
+        border: 1px solid var(--gray-200);
+        border-radius: 6px;
+        background: var(--white);
+        color: var(--black);
+      }
+      html[data-theme="dark"] #userTicketsFilterBar .form-control,
+      html[data-theme="dark"] #userTicketsFilterBar select,
+      html[data-theme="dark"] #userTicketsFilterBar input[type="date"] {
+        background: var(--gray-100);
+        border-color: var(--gray-300);
+        color: var(--black);
+      }
+      #userTicketsFilterBar .form-control:focus,
+      #userTicketsFilterBar select:focus,
+      #userTicketsFilterBar input[type="date"]:focus {
+        outline: none;
+        border-color: var(--primary);
+      }
+      #userFilterClear {
+        height: 32px;
+      }
 
       /* Mobile header optimization */
       @media (max-width: 600px) {
-        .dashboard-header { padding: 8px 12px; }
-        .dashboard-header .header-content { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
-        .logo-section { display: flex; align-items: center; }
-        .logo-section .dashboard-logo { height: 36px; width: auto; }
-        .header-text { display: none; }
-        .user-menu { display: flex; justify-content: flex-end; align-items: center; gap: 8px; }
-        .user-info { display: flex; flex-direction: column; gap: 2px; }
-        .user-name { font-size: 1rem; line-height: 1.2; }
-        .user-email { display: none; }
-        .header-actions { display: flex !important; flex-direction: row; align-items: center; gap: 6px; }
-        .header-actions .theme-toggle { height: 36px; width: 36px; display: inline-flex; align-items: center; justify-content: center; }
-        .header-actions button { height: 36px; min-width: 36px; padding: 0; }
+        .dashboard-header {
+          padding: 8px 12px;
+        }
+        .dashboard-header .header-content {
+          display: grid;
+          grid-template-columns: auto 1fr;
+          align-items: center;
+          gap: 8px;
+        }
+        .logo-section {
+          display: flex;
+          align-items: center;
+        }
+        .logo-section .dashboard-logo {
+          height: 36px;
+          width: auto;
+        }
+        .header-text {
+          display: none;
+        }
+        .user-menu {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 8px;
+        }
+        .user-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .user-name {
+          font-size: 1rem;
+          line-height: 1.2;
+        }
+        .user-email {
+          display: none;
+        }
+        .header-actions {
+          display: flex !important;
+          flex-direction: row;
+          align-items: center;
+          gap: 6px;
+        }
+        .header-actions .theme-toggle {
+          height: 36px;
+          width: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .header-actions button {
+          height: 36px;
+          min-width: 36px;
+          padding: 0;
+        }
         .header-actions .btn-profile,
-        .header-actions .btn-logout { display: inline-flex; align-items: center; justify-content: center; width: 32px; overflow: hidden; text-indent: -9999px; background: transparent !important; color: var(--primary) !important; border: 1px solid var(--primary); border-radius: 8px; }
+        .header-actions .btn-logout {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          overflow: hidden;
+          text-indent: -9999px;
+          background: transparent !important;
+          color: var(--primary) !important;
+          border: 1px solid var(--primary);
+          border-radius: 8px;
+        }
         .header-actions .btn-profile i,
-        .header-actions .btn-logout i { text-indent: 0; font-size: 16px; margin: 0; }
+        .header-actions .btn-logout i {
+          text-indent: 0;
+          font-size: 16px;
+          margin: 0;
+        }
         .header-actions .btn-profile:hover,
-        .header-actions .btn-logout:hover { background: var(--primary) !important; color: var(--white) !important; }
+        .header-actions .btn-logout:hover {
+          background: var(--primary) !important;
+          color: var(--white) !important;
+        }
       }
     </style>
-</head>
+  </head>
 
-<body class="dashboard-body">
+  <body class="dashboard-body">
     <!-- Header -->
     <header class="dashboard-header">
-        <div class="header-content">
-            <div class="logo-section">
-                <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="dashboard-logo">
-                <div class="header-text">
-                    <h1>IT Support Ticketing System</h1>
-                    <p>User Dashboard</p>
-                </div>
-            </div>
-
-            <div class="user-menu">
-                <div class="user-info">
-                    <div class="user-name" id="userName">Loading...</div>
-                    <div class="user-email" id="userEmail">Loading...</div>
-                </div>
-                <div class="header-actions">
-                    <button class="theme-toggle theme-floating" id="themeToggleBtn">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                    <button class="btn-profile" id="profileBtn">
-                        <i class="fas fa-user-edit"></i>
-                        Edit Profile
-                    </button>
-                    <button class="btn-logout" id="logoutBtn">
-                        <i class="fas fa-sign-out-alt"></i>
-                        Logout
-                    </button>
-                </div>
-            </div>
-
+      <div class="header-content">
+        <div class="logo-section">
+          <img
+            src="../../assets/images/meitech-logo.png"
+            alt="Meitech"
+            class="dashboard-logo"
+          />
+          <div class="header-text">
+            <h1>IT Support Ticketing System</h1>
+            <p>User Dashboard</p>
+          </div>
         </div>
+
+        <div class="user-menu">
+          <div class="user-info">
+            <div class="user-name" id="userName">Loading...</div>
+            <div class="user-email" id="userEmail">Loading...</div>
+          </div>
+          <div class="header-actions">
+            <button class="theme-toggle theme-floating" id="themeToggleBtn">
+              <i class="fas fa-moon"></i>
+            </button>
+            <button class="btn-profile" id="profileBtn">
+              <i class="fas fa-user-edit"></i>
+              Edit Profile
+            </button>
+            <button class="btn-logout" id="logoutBtn">
+              <i class="fas fa-sign-out-alt"></i>
+              Logout
+            </button>
+          </div>
+        </div>
+      </div>
     </header>
-    
+
     <!-- Main Content -->
-    <main id="dashboardMain" class="dashboard-main" style="visibility:hidden">
-        <div class="dashboard-container">
-            <!-- Profile Edit Modal -->
-            <div id="profileModal" class="modal" style="display: none;">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
-                        <button class="modal-close" id="closeProfileModal">&times;</button>
-                    </div>
-                    <form id="profileForm" class="profile-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="edit_employee_id">Employee ID</label>
-                                <input type="text" id="edit_employee_id" name="employee_id" readonly
-                                class="readonly-field">
-                            </div>
-                            <div class="form-group">
-                                <label for="edit_full_name">Full Name *</label>
-                                <input type="text" id="edit_full_name" name="full_name" required>
-                            </div>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="edit_email">Email Address *</label>
-                            <input type="email" id="edit_email" name="email" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="edit_phone">Phone Number</label>
-                            <input type="tel" id="edit_phone" name="phone" placeholder="+62 XXX-XXXX-XXXX">
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="edit_department">Department *</label>
-                                <select id="edit_department" name="department" required>
-                                    <option value="">Select Department</option>
-                                    <option value="Admin">Admin</option>
-                                    <option value="Civil">Civil</option>
-                                    <option value="Clinic">Clinic</option>
-                                    <option value="Client">Client</option>
-                                    <option value="Completion">Completion</option>
-                                    <option value="DC">Dimentional Control (DC)</option>
-                                    <option value="Document Control">Document Control</option>
-                                    <option value="Engineer">Engineering</option>
-                                    <option value="Finance">Finance</option>
-                                    <option value="HSE">HSE</option>
-                                    <option value="HR">Human Resources (HRD)</option>
-                                    <option value="IT">IT</option>
-                                    <option value="Lainlain">Other Department</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                    <option value="Management">Management</option>
-                                    <option value="PGA">PGA</option>
-                                    <option value="Planner">Planner</option>
-                                    <option value="Procurement">Procurement</option>
-                                    <option value="QC">Quality Control (QC)</option>
-                                    <option value="Vendor">Vendor</option>
-                                    <option value="Warehouse">Warehouse</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="edit_location">Location *</label>
-                                <select id="edit_location" name="location" required>
-                                    <option value="">Select Location</option>
-                                    <option value="Blue Office">Blue Office</option>
-                                    <option value="Clinic">Clinic</option>
-                                    <option value="Control Room">Control Room</option>
-                                    <option value="Dark Room">Dark Room</option>
-                                    <option value="Green Office">Green Office</option>
-                                    <option value="HRD">HR Department</option>
-                                    <option value="HSE Yard">HSE Yard</option>
-                                    <option value="IT Server">IT Server</option>
-                                    <option value="IT Store">IT Store</option>
-                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
-                                    <option value="Red Office">Red Office</option>
-                                    <option value="Security">Security</option>
-                                    <option value="Store 1">Store 1</option>
-                                    <option value="Store 2">Store 2</option>
-                                    <option value="Store 3">Store 3</option>
-                                    <option value="Store 4">Store 4</option>
-                                    <option value="Store 5">Store 5</option>
-                                    <option value="Store 6">Store 6</option>
-                                    <option value="Warehouse">Warehouse</option>
-                                    <option value="White Office">White Office</option>
-                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
-                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
-                                    <option value="Welding School">Welding School</option>
-                                    <option value="Workshop9">Workshop 9</option>
-                                    <option value="Workshop10">Workshop 10</option>
-                                    <option value="Workshop11">Workshop 11</option>
-                                    <option value="Workshop12">Workshop 12</option>
-                                    <option value="Yard">Yard</option>
-                                    <option value="Rest Area">Rest Area</option>
-                                    <option value="Lainlain">Other Location</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="btn-primary">
-                                <i class="fas fa-save"></i>
-                                Update Profile
-                            </button>
-                            <button type="button" class="btn-secondary" id="cancelProfileEdit">
-                                Cancel
-                            </button>
-                        </div>
-                    </form>
-                </div>
+    <main id="dashboardMain" class="dashboard-main" style="visibility: hidden">
+      <div class="dashboard-container">
+        <!-- Profile Edit Modal -->
+        <div id="profileModal" class="modal" style="display: none">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h2><i class="fas fa-user-edit"></i> Edit Profile</h2>
+              <button class="modal-close" id="closeProfileModal">
+                &times;
+              </button>
             </div>
+            <form id="profileForm" class="profile-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="edit_employee_id">Employee ID</label>
+                  <input
+                    type="text"
+                    id="edit_employee_id"
+                    name="employee_id"
+                    readonly
+                    class="readonly-field"
+                  />
+                </div>
+                <div class="form-group">
+                  <label for="edit_full_name">Full Name *</label>
+                  <input
+                    type="text"
+                    id="edit_full_name"
+                    name="full_name"
+                    required
+                  />
+                </div>
+              </div>
 
-            <!-- Welcome Section -->
-            <section class="welcome-section">
-                <div class="welcome-card">
-                    <div class="welcome-content">
-                        <h2>Welcome back, <span id="welcomeUserName">User</span>!</h2>
-                        <p>Create a new support ticket or check the status of your existing tickets.</p>
-                    </div>
-                    <div class="welcome-stats">
-                        <div class="stat-item">
-                            <div class="stat-number" id="openTickets">0</div>
-                            <div class="stat-label">Open Tickets</div>
-                        </div>
-                        <div class="stat-item">
-                            <div class="stat-number" id="resolvedTickets">0</div>
-                            <div class="stat-label">Resolved</div>
-                        </div>
-                    </div>
+              <div class="form-group">
+                <label for="edit_email">Email Address *</label>
+                <input type="email" id="edit_email" name="email" required />
+              </div>
+
+              <div class="form-group">
+                <label for="edit_phone">Phone Number</label>
+                <input
+                  type="tel"
+                  id="edit_phone"
+                  name="phone"
+                  placeholder="+62 XXX-XXXX-XXXX"
+                />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="edit_department">Department *</label>
+                  <select id="edit_department" name="department" required>
+                    <option value="">Select Department</option>
+                    <option value="Admin">Admin</option>
+                    <option value="Civil">Civil</option>
+                    <option value="Clinic">Clinic</option>
+                    <option value="Client">Client</option>
+                    <option value="Completion">Completion</option>
+                    <option value="DC">Dimentional Control (DC)</option>
+                    <option value="Document Control">Document Control</option>
+                    <option value="Engineer">Engineering</option>
+                    <option value="Finance">Finance</option>
+                    <option value="HSE">HSE</option>
+                    <option value="HR">Human Resources (HRD)</option>
+                    <option value="IT">IT</option>
+                    <option value="Lainlain">Other Department</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Management">Management</option>
+                    <option value="PGA">PGA</option>
+                    <option value="Planner">Planner</option>
+                    <option value="Procurement">Procurement</option>
+                    <option value="QC">Quality Control (QC)</option>
+                    <option value="Vendor">Vendor</option>
+                    <option value="Warehouse">Warehouse</option>
+                  </select>
                 </div>
-            </section>
-            <div class="dashboard-columns">
-                <div class="left-pane">
-            <section id="itAssignmentSection" class="ticket-section" style="display:none">
-                <div class="section-header">
-                    <h2><i class="fas fa-tasks"></i> IT Assignments</h2>
-                    <p>Create assignment for all IT or a specific member</p>
+
+                <div class="form-group">
+                  <label for="edit_location">Location *</label>
+                  <select id="edit_location" name="location" required>
+                    <option value="">Select Location</option>
+                    <option value="Blue Office">Blue Office</option>
+                    <option value="Clinic">Clinic</option>
+                    <option value="Control Room">Control Room</option>
+                    <option value="Dark Room">Dark Room</option>
+                    <option value="Green Office">Green Office</option>
+                    <option value="HRD">HR Department</option>
+                    <option value="HSE Yard">HSE Yard</option>
+                    <option value="IT Server">IT Server</option>
+                    <option value="IT Store">IT Store</option>
+                    <option value="Multi Purposes Building">
+                      Multi Purposes Building
+                    </option>
+                    <option value="Red Office">Red Office</option>
+                    <option value="Security">Security</option>
+                    <option value="Store 1">Store 1</option>
+                    <option value="Store 2">Store 2</option>
+                    <option value="Store 3">Store 3</option>
+                    <option value="Store 4">Store 4</option>
+                    <option value="Store 5">Store 5</option>
+                    <option value="Store 6">Store 6</option>
+                    <option value="Warehouse">Warehouse</option>
+                    <option value="White Office">White Office</option>
+                    <option value="White Office 2nd Fl">
+                      White Office 2nd Floor
+                    </option>
+                    <option value="White Office 3rd Fl">
+                      White Office 3rd Floor
+                    </option>
+                    <option value="Welding School">Welding School</option>
+                    <option value="Workshop9">Workshop 9</option>
+                    <option value="Workshop10">Workshop 10</option>
+                    <option value="Workshop11">Workshop 11</option>
+                    <option value="Workshop12">Workshop 12</option>
+                    <option value="Yard">Yard</option>
+                    <option value="Rest Area">Rest Area</option>
+                    <option value="Lainlain">Other Location</option>
+                  </select>
                 </div>
-        
-                <form id="assignmentForm" class="ticket-form">
-                    <div class="form-section">
-                        <h3 class="section-title">Assignment Details</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="assignment_scope"><span class="required">Scope</span></label>
-                                <select id="assignment_scope" name="scope" required>
-                                    <option value="" disabled selected>Select Scope</option>
-                                    <option value="all">All IT Members</option>
-                                    <option value="single">Specific IT Member</option>
-                                </select>
-                            </div>
-                            <div class="form-group" id="assignmentMemberGroup" style="display:none">
-                                <label for="assignment_member">Select Member</label>
-                                <select id="assignment_member" name="member_uid">
-                                    <option value="" disabled selected>Select IT Member</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="assignment_subject">Subject</label>
-                                <input type="text" id="assignment_subject" placeholder="Short title for assignment">
-                            </div>
-                            <div class="form-group">
-                                <label for="assignment_message">Message</label>
-                                <textarea id="assignment_message" rows="3" placeholder="Additional notes/instructions for this assignment"></textarea>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="assignment_activity"><span class="required">Activity</span></label>
-                                <select id="assignment_activity" name="activity" required>
-                                    <option value="" disabled selected>Select Activity</option>
-                                    <option value="Weekly Safety Talk">Weekly Safety Talk</option>
-                                    <option value="Ceremony Sail Away">Ceremony Sail Away</option>
-                                    <option value="Deliver">Deliver</option>
-                                    <option value="Software Install">Software Install</option>
-                                    <option value="Setup Meeting">Setup Meeting</option>
-                                    <option value="Drone Update Area">Drone Update Area</option>
-                                    <option value="Drone Lifting">Drone Lifting</option>
-                                    <option value="Stand By Meeting">Stand By Meeting</option>
-                                    <option value="Stand By Sunday">Stand By Sunday</option>
-                                    <option value="Back Up Data">Back Up Data</option>
-                                    <option value="Network">Network</option>
-                                    <option value="Connect Share Folder">Connect Share Folder</option>
-                                    <option value="Software Config">Software Config</option>
-                                    <option value="Install IT Standard Apps">Install IT Standard Apps</option>
-                                    <option value="Reinstall Windows">Reinstall Windows</option>
-                                    <option value="Other">Other</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="assignment_location"><span class="required">Location</span></label>
-                                <select id="assignment_location" name="location" required>
-                                    <option value="" disabled selected>Select Location</option>
-                                    <option value="Blue Office">Blue Office</option>
-                                    <option value="Clinic">Clinic</option>
-                                    <option value="Control Room">Control Room</option>
-                                    <option value="Dark Room">Dark Room</option>
-                                    <option value="Green Office">Green Office</option>
-                                    <option value="HRD">HR Department</option>
-                                    <option value="HSE Yard">HSE Yard</option>
-                                    <option value="IT Server">IT Server</option>
-                                    <option value="IT Store">IT Store</option>
-                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
-                                    <option value="Red Office">Red Office</option>
-                                    <option value="Security">Security</option>
-                                    <option value="Store 1">Store 1</option>
-                                    <option value="Store 2">Store 2</option>
-                                    <option value="Store 3">Store 3</option>
-                                    <option value="Store 4">Store 4</option>
-                                    <option value="Store 5">Store 5</option>
-                                    <option value="Store 6">Store 6</option>
-                                    <option value="Warehouse">Warehouse</option>
-                                    <option value="White Office">White Office</option>
-                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
-                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
-                                    <option value="Welding School">Welding School</option>
-                                    <option value="Workshop9">Workshop 9</option>
-                                    <option value="Workshop10">Workshop 10</option>
-                                    <option value="Workshop11">Workshop 11</option>
-                                    <option value="Workshop12">Workshop 12</option>
-                                    <option value="Yard">Yard</option>
-                                    <option value="Rest Area">Rest Area</option>
-                                    <option value="Lainlain">Other Location</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="assignment_priority"><span class="required">Priority</span></label>
-                                <select id="assignment_priority" name="priority" required>
-                                    <option value="" disabled selected>Select Priority</option>
-                                    <option value="Low">Low</option>
-                                    <option value="Medium">Medium</option>
-                                    <option value="High">High</option>
-                                </select>
-                            </div>
-                        </div>
+              </div>
+
+              <div class="form-actions">
+                <button type="submit" class="btn-primary">
+                  <i class="fas fa-save"></i>
+                  Update Profile
+                </button>
+                <button
+                  type="button"
+                  class="btn-secondary"
+                  id="cancelProfileEdit"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Welcome Section -->
+        <section class="welcome-section">
+          <div class="welcome-card">
+            <div class="welcome-content">
+              <h2>Welcome back, <span id="welcomeUserName">User</span>!</h2>
+              <p>
+                Create a new support ticket or check the status of your existing
+                tickets.
+              </p>
+            </div>
+            <div class="welcome-stats">
+              <div class="stat-item">
+                <div class="stat-number" id="openTickets">0</div>
+                <div class="stat-label">Open Tickets</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number" id="resolvedTickets">0</div>
+                <div class="stat-label">Resolved</div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="dashboard-columns">
+          <div class="left-pane">
+            <section
+              id="itAssignmentSection"
+              class="ticket-section"
+              style="display: none"
+            >
+              <div class="section-header">
+                <h2><i class="fas fa-tasks"></i> IT Assignments</h2>
+                <p>Create assignment for all IT or a specific member</p>
+              </div>
+
+              <form id="assignmentForm" class="ticket-form">
+                <div class="form-section">
+                  <h3 class="section-title">Assignment Details</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="assignment_scope"
+                        ><span class="required">Scope</span></label
+                      >
+                      <select id="assignment_scope" name="scope" required>
+                        <option value="" disabled selected>Select Scope</option>
+                        <option value="all">All IT Members</option>
+                        <option value="single">Specific IT Member</option>
+                      </select>
                     </div>
-        
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary" id="submitAssignmentBtn">
-                            <span class="btn-text">Create Assignment</span>
-                            <div class="btn-loading" style="display:none">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Processing...
-                            </div>
-                        </button>
+                    <div
+                      class="form-group"
+                      id="assignmentMemberGroup"
+                      style="display: none"
+                    >
+                      <label for="assignment_member">Select Member</label>
+                      <select id="assignment_member" name="member_uid">
+                        <option value="" disabled selected>
+                          Select IT Member
+                        </option>
+                      </select>
                     </div>
-                </form>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="assignment_subject">Subject</label>
+                      <input
+                        type="text"
+                        id="assignment_subject"
+                        placeholder="Short title for assignment"
+                      />
+                    </div>
+                    <div class="form-group">
+                      <label for="assignment_message">Message</label>
+                      <textarea
+                        id="assignment_message"
+                        rows="3"
+                        placeholder="Additional notes/instructions for this assignment"
+                      ></textarea>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="assignment_activity"
+                        ><span class="required">Activity</span></label
+                      >
+                      <select id="assignment_activity" name="activity" required>
+                        <option value="" disabled selected>
+                          Select Activity
+                        </option>
+                        <option value="Weekly Safety Talk">
+                          Weekly Safety Talk
+                        </option>
+                        <option value="Ceremony Sail Away">
+                          Ceremony Sail Away
+                        </option>
+                        <option value="Deliver">Deliver</option>
+                        <option value="Software Install">
+                          Software Install
+                        </option>
+                        <option value="Setup Meeting">Setup Meeting</option>
+                        <option value="Drone Update Area">
+                          Drone Update Area
+                        </option>
+                        <option value="Drone Lifting">Drone Lifting</option>
+                        <option value="Stand By Meeting">
+                          Stand By Meeting
+                        </option>
+                        <option value="Stand By Sunday">Stand By Sunday</option>
+                        <option value="Back Up Data">Back Up Data</option>
+                        <option value="Network">Network</option>
+                        <option value="Connect Share Folder">
+                          Connect Share Folder
+                        </option>
+                        <option value="Software Config">Software Config</option>
+                        <option value="Install IT Standard Apps">
+                          Install IT Standard Apps
+                        </option>
+                        <option value="Reinstall Windows">
+                          Reinstall Windows
+                        </option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+                    <div class="form-group">
+                      <label for="assignment_location"
+                        ><span class="required">Location</span></label
+                      >
+                      <select id="assignment_location" name="location" required>
+                        <option value="" disabled selected>
+                          Select Location
+                        </option>
+                        <option value="Blue Office">Blue Office</option>
+                        <option value="Clinic">Clinic</option>
+                        <option value="Control Room">Control Room</option>
+                        <option value="Dark Room">Dark Room</option>
+                        <option value="Green Office">Green Office</option>
+                        <option value="HRD">HR Department</option>
+                        <option value="HSE Yard">HSE Yard</option>
+                        <option value="IT Server">IT Server</option>
+                        <option value="IT Store">IT Store</option>
+                        <option value="Multi Purposes Building">
+                          Multi Purposes Building
+                        </option>
+                        <option value="Red Office">Red Office</option>
+                        <option value="Security">Security</option>
+                        <option value="Store 1">Store 1</option>
+                        <option value="Store 2">Store 2</option>
+                        <option value="Store 3">Store 3</option>
+                        <option value="Store 4">Store 4</option>
+                        <option value="Store 5">Store 5</option>
+                        <option value="Store 6">Store 6</option>
+                        <option value="Warehouse">Warehouse</option>
+                        <option value="White Office">White Office</option>
+                        <option value="White Office 2nd Fl">
+                          White Office 2nd Floor
+                        </option>
+                        <option value="White Office 3rd Fl">
+                          White Office 3rd Floor
+                        </option>
+                        <option value="Welding School">Welding School</option>
+                        <option value="Workshop9">Workshop 9</option>
+                        <option value="Workshop10">Workshop 10</option>
+                        <option value="Workshop11">Workshop 11</option>
+                        <option value="Workshop12">Workshop 12</option>
+                        <option value="Yard">Yard</option>
+                        <option value="Rest Area">Rest Area</option>
+                        <option value="Lainlain">Other Location</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="assignment_priority"
+                        ><span class="required">Priority</span></label
+                      >
+                      <select id="assignment_priority" name="priority" required>
+                        <option value="" disabled selected>
+                          Select Priority
+                        </option>
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-actions">
+                  <button
+                    type="submit"
+                    class="btn-primary"
+                    id="submitAssignmentBtn"
+                  >
+                    <span class="btn-text">Create Assignment</span>
+                    <div class="btn-loading" style="display: none">
+                      <i class="fas fa-spinner fa-spin"></i>
+                      Processing...
+                    </div>
+                  </button>
+                </div>
+              </form>
             </section>
 
             <!-- Ticket Form Section -->
             <section class="ticket-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-plus-circle"></i> Create New Ticket</h2>
-                    <p>Report a technical issue to our IT support team</p>
+              <div class="section-header">
+                <h2><i class="fas fa-plus-circle"></i> Create New Ticket</h2>
+                <p>Report a technical issue to our IT support team</p>
+              </div>
+
+              <form id="ticketForm" class="ticket-form">
+                <!-- Device Information -->
+                <div class="form-section">
+                  <h3 class="section-title">Device Information</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="inventory">
+                        <span class="required">Inventory Code</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="inventory"
+                        id="inventory"
+                        required
+                        placeholder="PCPRO-MEB001 / PC24001MEB / PRN24001MEB"
+                      />
+                    </div>
+
+                    <div class="form-group">
+                      <label for="device">
+                        <span class="required">Device Type</span>
+                      </label>
+                      <select name="device" id="device" required>
+                        <option value="" disabled selected>
+                          Select Device Type
+                        </option>
+                        <option value="Backup Data">Backup Data</option>
+                        <option value="Drone">Drone</option>
+                        <option value="Laptop">Laptop</option>
+                        <option value="Network">Network</option>
+                        <option value="PC Hardware">PC Hardware</option>
+                        <option value="PC Software">PC Software</option>
+                        <option value="Printer">Printer</option>
+                        <option value="Projector">Projector</option>
+                        <option value="Others">Others</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
 
-                <form id="ticketForm" class="ticket-form">
-                    <!-- Device Information -->
-                    <div class="form-section">
-                        <h3 class="section-title">Device Information</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="inventory">
-                                    <span class="required">Inventory Code</span>
-                                </label>
-                                <input type="text" name="inventory" id="inventory" required
-                                    placeholder="PCPRO-MEB001 / PC24001MEB / PRN24001MEB">
-                            </div>
-
-                            <div class="form-group">
-                                <label for="device">
-                                    <span class="required">Device Type</span>
-                                </label>
-                                <select name="device" id="device" required>
-                                    <option value="" disabled selected>Select Device Type</option>
-                                    <option value="Backup Data">Backup Data</option>
-                                    <option value="Drone">Drone</option>
-                                    <option value="Laptop">Laptop</option>
-                                    <option value="Network">Network</option>
-                                    <option value="PC Hardware">PC Hardware</option>
-                                    <option value="PC Software">PC Software</option>
-                                    <option value="Printer">Printer</option>
-                                    <option value="Projector">Projector</option>
-                                    <option value="Others">Others</option>
-                                </select>
-                            </div>
-                        </div>
+                <!-- Ticket Details -->
+                <div class="form-section">
+                  <h3 class="section-title">Ticket Details</h3>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="location">
+                        <span class="required">Location</span>
+                      </label>
+                      <select name="location" id="location" required>
+                        <option value="" disabled selected>
+                          Select Location
+                        </option>
+                        <option value="Blue Office">Blue Office</option>
+                        <option value="Clinic">Clinic</option>
+                        <option value="Control Room">Control Room</option>
+                        <option value="Dark Room">Dark Room</option>
+                        <option value="Green Office">Green Office</option>
+                        <option value="HRD">HR Department</option>
+                        <option value="HSE Yard">HSE Yard</option>
+                        <option value="IT Server">IT Server</option>
+                        <option value="IT Store">IT Store</option>
+                        <option value="Multi Purposes Building">
+                          Multi Purposes Building
+                        </option>
+                        <option value="Red Office">Red Office</option>
+                        <option value="Security">Security</option>
+                        <option value="Store 1">Store 1</option>
+                        <option value="Store 2">Store 2</option>
+                        <option value="Store 3">Store 3</option>
+                        <option value="Store 4">Store 4</option>
+                        <option value="Store 5">Store 5</option>
+                        <option value="Store 6">Store 6</option>
+                        <option value="Warehouse">Warehouse</option>
+                        <option value="White Office">White Office</option>
+                        <option value="White Office 2nd Fl">
+                          White Office 2nd Floor
+                        </option>
+                        <option value="White Office 3rd Fl">
+                          White Office 3rd Floor
+                        </option>
+                        <option value="Welding School">Welding School</option>
+                        <option value="Workshop9">Workshop 9</option>
+                        <option value="Workshop10">Workshop 10</option>
+                        <option value="Workshop11">Workshop 11</option>
+                        <option value="Workshop12">Workshop 12</option>
+                        <option value="Yard">Yard</option>
+                        <option value="Rest Area">Rest Area</option>
+                        <option value="Lainlain">Other Location</option>
+                      </select>
                     </div>
 
-                    <!-- Ticket Details -->
-                    <div class="form-section">
-                        <h3 class="section-title">Ticket Details</h3>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="location">
-                                    <span class="required">Location</span>
-                                </label>
-                                <select name="location" id="location" required>
-                                    <option value="" disabled selected>Select Location</option>
-                                    <option value="Blue Office">Blue Office</option>
-                                    <option value="Clinic">Clinic</option>
-                                    <option value="Control Room">Control Room</option>
-                                    <option value="Dark Room">Dark Room</option>
-                                    <option value="Green Office">Green Office</option>
-                                    <option value="HRD">HR Department</option>
-                                    <option value="HSE Yard">HSE Yard</option>
-                                    <option value="IT Server">IT Server</option>
-                                    <option value="IT Store">IT Store</option>
-                                    <option value="Multi Purposes Building">Multi Purposes Building</option>
-                                    <option value="Red Office">Red Office</option>
-                                    <option value="Security">Security</option>
-                                    <option value="Store 1">Store 1</option>
-                                    <option value="Store 2">Store 2</option>
-                                    <option value="Store 3">Store 3</option>
-                                    <option value="Store 4">Store 4</option>
-                                    <option value="Store 5">Store 5</option>
-                                    <option value="Store 6">Store 6</option>
-                                    <option value="Warehouse">Warehouse</option>
-                                    <option value="White Office">White Office</option>
-                                    <option value="White Office 2nd Fl">White Office 2nd Floor</option>
-                                    <option value="White Office 3rd Fl">White Office 3rd Floor</option>
-                                    <option value="Welding School">Welding School</option>
-                                    <option value="Workshop9">Workshop 9</option>
-                                    <option value="Workshop10">Workshop 10</option>
-                                    <option value="Workshop11">Workshop 11</option>
-                                    <option value="Workshop12">Workshop 12</option>
-                                    <option value="Yard">Yard</option>
-                                    <option value="Rest Area">Rest Area</option>
-                                    <option value="Lainlain">Other Location</option>
-                                </select>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="priority">
-                                    <span class="required">Priority Level</span>
-                                </label>
-                                <select name="priority" id="priority" required>
-                                    <option value="" disabled selected>Select Priority</option>
-                                    <option value="Low">Low - Minor issue</option>
-                                    <option value="Medium">Medium - Significant issue</option>
-                                    <option value="High">High - Critical issue</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div class="form-group">
+                      <label for="priority">
+                        <span class="required">Priority Level</span>
+                      </label>
+                      <select name="priority" id="priority" required>
+                        <option value="" disabled selected>
+                          Select Priority
+                        </option>
+                        <option value="Low">Low - Minor issue</option>
+                        <option value="Medium">
+                          Medium - Significant issue
+                        </option>
+                        <option value="High">High - Critical issue</option>
+                      </select>
                     </div>
+                  </div>
+                </div>
 
-                    <!-- Issue Description -->
-                    <div class="form-section">
-                        <h3 class="section-title">Issue Description</h3>
-                        <div class="form-group">
-                            <label for="subject">
-                                <span class="required">Issue Summary</span>
-                            </label>
-                            <input type="text" name="subject" id="subject" required
-                                placeholder="Brief summary of the issue">
-                        </div>
+                <!-- Issue Description -->
+                <div class="form-section">
+                  <h3 class="section-title">Issue Description</h3>
+                  <div class="form-group">
+                    <label for="subject">
+                      <span class="required">Issue Summary</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="subject"
+                      id="subject"
+                      required
+                      placeholder="Brief summary of the issue"
+                    />
+                  </div>
 
-                        <div class="form-group">
-                            <label for="message">
-                                <span class="required">Detailed Description</span>
-                            </label>
-                            <textarea name="message" id="message" rows="4" required
-                                placeholder="Describe the issue in detail including error messages, steps to reproduce, and when it started"></textarea>
-                        </div>
+                  <div class="form-group">
+                    <label for="message">
+                      <span class="required">Detailed Description</span>
+                    </label>
+                    <textarea
+                      name="message"
+                      id="message"
+                      rows="4"
+                      required
+                      placeholder="Describe the issue in detail including error messages, steps to reproduce, and when it started"
+                    ></textarea>
+                  </div>
+                </div>
+
+                <!-- Hidden Fields -->
+                <input type="hidden" name="user_id" id="user_id" />
+                <input type="hidden" name="user_name" id="user_name" />
+                <input type="hidden" name="user_email" id="user_email" />
+                <input
+                  type="hidden"
+                  name="user_department"
+                  id="user_department"
+                />
+                <input type="hidden" name="status" value="Open" />
+                <input type="hidden" name="created_at" id="created_at" />
+
+                <!-- Messages -->
+                <div
+                  id="ticketErrorMessage"
+                  class="error-message"
+                  style="display: none"
+                ></div>
+                <div
+                  id="ticketSuccessMessage"
+                  class="success-message"
+                  style="display: none"
+                ></div>
+
+                <!-- Submit Button -->
+                <div class="form-actions">
+                  <button
+                    type="submit"
+                    class="btn-primary"
+                    id="submitTicketBtn"
+                  >
+                    <span class="btn-text">Submit Ticket</span>
+                    <div class="btn-loading" style="display: none">
+                      <i class="fas fa-spinner fa-spin"></i>
+                      Processing...
                     </div>
-
-                    <!-- Hidden Fields -->
-                    <input type="hidden" name="user_id" id="user_id">
-                    <input type="hidden" name="user_name" id="user_name">
-                    <input type="hidden" name="user_email" id="user_email">
-                    <input type="hidden" name="user_department" id="user_department">
-                    <input type="hidden" name="status" value="Open">
-                    <input type="hidden" name="created_at" id="created_at">
-
-                    <!-- Messages -->
-                    <div id="ticketErrorMessage" class="error-message" style="display: none"></div>
-                    <div id="ticketSuccessMessage" class="success-message" style="display: none"></div>
-
-                    <!-- Submit Button -->
-                    <div class="form-actions">
-                        <button type="submit" class="btn-primary" id="submitTicketBtn">
-                            <span class="btn-text">Submit Ticket</span>
-                            <div class="btn-loading" style="display: none">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                Processing...
-                            </div>
-                        </button>
-                        <button type="reset" class="btn-secondary">
-                            Clear Form
-                        </button>
-                    </div>
-                </form>
+                  </button>
+                  <button type="reset" class="btn-secondary">Clear Form</button>
+                </div>
+              </form>
             </section>
-                </div>
-                <div class="right-pane">
+          </div>
+          <div class="right-pane">
             <!-- Recent Tickets Section -->
             <section class="tickets-section">
-                <div class="section-header">
-                    <h2><i class="fas fa-history"></i> Recent Tickets</h2>
-                    <p>Your recently submitted support tickets</p>
-                </div>
+              <div class="section-header">
+                <h2><i class="fas fa-history"></i> Recent Tickets</h2>
+                <p>Your recently submitted support tickets</p>
+              </div>
+              <div
+                id="userTicketsFilterBar"
+                style="
+                  display: flex;
+                  gap: 0.5rem;
+                  align-items: center;
+                  flex-wrap: wrap;
+                  margin-top: 0.5rem;
+                "
+              >
+                <label for="userStatusFilter" style="font-weight: 600"
+                  >Status</label
+                >
+                <select
+                  id="userStatusFilter"
+                  class="form-control"
+                  style="min-width: 160px"
+                >
+                  <option value="All" selected>All</option>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Resolved">Resolved</option>
+                </select>
+                <label for="userDateStartFilter" style="font-weight: 600"
+                  >From</label
+                >
+                <input
+                  type="date"
+                  id="userDateStartFilter"
+                  class="form-control"
+                  style="min-width: 160px"
+                />
+                <label for="userDateEndFilter" style="font-weight: 600"
+                  >To</label
+                >
+                <input
+                  type="date"
+                  id="userDateEndFilter"
+                  class="form-control"
+                  style="min-width: 160px"
+                />
+                <button
+                  id="userFilterClear"
+                  class="btn-secondary"
+                  style="margin-left: auto"
+                >
+                  Clear
+                </button>
+              </div>
 
-                <div class="tickets-list" id="ticketsList">
-                    <div class="empty-state">
-                        <i class="fas fa-ticket-alt"></i>
-                        <h3>No tickets yet</h3>
-                        <p>Submit your first support ticket above</p>
-                    </div>
+              <div class="tickets-list" id="ticketsList">
+                <div class="empty-state">
+                  <i class="fas fa-ticket-alt"></i>
+                  <h3>No tickets yet</h3>
+                  <p>Submit your first support ticket above</p>
                 </div>
-                <div id="userTicketsFilterBar" style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.5rem;">
-                  <label for="userStatusFilter" style="font-weight:600;">Status</label>
-                  <select id="userStatusFilter" class="form-control" style="min-width:160px;">
-                    <option value="All" selected>All</option>
-                    <option value="Open">Open</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Resolved">Resolved</option>
-                  </select>
-                  <label for="userDateStartFilter" style="font-weight:600;">From</label>
-                  <input type="date" id="userDateStartFilter" class="form-control" style="min-width:160px;" />
-                  <label for="userDateEndFilter" style="font-weight:600;">To</label>
-                  <input type="date" id="userDateEndFilter" class="form-control" style="min-width:160px;" />
-                  <button id="userFilterClear" class="btn-secondary" style="margin-left:auto;">Clear</button>
-                </div>
-                <div class="tickets-table-wrap" id="userTicketsTableContainer" style="display:none; margin-top: 1rem;">
-                    <table class="tickets-table" id="userTicketsTable" style="width:100%; border-collapse: collapse;">
-                        <thead>
-                            <tr>
-                                <th style="text-align:left; padding:8px;">Code</th>
-                                <th style="text-align:left; padding:8px;">Subject</th>
-                                <th style="text-align:left; padding:8px;">Location</th>
-                                <th style="text-align:left; padding:8px;">Priority</th>
-                                <th style="text-align:left; padding:8px;">Status</th>
-                                <th style="text-align:left; padding:8px;">Assigned To</th>
-                                <th style="text-align:left; padding:8px;">Created</th>
-                                <th style="text-align:left; padding:8px;">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="userTicketsTableBody"></tbody>
-                    </table>
-                    <div id="userTicketsTableFooter" style="margin-top:0.75rem;"></div>
-                </div>
+              </div>
+              <div
+                class="tickets-table-wrap"
+                id="userTicketsTableContainer"
+                style="display: none; margin-top: 1rem"
+              >
+                <table
+                  class="tickets-table"
+                  id="userTicketsTable"
+                  style="width: 100%; border-collapse: collapse"
+                >
+                  <thead>
+                    <tr>
+                      <th style="text-align: left; padding: 8px">Code</th>
+                      <th style="text-align: left; padding: 8px">Subject</th>
+                      <th style="text-align: left; padding: 8px">Location</th>
+                      <th style="text-align: left; padding: 8px">Priority</th>
+                      <th style="text-align: left; padding: 8px">Status</th>
+                      <th style="text-align: left; padding: 8px">
+                        Assigned To
+                      </th>
+                      <th style="text-align: left; padding: 8px">Created</th>
+                      <th style="text-align: left; padding: 8px">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="userTicketsTableBody"></tbody>
+                </table>
+                <div
+                  id="userTicketsTableFooter"
+                  style="margin-top: 0.75rem"
+                ></div>
+              </div>
             </section>
-                </div>
-            </div>
-
+          </div>
         </div>
+      </div>
     </main>
 
     <!-- Footer -->
     <footer class="dashboard-footer">
-        <div class="footer-content">
-            <small>&copy; 2025 IT Support System 71001-04-8314</small>
-            <small>For urgent issues, please contact IT Support directly</small>
-        </div>
+      <div class="footer-content">
+        <small>&copy; 2025 IT Support System 71001-04-8314</small>
+        <small>For urgent issues, please contact IT Support directly</small>
+      </div>
     </footer>
 
     <!-- Scripts -->
@@ -617,17 +1079,18 @@
     <script type="module" src="../../assets/js/pages/dashboard.js"></script>
     <script type="module">
       try {
-        const m = document.getElementById('dashboardMain');
-        if (m) m.style.visibility = 'visible';
+        const m = document.getElementById("dashboardMain");
+        if (m) m.style.visibility = "visible";
         if (!window.__dashModuleLoaded) {
-          await import('../../assets/js/pages/dashboard.js');
+          await import("../../assets/js/pages/dashboard.js");
           if (window.Dashboard) {
             new window.Dashboard();
-            try { window.__dashModuleLoaded = true; } catch (_) {}
+            try {
+              window.__dashModuleLoaded = true;
+            } catch (_) {}
           }
         }
       } catch (_) {}
     </script>
   </body>
-
 </html>
