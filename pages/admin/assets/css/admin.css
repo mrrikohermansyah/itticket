@@ -85,9 +85,10 @@ body {
 }
 
 .admin-container {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 0 1rem;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0 10px;
 }
 
 /* ===== HEADER STYLES ===== */
@@ -101,9 +102,10 @@ body {
 }
 
 .header-content {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 1rem;
+  max-width: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
