@@ -1029,6 +1029,7 @@
                   <p>Submit your first support ticket above</p>
                 </div>
               </div>
+              <div id="ticketsListFooter" style="margin-top: 0.75rem"></div>
               <div
                 class="tickets-table-wrap"
                 id="userTicketsTableContainer"
@@ -1076,6 +1077,1603 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script type="module" src="../../assets/js/pages/dashboard.js"></script>
+    <script type="module">
+      import { auth, db } from "../../assets/js/utils/firebase-config.js";
+      import {
+        collection,
+        query,
+        where,
+        getDocs,
+        orderBy,
+        limit,
+        addDoc,
+        serverTimestamp,
+        doc,
+        getDoc,
+        updateDoc,
+        setDoc,
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      import {
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+      const setUserInfo = (email) => {
+        const legacyName =
+          (typeof window !== "undefined" && window.__legacyUser
+            ? window.__legacyUser.name
+            : null) || null;
+        const name = legacyName || (email || "").split("@")[0] || "User";
+        const n1 = document.getElementById("userName");
+        const n2 = document.getElementById("welcomeUserName");
+        const e1 = document.getElementById("userEmail");
+        if (n1) n1.textContent = name;
+        if (n2) n2.textContent = name;
+        if (e1) e1.textContent = email || "";
+      };
+      const showMain = () => {
+        const main = document.getElementById("dashboardMain");
+        if (main) main.style.visibility = "visible";
+      };
+      document.addEventListener("DOMContentLoaded", () => {
+        try {
+          onAuthStateChanged(auth, async (cu) => {
+            try {
+              try {
+                console.info("Auth state", {
+                  uid: cu?.uid || null,
+                  email: cu?.email || null,
+                });
+              } catch (_) {}
+              let email = cu?.email || "";
+              if (email) setUserInfo(email);
+              else setUserInfo("User");
+              showMain();
+              const profileBtn = document.getElementById("profileBtn");
+              const profileModal = document.getElementById("profileModal");
+              const closeProfileModal =
+                document.getElementById("closeProfileModal");
+              const cancelProfileEdit =
+                document.getElementById("cancelProfileEdit");
+              const logoutBtn = document.getElementById("logoutBtn");
+              if (logoutBtn) {
+                logoutBtn.onclick = async () => {
+                  const result = await Swal.fire({
+                    title: "Logout?",
+                    html: `<div style="text-align:left;">Anda yakin ingin keluar dari sesi ini?</div>`,
+                    icon: "question",
+                    confirmButtonText: "Logout",
+                    cancelButtonText: "Batal",
+                    confirmButtonColor: "#ef070a",
+                    cancelButtonColor: "#6b7280",
+                    reverseButtons: true,
+                    showCancelButton: true,
+                    focusCancel: true,
+                  });
+                  if (result.isConfirmed) {
+                    Swal.fire({
+                      title: "Logging out...",
+                      allowOutsideClick: false,
+                      showConfirmButton: false,
+                      didOpen: () => {
+                        Swal.showLoading();
+                      },
+                    });
+                    try {
+                      const timeout = new Promise((resolve) =>
+                        setTimeout(resolve, 5000)
+                      );
+                      await Promise.race([signOut(auth), timeout]);
+                    } catch (_) {}
+                    try {
+                      Swal.close();
+                    } catch (_) {}
+                    try {
+                      window.location.href = "../auth/login.html";
+                    } catch (_) {}
+                  }
+                };
+              }
+              const prefillProfile = async () => {
+                const baseName = (email || "").split("@")[0] || "User";
+                let data = null;
+                try {
+                  if (cu?.uid) {
+                    const byId = await getDoc(doc(db, "users", cu.uid));
+                    if (byId.exists()) data = byId.data();
+                  }
+                  if (!data && email) {
+                    const q = await getDocs(
+                      query(
+                        collection(db, "users"),
+                        where("email", "==", email.toLowerCase()),
+                        limit(1)
+                      )
+                    );
+                    if (q.docs[0]) data = q.docs[0].data();
+                  }
+                  if (!data && email) {
+                    const qa = await getDocs(
+                      query(
+                        collection(db, "admins"),
+                        where("email", "==", email.toLowerCase()),
+                        limit(1)
+                      )
+                    );
+                    if (qa.docs[0]) data = qa.docs[0].data();
+                  }
+                } catch (_) {}
+                const f_employee = document.getElementById("edit_employee_id");
+                const f_name = document.getElementById("edit_full_name");
+                const f_email = document.getElementById("edit_email");
+                const f_phone = document.getElementById("edit_phone");
+                const f_dept = document.getElementById("edit_department");
+                const f_loc = document.getElementById("edit_location");
+                if (f_employee) f_employee.value = data?.employee_id || "";
+                if (f_name)
+                  f_name.value = data?.full_name || data?.name || baseName;
+                if (f_email) f_email.value = data?.email || email || "";
+                if (f_phone) f_phone.value = data?.phone || "";
+                if (f_dept) f_dept.value = data?.department || "";
+                if (f_loc) f_loc.value = data?.location || "";
+              };
+              if (profileBtn && profileModal) {
+                profileBtn.onclick = async () => {
+                  await prefillProfile();
+                  profileModal.style.display = "block";
+                };
+              }
+              if (closeProfileModal && profileModal) {
+                closeProfileModal.onclick = () => {
+                  profileModal.style.display = "none";
+                };
+              }
+              if (cancelProfileEdit && profileModal) {
+                cancelProfileEdit.onclick = () => {
+                  profileModal.style.display = "none";
+                };
+              }
+              if (email) {
+                try {
+                  let docUser = null;
+                  if (cu?.uid) {
+                    const byId = await getDoc(doc(db, "users", cu.uid));
+                    if (byId.exists()) docUser = byId;
+                  }
+                  if (!docUser) {
+                    const q1 = await getDocs(
+                      query(
+                        collection(db, "users"),
+                        where("email", "==", email.toLowerCase()),
+                        limit(1)
+                      )
+                    );
+                    docUser = q1.docs[0] || null;
+                  }
+                  if (!docUser) {
+                    const q2 = await getDocs(
+                      query(
+                        collection(db, "users"),
+                        where("email", "==", email),
+                        limit(1)
+                      )
+                    );
+                    docUser = q2.docs[0] || null;
+                  }
+                  const baseName = (email || "").split("@")[0] || "User";
+                  if (docUser) {
+                    const u = docUser.data();
+                    const n1 = document.getElementById("userName");
+                    const n2 = document.getElementById("welcomeUserName");
+                    const e1 = document.getElementById("userEmail");
+                    if (n1) n1.textContent = u.full_name || u.name || baseName;
+                    if (n2) n2.textContent = u.full_name || u.name || baseName;
+                    if (e1) e1.textContent = u.email || email;
+                    const userNameInput = document.getElementById("user_name");
+                    const userEmailInput =
+                      document.getElementById("user_email");
+                    const userDeptInput =
+                      document.getElementById("user_department");
+                    if (userNameInput)
+                      userNameInput.value = u.full_name || u.name || "";
+                    if (userEmailInput) userEmailInput.value = u.email || "";
+                    if (userDeptInput && u.department)
+                      userDeptInput.value = u.department;
+                    const f_employee =
+                      document.getElementById("edit_employee_id");
+                    const f_name = document.getElementById("edit_full_name");
+                    const f_email = document.getElementById("edit_email");
+                    const f_phone = document.getElementById("edit_phone");
+                    const f_dept = document.getElementById("edit_department");
+                    const f_loc = document.getElementById("edit_location");
+                    if (f_employee) f_employee.value = u.employee_id || "";
+                    if (f_name)
+                      f_name.value = u.full_name || u.name || baseName;
+                    if (f_email) f_email.value = u.email || email;
+                    if (f_phone) f_phone.value = u.phone || "";
+                    if (f_dept) f_dept.value = u.department || "";
+                    if (f_loc) f_loc.value = u.location || "";
+                  } else {
+                    let adminDoc = null;
+                    if (cu?.uid) {
+                      const aById = await getDoc(doc(db, "admins", cu.uid));
+                      if (aById.exists()) adminDoc = aById;
+                    }
+                    if (!adminDoc) {
+                      const qa1 = await getDocs(
+                        query(
+                          collection(db, "admins"),
+                          where("email", "==", email.toLowerCase()),
+                          limit(1)
+                        )
+                      );
+                      adminDoc = qa1.docs[0] || null;
+                    }
+                    if (!adminDoc) {
+                      const qa2 = await getDocs(
+                        query(
+                          collection(db, "admins"),
+                          where("email", "==", email),
+                          limit(1)
+                        )
+                      );
+                      adminDoc = qa2.docs[0] || null;
+                    }
+                    if (adminDoc) {
+                      const a = adminDoc.data();
+                      const n1 = document.getElementById("userName");
+                      const n2 = document.getElementById("welcomeUserName");
+                      const e1 = document.getElementById("userEmail");
+                      if (n1)
+                        n1.textContent = a.full_name || a.name || baseName;
+                      if (n2)
+                        n2.textContent = a.full_name || a.name || baseName;
+                      if (e1) e1.textContent = a.email || email;
+                      const f_employee =
+                        document.getElementById("edit_employee_id");
+                      const f_name = document.getElementById("edit_full_name");
+                      const f_email = document.getElementById("edit_email");
+                      const f_phone = document.getElementById("edit_phone");
+                      const f_dept = document.getElementById("edit_department");
+                      const f_loc = document.getElementById("edit_location");
+                      if (f_employee) f_employee.value = a.employee_id || "";
+                      if (f_name)
+                        f_name.value = a.full_name || a.name || baseName;
+                      if (f_email) f_email.value = a.email || email;
+                      if (f_phone) f_phone.value = a.phone || "";
+                      if (f_dept) f_dept.value = a.department || "";
+                      if (f_loc) f_loc.value = a.location || "";
+                      const userNameInput =
+                        document.getElementById("user_name");
+                      const userEmailInput =
+                        document.getElementById("user_email");
+                      const userDeptInput =
+                        document.getElementById("user_department");
+                      if (userNameInput)
+                        userNameInput.value = a.full_name || a.name || "";
+                      if (userEmailInput) userEmailInput.value = a.email || "";
+                      if (userDeptInput && a.department)
+                        userDeptInput.value = a.department;
+                      if (cu?.uid) {
+                        const ref = doc(db, "users", cu.uid);
+                        const exists = await getDoc(ref);
+                        if (!exists.exists()) {
+                          const createData = {
+                            employee_id: a.employee_id || "",
+                            full_name: a.full_name || a.name || baseName,
+                            email: (a.email || email || "").toLowerCase(),
+                            phone: a.phone || "",
+                            department: a.department || "",
+                            location: a.location || "",
+                            role: "user",
+                            is_active: true,
+                            created_at: new Date().toISOString(),
+                          };
+                          await setDoc(ref, createData);
+                        }
+                      }
+                    } else {
+                      const f_name = document.getElementById("edit_full_name");
+                      const f_email = document.getElementById("edit_email");
+                      if (f_name) f_name.value = baseName;
+                      if (f_email) f_email.value = email;
+                    }
+                  }
+                } catch (_) {}
+              }
+              const itSection = document.getElementById("itAssignmentSection");
+              if (itSection) {
+                const isIt = (email || "").toLowerCase() === "it@meb.com";
+                if (isIt) itSection.style.display = "block";
+                const scopeEl = document.getElementById("assignment_scope");
+                const memberGroupEl = document.getElementById(
+                  "assignmentMemberGroup"
+                );
+                const memberEl = document.getElementById("assignment_member");
+                if (scopeEl) {
+                  scopeEl.addEventListener("change", () => {
+                    const v = scopeEl.value || "";
+                    if (memberGroupEl)
+                      memberGroupEl.style.display =
+                        v === "single" ? "block" : "none";
+                  });
+                }
+                try {
+                  let adminsSnap;
+                  try {
+                    adminsSnap = await getDocs(
+                      query(
+                        collection(db, "admins"),
+                        where("is_active", "==", true),
+                        where("role", "in", [
+                          "IT Engineer",
+                          "IT Tech Support",
+                          "IT Visual",
+                        ])
+                      )
+                    );
+                  } catch (_) {
+                    try {
+                      adminsSnap = await getDocs(
+                        query(
+                          collection(db, "admins"),
+                          where("is_active", "==", true)
+                        )
+                      );
+                    } catch (_) {
+                      adminsSnap = null;
+                    }
+                  }
+                  if (memberEl) {
+                    memberEl.innerHTML =
+                      '<option value="" disabled selected>Select IT Member</option>';
+                    let arr = [];
+                    if (adminsSnap && !adminsSnap.empty) {
+                      adminsSnap.forEach((docSnap) => {
+                        const d = docSnap.data() || {};
+                        arr.push({ id: docSnap.id, data: d, source: "admins" });
+                      });
+                    } else {
+                      try {
+                        const usersSnap = await getDocs(
+                          query(
+                            collection(db, "users"),
+                            where("role", "in", [
+                              "Super Admin",
+                              "IT Engineer",
+                              "IT Tech Support",
+                              "IT Visual",
+                            ])
+                          )
+                        );
+                        usersSnap.forEach((docSnap) => {
+                          const d = docSnap.data() || {};
+                          arr.push({
+                            id: docSnap.id,
+                            data: d,
+                            source: "users",
+                          });
+                        });
+                        if (arr.length === 0) {
+                          const usersItSnap = await getDocs(
+                            query(
+                              collection(db, "users"),
+                              where("department", "==", "IT")
+                            )
+                          );
+                          usersItSnap.forEach((docSnap) => {
+                            const d = docSnap.data() || {};
+                            arr.push({
+                              id: docSnap.id,
+                              data: d,
+                              source: "users",
+                            });
+                          });
+                        }
+                      } catch (_) {}
+                    }
+                    const preferred = [
+                      "riko hermansyah",
+                      "wahyu nugroho",
+                      "abdurahman hakim",
+                      "ade reinalwi",
+                    ];
+                    arr.sort((a, b) => {
+                      const an = String(
+                        a.data.name || a.data.full_name || a.data.email || ""
+                      ).toLowerCase();
+                      const bn = String(
+                        b.data.name || b.data.full_name || b.data.email || ""
+                      ).toLowerCase();
+                      const ai = preferred.indexOf(an);
+                      const bi = preferred.indexOf(bn);
+                      if (ai !== -1 && bi === -1) return -1;
+                      if (ai === -1 && bi !== -1) return 1;
+                      return an.localeCompare(bn);
+                    });
+                    const seen = new Set();
+                    arr.forEach(({ id, data, source }) => {
+                      const emailVal = String(data.email || "").toLowerCase();
+                      const key = emailVal || id;
+                      if (seen.has(key)) return;
+                      seen.add(key);
+                      const text =
+                        (data.name || data.full_name || data.email || id) +
+                        (data.email ? ` (${data.email})` : "");
+                      const opt = document.createElement("option");
+                      opt.value = source === "admins" ? id : emailVal || id;
+                      opt.textContent = text;
+                      memberEl.appendChild(opt);
+                    });
+                    if (memberEl.options.length <= 1) {
+                      [
+                        { name: "Riko Hermansyah" },
+                        { name: "Wahyu Nugroho" },
+                        { name: "Abdurahman Hakim" },
+                        { name: "Ade Reinalwi" },
+                      ].forEach((p) => {
+                        const opt = document.createElement("option");
+                        opt.value = p.name.toLowerCase();
+                        opt.textContent = p.name;
+                        memberEl.appendChild(opt);
+                      });
+                    }
+                  }
+                } catch (_) {}
+                const assignmentForm =
+                  document.getElementById("assignmentForm");
+                if (assignmentForm && isIt) {
+                  assignmentForm.addEventListener("submit", async (e) => {
+                    e.preventDefault();
+                    const submitBtn = document.getElementById(
+                      "submitAssignmentBtn"
+                    );
+                    const btnText = submitBtn?.querySelector(".btn-text");
+                    const btnLoading = submitBtn?.querySelector(".btn-loading");
+                    if (submitBtn) {
+                      submitBtn.disabled = true;
+                      if (btnText) btnText.style.display = "none";
+                      if (btnLoading) btnLoading.style.display = "inline-block";
+                    }
+                    try {
+                      const scope =
+                        document.getElementById("assignment_scope")?.value ||
+                        "";
+                      const subject =
+                        document.getElementById("assignment_subject")?.value ||
+                        "";
+                      const message =
+                        document.getElementById("assignment_message")?.value ||
+                        "";
+                      const activity =
+                        document.getElementById("assignment_activity")?.value ||
+                        "";
+                      const location =
+                        document.getElementById("assignment_location")?.value ||
+                        "";
+                      const priority =
+                        document.getElementById("assignment_priority")?.value ||
+                        "Medium";
+                      const memberUid =
+                        document.getElementById("assignment_member")?.value ||
+                        "";
+                      let creatorName = (email || "").split("@")[0] || "User";
+                      try {
+                        if (cu?.uid) {
+                          const udoc = await getDoc(doc(db, "users", cu.uid));
+                          if (udoc.exists()) {
+                            const ud = udoc.data() || {};
+                            creatorName =
+                              ud.full_name || ud.name || creatorName;
+                          } else {
+                            const adoc = await getDoc(
+                              doc(db, "admins", cu.uid)
+                            );
+                            if (adoc.exists()) {
+                              const ad = adoc.data() || {};
+                              creatorName =
+                                ad.full_name || ad.name || creatorName;
+                            } else if (email) {
+                              const uq = await getDocs(
+                                query(
+                                  collection(db, "users"),
+                                  where(
+                                    "email",
+                                    "==",
+                                    (email || "").toLowerCase()
+                                  ),
+                                  limit(1)
+                                )
+                              );
+                              if (uq.docs[0]) {
+                                const ud2 = uq.docs[0].data() || {};
+                                creatorName =
+                                  ud2.full_name || ud2.name || creatorName;
+                              } else {
+                                const aq = await getDocs(
+                                  query(
+                                    collection(db, "admins"),
+                                    where(
+                                      "email",
+                                      "==",
+                                      (email || "").toLowerCase()
+                                    ),
+                                    limit(1)
+                                  )
+                                );
+                                if (aq.docs[0]) {
+                                  const ad2 = aq.docs[0].data() || {};
+                                  creatorName =
+                                    ad2.full_name || ad2.name || creatorName;
+                                }
+                              }
+                            }
+                          }
+                        }
+                      } catch (_) {}
+                      const payload = {
+                        is_assignment: true,
+                        assignment_scope: scope,
+                        assignment_subject: subject,
+                        assignment_message: message,
+                        assignment_activity: activity,
+                        assignment_location: location,
+                        priority,
+                        status: "Open",
+                        created_at: serverTimestamp(),
+                        created_by: cu?.uid || "",
+                        created_by_email: (email || "").toLowerCase(),
+                        user_id: cu?.uid || "",
+                        user_email: (email || "").toLowerCase(),
+                        user_name: creatorName,
+                        user_department:
+                          document.getElementById("user_department")?.value ||
+                          "",
+                        created_by_uid: cu?.uid || "",
+                        created_by_name: creatorName,
+                      };
+                      if (!payload.user_department) {
+                        try {
+                          const udoc = await getDoc(
+                            doc(db, "users", cu?.uid || "")
+                          );
+                          if (udoc.exists()) {
+                            const ud = udoc.data() || {};
+                            if (ud.department)
+                              payload.user_department = ud.department;
+                          } else if (cu?.uid) {
+                            const adoc = await getDoc(
+                              doc(db, "admins", cu.uid)
+                            );
+                            if (adoc.exists()) {
+                              const ad = adoc.data() || {};
+                              if (ad.department)
+                                payload.user_department = ad.department;
+                            }
+                          }
+                        } catch (_) {}
+                      }
+                      if (scope === "single" && memberUid) {
+                        if (memberUid.includes("@")) {
+                          payload.target_admin_email = memberUid.toLowerCase();
+                        } else {
+                          payload.target_admin_uid = memberUid;
+                          try {
+                            const adminDoc = await getDoc(
+                              doc(db, "admins", memberUid)
+                            );
+                            if (adminDoc.exists()) {
+                              const ad = adminDoc.data() || {};
+                              payload.target_admin_email = (
+                                ad.email || ""
+                              ).toLowerCase();
+                            } else {
+                              const nameMap = {
+                                "riko hermansyah": "riko.hermansyah@meb.com",
+                                "wahyu nugroho": "wahyu.nugroho@meb.com",
+                                "abdurahman hakim": "abdurahman.hakim@meb.com",
+                                "ade reinalwi": "ade.reinalwi@meb.com",
+                              };
+                              const m = nameMap[memberUid.toLowerCase()];
+                              if (m) payload.target_admin_email = m;
+                            }
+                          } catch (_) {
+                            const nameMap = {
+                              "riko hermansyah": "riko.hermansyah@meb.com",
+                              "wahyu nugrogo": "wahyu.nugroho@meb.com",
+                              "abdurahman hakim": "abdurahman.hakim@meb.com",
+                              "ade reinalwi": "ade.reinalwi@meb.com",
+                            };
+                            const m = nameMap[memberUid.toLowerCase()];
+                            if (m) payload.target_admin_email = m;
+                          }
+                        }
+                      }
+                      const docRef = await addDoc(
+                        collection(db, "tickets"),
+                        payload
+                      );
+                      try {
+                        const code = window.generateTicketId(
+                          payload.user_department || "IT",
+                          activity || "Others",
+                          location || "",
+                          docRef.id,
+                          activity || ""
+                        );
+                        await updateDoc(docRef, { code });
+                      } catch (_) {}
+                      try {
+                        await Swal.fire({
+                          icon: "success",
+                          title: "Assignment Created",
+                        });
+                      } catch (_) {}
+                      try {
+                        assignmentForm.reset();
+                        if (scopeEl) scopeEl.value = "";
+                        if (memberEl) memberEl.value = "";
+                      } catch (_) {}
+                    } catch (err) {
+                      try {
+                        await Swal.fire({
+                          icon: "error",
+                          title: "Create Failed",
+                          text: err?.message || "",
+                        });
+                      } catch (_) {}
+                    } finally {
+                      if (submitBtn) {
+                        submitBtn.disabled = false;
+                        if (btnText) btnText.style.display = "block";
+                        if (btnLoading) btnLoading.style.display = "none";
+                      }
+                    }
+                  });
+                }
+              }
+              const profileForm = document.getElementById("profileForm");
+              if (profileForm && cu?.uid) {
+                profileForm.onsubmit = async (e) => {
+                  try {
+                    e.preventDefault();
+                  } catch (_) {}
+                  try {
+                    const fd = new FormData(profileForm);
+                    const d = Object.fromEntries(fd.entries());
+                    const updates = {
+                      employee_id: d.employee_id || "",
+                      full_name: d.full_name || "",
+                      email: (d.email || email || "").toLowerCase(),
+                      phone: d.phone || "",
+                      department: d.department || "",
+                      location: d.location || "",
+                      role: "user",
+                      is_active: true,
+                      updated_at: new Date().toISOString(),
+                    };
+                    const ref = doc(db, "users", cu.uid);
+                    const existing = await getDoc(ref);
+                    if (existing.exists()) {
+                      await updateDoc(ref, updates);
+                    } else {
+                      await setDoc(ref, {
+                        ...updates,
+                        created_at: new Date().toISOString(),
+                      });
+                    }
+                    const n1 = document.getElementById("userName");
+                    const n2 = document.getElementById("welcomeUserName");
+                    const e1 = document.getElementById("userEmail");
+                    if (n1)
+                      n1.textContent = updates.full_name || n1.textContent;
+                    if (n2)
+                      n2.textContent = updates.full_name || n2.textContent;
+                    if (e1) e1.textContent = updates.email || e1.textContent;
+                    const userNameInput = document.getElementById("user_name");
+                    const userEmailInput =
+                      document.getElementById("user_email");
+                    const userDeptInput =
+                      document.getElementById("user_department");
+                    if (userNameInput)
+                      userNameInput.value = updates.full_name || "";
+                    if (userEmailInput)
+                      userEmailInput.value = updates.email || "";
+                    if (userDeptInput)
+                      userDeptInput.value = updates.department || "";
+                    try {
+                      Swal.fire({ icon: "success", title: "Profile updated" });
+                    } catch (_) {}
+                    try {
+                      profileModal.style.display = "none";
+                    } catch (_) {}
+                  } catch (err) {
+                    try {
+                      Swal.fire({
+                        icon: "error",
+                        title: "Update failed",
+                        text: err?.message || "",
+                      });
+                    } catch (_) {}
+                  }
+                };
+              }
+              const uid = cu?.uid || "";
+              const tasks = [];
+              if (uid) {
+                try {
+                  tasks.push(
+                    getDocs(
+                      query(
+                        collection(db, "tickets"),
+                        where("user_id", "==", uid),
+                        limit(100)
+                      )
+                    )
+                  );
+                } catch (_) {
+                  tasks.push(
+                    getDocs(
+                      query(
+                        collection(db, "tickets"),
+                        where("user_id", "==", uid),
+                        limit(100)
+                      )
+                    )
+                  );
+                }
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("userId", "==", uid),
+                      limit(100)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("created_by", "==", uid),
+                      limit(100)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("created_by_uid", "==", uid),
+                      limit(100)
+                    )
+                  )
+                );
+              }
+              if (email) {
+                const em = email.toLowerCase();
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("user_email", "==", em),
+                      limit(200)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("email", "==", em),
+                      limit(200)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("user_email", "==", email),
+                      limit(200)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("created_by_email", "==", em),
+                      limit(200)
+                    )
+                  )
+                );
+                tasks.push(
+                  getDocs(
+                    query(
+                      collection(db, "tickets"),
+                      where("created_by_email", "==", email),
+                      limit(200)
+                    )
+                  )
+                );
+              }
+              let snaps = [];
+              const results = tasks.length
+                ? await Promise.allSettled(tasks)
+                : [];
+              for (const r of results) {
+                if (r.status === "fulfilled" && r.value) snaps.push(r.value);
+              }
+              if (!snaps.length) {
+                const ticketsList = document.getElementById("ticketsList");
+                const tableContainer = document.getElementById(
+                  "userTicketsTableContainer"
+                );
+                if (ticketsList) {
+                  ticketsList.innerHTML =
+                    '<div class="error-state"><i class="fas fa-exclamation-triangle"></i><h3>Tidak bisa memuat tiket</h3><p>Akses database terbatas atau koneksi bermasalah</p><button class="btn-retry" id="retryTickets">Coba Lagi</button></div>';
+                  const btn = document.getElementById("retryTickets");
+                  if (btn)
+                    btn.addEventListener("click", () =>
+                      window.location.reload()
+                    );
+                }
+                if (tableContainer) tableContainer.style.display = "none";
+                return;
+              }
+              const map = new Map();
+              for (const snap of snaps) {
+                snap.forEach((docSnap) => {
+                  map.set(docSnap.id, docSnap.data());
+                });
+              }
+              if (map.size === 0) {
+                try {
+                  const fallback = await getDocs(
+                    query(collection(db, "tickets"), limit(200))
+                  );
+                  fallback.forEach((docSnap) => {
+                    const d = docSnap.data();
+                    const uidMatch =
+                      uid &&
+                      (d.user_id === uid ||
+                        d.userId === uid ||
+                        d.created_by === uid ||
+                        d.created_by_uid === uid);
+                    const emailMatch =
+                      email &&
+                      [d.user_email, d.email, d.created_by_email].some(
+                        (v) => (v || "").toLowerCase() === email.toLowerCase()
+                      );
+                    if (uidMatch || emailMatch) map.set(docSnap.id, d);
+                  });
+                } catch (_) {}
+              }
+              let list = Array.from(map.entries()).map(([id, data]) => ({
+                id,
+                ...data,
+              }));
+              try {
+                list = list.filter((t) => !t.deleted);
+              } catch (_) {}
+              list.sort((a, b) => {
+                const toDate = (v) =>
+                  v?.toDate ? v.toDate() : v ? new Date(v) : new Date(0);
+                const aDate = toDate(a.created_at || a.createdAt);
+                const bDate = toDate(b.created_at || b.createdAt);
+                return bDate - aDate;
+              });
+              const ticketsList = document.getElementById("ticketsList");
+              const tableContainer = document.getElementById(
+                "userTicketsTableContainer"
+              );
+              const ticketsFooter =
+                document.getElementById("ticketsListFooter");
+              if (!ticketsList) return;
+              if (!list.length) {
+                ticketsList.innerHTML =
+                  '<div class="empty-state"><i class="fas fa-ticket-alt"></i><h3>No tickets yet</h3><p>Submit your first support ticket above</p></div>';
+                if (ticketsFooter) ticketsFooter.innerHTML = "";
+              } else {
+                const renderLimit = 10;
+                window.__userTicketsList = list;
+                window.__userTicketsLimit = renderLimit;
+                const render = (limit) => {
+                  const html = list
+                    .slice(0, limit)
+                    .map((t) => {
+                      const ca = t.created_at || t.createdAt || null;
+                      const created = ca?.toDate
+                        ? ca.toDate().toLocaleDateString()
+                        : ca || "";
+                      const statusRaw =
+                        t.status ||
+                        t.status_ticket ||
+                        (t.qa === "Finish" ? "Resolved" : t.qa || "Open");
+                      const status = statusRaw;
+                      const statusNorm = String(statusRaw).trim().toLowerCase();
+                      const deviceDisplay =
+                        t.device && String(t.device).trim()
+                          ? t.device
+                          : t.assignment_activity || t.activity || "";
+                      const locationDisplay =
+                        t.location && String(t.location).trim()
+                          ? t.location
+                          : t.assignment_location || "";
+                      const isAssigned = !!(
+                        (t.action_by &&
+                          String(t.action_by).toLowerCase() !== "unassigned") ||
+                        t.assigned_to
+                      );
+                      const emailLower = (email || "").toLowerCase();
+                      const tEmail = (
+                        t.user_email ||
+                        t.email ||
+                        t.created_by_email ||
+                        t.userEmail ||
+                        ""
+                      ).toLowerCase();
+                      const emailOwner =
+                        !!emailLower && !!tEmail && tEmail === emailLower;
+                      const uidOwner =
+                        (t.user_id && t.user_id === (uid || "")) ||
+                        (t.created_by && t.created_by === (uid || "")) ||
+                        (t.userId && t.userId === (uid || "")) ||
+                        (t.created_by_uid && t.created_by_uid === (uid || ""));
+                      const canDelete =
+                        statusNorm === "open" &&
+                        !isAssigned &&
+                        (uidOwner || emailOwner);
+                      const deleteBtn = `<div class="ticket-actions"><button class="btn-delete-ticket" data-ticket-id="${
+                        t.id
+                      }" data-ticket-code="${t.code || ""}" ${
+                        canDelete ? "" : "disabled"
+                      }><i class="fas fa-trash"></i> Delete</button></div>`;
+                      return `<div class="ticket-item"><div class="ticket-content"><div class="ticket-header"><div class="ticket-code">${
+                        t.code || ""
+                      }</div><div class="ticket-priority">${
+                        t.priority || "Medium"
+                      }</div></div><h4 class="ticket-subject">${
+                        t.subject && String(t.subject).trim()
+                          ? t.subject
+                          : t.assignment_subject || ""
+                      }</h4><div class="ticket-meta"><span class="ticket-device">${
+                        deviceDisplay || "Unknown"
+                      }</span><span class="ticket-location">${
+                        locationDisplay || ""
+                      }</span><span class="ticket-status">${status}</span><span class="ticket-date">${created}</span></div>${deleteBtn}</div></div>`;
+                    })
+                    .join("");
+                  ticketsList.innerHTML = html;
+                  try {
+                    const btns =
+                      ticketsList.querySelectorAll(".btn-delete-ticket");
+                    btns.forEach((btn) => {
+                      btn.addEventListener("click", async (e) => {
+                        e.preventDefault();
+                        const id = btn.getAttribute("data-ticket-id");
+                        const code = btn.getAttribute("data-ticket-code") || "";
+                        try {
+                          const confirm = await Swal.fire({
+                            title: "Delete Ticket?",
+                            text: code
+                              ? `Ticket ${code} will be deleted`
+                              : "This action cannot be undone",
+                            icon: "warning",
+                            showCancelButton: true,
+                            confirmButtonText: "Delete",
+                            confirmButtonColor: "#ef4444",
+                            cancelButtonText: "Cancel",
+                          });
+                          if (!confirm.isConfirmed) return;
+                        } catch (_) {}
+                        try {
+                          await updateDoc(doc(db, "tickets", id), {
+                            deleted: true,
+                            deleted_by: uid || "",
+                            deleted_by_email: (email || "").toLowerCase(),
+                            last_updated: serverTimestamp(),
+                          });
+                          list = list.filter((t) => t.id !== id);
+                          render(
+                            Math.min(
+                              window.__userTicketsLimit || limit,
+                              list.length
+                            )
+                          );
+                        } catch (err) {
+                          try {
+                            await Swal.fire({
+                              icon: "error",
+                              title: "Delete Failed",
+                              text: err?.message || "",
+                            });
+                          } catch (_) {}
+                        }
+                      });
+                    });
+                  } catch (_) {}
+                  if (ticketsFooter) {
+                    if (list.length > limit) {
+                      ticketsFooter.innerHTML =
+                        limit === renderLimit
+                          ? `
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          <button id="btnShowMoreTickets" class="btn-secondary">Show More</button>
+                          <button id="btnShowAllTickets" class="btn-secondary">Show All</button>
+                        </div>
+                      `
+                          : `
+                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                          <button id="btnShowMoreTickets" class="btn-secondary">Show More</button>
+                          <button id="btnShowAllTickets" class="btn-secondary">Show All</button>
+                          <button id="btnCloseTickets" class="btn-secondary">Close</button>
+                        </div>
+                      `;
+                      const btnMore =
+                        document.getElementById("btnShowMoreTickets");
+                      const btnAll =
+                        document.getElementById("btnShowAllTickets");
+                      const btnClose =
+                        document.getElementById("btnCloseTickets");
+                      if (btnMore)
+                        btnMore.onclick = () => {
+                          const next = Math.min(
+                            list.length,
+                            (window.__userTicketsLimit || limit) + 10
+                          );
+                          window.__userTicketsLimit = next;
+                          render(next);
+                        };
+                      if (btnAll)
+                        btnAll.onclick = () => {
+                          window.__userTicketsLimit = list.length;
+                          render(list.length);
+                        };
+                      if (btnClose)
+                        btnClose.onclick = () => {
+                          window.__userTicketsLimit = renderLimit;
+                          render(renderLimit);
+                        };
+                    } else {
+                      ticketsFooter.innerHTML = "";
+                    }
+                  }
+                };
+                render(renderLimit);
+              }
+              if (tableContainer) tableContainer.style.display = "none";
+
+              try {
+                const openEl = document.getElementById("openTickets");
+                const resEl = document.getElementById("resolvedTickets");
+                if (openEl || resEl) {
+                  let open = 0,
+                    resolved = 0;
+                  for (const t of list) {
+                    const st =
+                      t.status ||
+                      t.status_ticket ||
+                      (t.qa === "Finish" ? "Resolved" : t.qa || "Open");
+                    if (st === "Resolved") resolved++;
+                    else open++;
+                  }
+                  if (openEl) openEl.textContent = String(open);
+                  if (resEl) resEl.textContent = String(resolved);
+                }
+              } catch (_) {}
+
+              const ticketForm = document.getElementById("ticketForm");
+              if (ticketForm) {
+                const userIdInput = document.getElementById("user_id");
+                const userNameInput = document.getElementById("user_name");
+                const userEmailInput = document.getElementById("user_email");
+                const createdAtInput = document.getElementById("created_at");
+                if (userIdInput) userIdInput.value = uid || "";
+                if (userNameInput)
+                  userNameInput.value = (email || "").split("@")[0] || "User";
+                if (userEmailInput) userEmailInput.value = email || "";
+                if (createdAtInput)
+                  createdAtInput.value = new Date().toISOString();
+
+                ticketForm.addEventListener("submit", async (e) => {
+                  e.preventDefault();
+                  const submitBtn = document.getElementById("submitTicketBtn");
+                  const errEl = document.getElementById("ticketErrorMessage");
+                  const okEl = document.getElementById("ticketSuccessMessage");
+                  try {
+                    if (submitBtn) submitBtn.disabled = true;
+                    const fd = new FormData(ticketForm);
+                    const data = Object.fromEntries(fd.entries());
+                    const payload = {
+                      user_id: uid || "",
+                      user_name: (email || "").split("@")[0] || "User",
+                      user_email: (email || "").toLowerCase(),
+                      user_department: data.user_department || "",
+                      device: data.device || "",
+                      location: data.location || "",
+                      priority: data.priority || "Medium",
+                      subject: data.subject || "",
+                      message: data.message || "",
+                      status: "Open",
+                      created_at: serverTimestamp(),
+                    };
+                    if (!payload.user_department) {
+                      try {
+                        const udoc = await getDoc(doc(db, "users", uid));
+                        if (udoc.exists()) {
+                          const ud = udoc.data() || {};
+                          if (ud.department)
+                            payload.user_department = ud.department;
+                        } else {
+                          const adoc = await getDoc(doc(db, "admins", uid));
+                          if (adoc.exists()) {
+                            const ad = adoc.data() || {};
+                            if (ad.department)
+                              payload.user_department = ad.department;
+                          }
+                        }
+                      } catch (_) {}
+                    }
+                    try {
+                      console.info("Submitting ticket payload", {
+                        uid,
+                        email,
+                        subject: payload.subject,
+                        location: payload.location,
+                        priority: payload.priority,
+                      });
+                    } catch (_) {}
+                    const docRef = await addDoc(
+                      collection(db, "tickets"),
+                      payload
+                    );
+                    try {
+                      const code = window.generateTicketId(
+                        payload.user_department || "",
+                        payload.device || "",
+                        payload.location || "",
+                        docRef.id,
+                        ""
+                      );
+                      await updateDoc(docRef, { code });
+                    } catch (_) {}
+                    if (okEl) {
+                      okEl.textContent = "Ticket submitted successfully";
+                      okEl.style.display = "block";
+                      setTimeout(() => (okEl.style.display = "none"), 4000);
+                    }
+                    ticketForm.reset();
+                    const reloadSnaps = await Promise.all([
+                      getDocs(
+                        query(
+                          collection(db, "tickets"),
+                          where("user_id", "==", uid),
+                          orderBy("created_at", "desc"),
+                          limit(20)
+                        )
+                      ),
+                    ]);
+                    const rmap = new Map();
+                    for (const s of reloadSnaps) {
+                      s.forEach((ds) => rmap.set(ds.id, ds.data()));
+                    }
+                    const rlist = Array.from(rmap.entries()).map(
+                      ([id, data]) => ({ id, ...data })
+                    );
+                    rlist.sort((a, b) => {
+                      const toDate = (v) =>
+                        v?.toDate ? v.toDate() : v ? new Date(v) : new Date(0);
+                      const aDate = toDate(a.created_at || a.createdAt);
+                      const bDate = toDate(b.created_at || b.createdAt);
+                      return bDate - aDate;
+                    });
+                    const html2 = rlist
+                      .slice(0, 10)
+                      .map((t) => {
+                        const ca = t.created_at || t.createdAt || null;
+                        const created = ca?.toDate
+                          ? ca.toDate().toLocaleDateString()
+                          : ca || "";
+                        const statusRaw =
+                          t.status ||
+                          t.status_ticket ||
+                          (t.qa === "Finish" ? "Resolved" : t.qa || "Open");
+                        const status = statusRaw;
+                        const statusNorm = String(statusRaw)
+                          .trim()
+                          .toLowerCase();
+                        const deviceDisplay =
+                          t.device && String(t.device).trim()
+                            ? t.device
+                            : t.assignment_activity || t.activity || "";
+                        const locationDisplay =
+                          t.location && String(t.location).trim()
+                            ? t.location
+                            : t.assignment_location || "";
+                        const isAssigned = !!(
+                          (t.action_by &&
+                            String(t.action_by).toLowerCase() !==
+                              "unassigned") ||
+                          t.assigned_to
+                        );
+                        const emailLower = (email || "").toLowerCase();
+                        const tEmail = (
+                          t.user_email ||
+                          t.email ||
+                          t.created_by_email ||
+                          t.userEmail ||
+                          ""
+                        ).toLowerCase();
+                        const emailOwner =
+                          !!emailLower && !!tEmail && tEmail === emailLower;
+                        const uidOwner =
+                          (t.user_id && t.user_id === (uid || "")) ||
+                          (t.created_by && t.created_by === (uid || "")) ||
+                          (t.userId && t.userId === (uid || "")) ||
+                          (t.created_by_uid &&
+                            t.created_by_uid === (uid || ""));
+                        const canDelete =
+                          statusNorm === "open" &&
+                          !isAssigned &&
+                          (uidOwner || emailOwner);
+                        const deleteBtn = `<div class="ticket-actions"><button class="btn-delete-ticket" data-ticket-id="${
+                          t.id
+                        }" data-ticket-code="${t.code || ""}" ${
+                          canDelete ? "" : "disabled"
+                        }><i class="fas fa-trash"></i> Delete</button></div>`;
+                        return `<div class="ticket-item"><div class="ticket-content"><div class="ticket-header"><div class="ticket-code">${
+                          t.code || ""
+                        }</div><div class="ticket-priority">${
+                          t.priority || "Medium"
+                        }</div></div><h4 class="ticket-subject">${
+                          t.subject && String(t.subject).trim()
+                            ? t.subject
+                            : t.assignment_subject || ""
+                        }</h4><div class="ticket-meta"><span class="ticket-device">${
+                          deviceDisplay || "Unknown"
+                        }</span><span class="ticket-location">${
+                          locationDisplay || ""
+                        }</span><span class="ticket-status">${status}</span><span class="ticket-date">${created}</span></div>${deleteBtn}</div></div>`;
+                      })
+                      .join("");
+                    ticketsList.innerHTML = html2;
+                    try {
+                      const btns =
+                        ticketsList.querySelectorAll(".btn-delete-ticket");
+                      btns.forEach((btn) => {
+                        btn.addEventListener("click", async (e) => {
+                          e.preventDefault();
+                          const id = btn.getAttribute("data-ticket-id");
+                          const code =
+                            btn.getAttribute("data-ticket-code") || "";
+                          try {
+                            const confirm = await Swal.fire({
+                              title: "Delete Ticket?",
+                              text: code
+                                ? `Ticket ${code} will be deleted`
+                                : "This action cannot be undone",
+                              icon: "warning",
+                              showCancelButton: true,
+                              confirmButtonText: "Delete",
+                              confirmButtonColor: "#ef4444",
+                              cancelButtonText: "Cancel",
+                            });
+                            if (!confirm.isConfirmed) return;
+                          } catch (_) {}
+                          try {
+                            await updateDoc(doc(db, "tickets", id), {
+                              deleted: true,
+                              deleted_by: uid || "",
+                              deleted_by_email: (email || "").toLowerCase(),
+                              last_updated: serverTimestamp(),
+                            });
+                            const idx = window.__userTicketsList.findIndex(
+                              (x) => x.id === id
+                            );
+                            if (idx >= 0)
+                              window.__userTicketsList.splice(idx, 1);
+                            const next = Math.min(
+                              window.__userTicketsLimit || 10,
+                              window.__userTicketsList.length
+                            );
+                            render(next);
+                          } catch (err) {
+                            try {
+                              await Swal.fire({
+                                icon: "error",
+                                title: "Delete Failed",
+                                text: err?.message || "",
+                              });
+                            } catch (_) {}
+                          }
+                        });
+                      });
+                    } catch (_) {}
+                    if (ticketsFooter) {
+                      window.__userTicketsList = rlist;
+                      window.__userTicketsLimit = 10;
+                      if (rlist.length > 10) {
+                        ticketsFooter.innerHTML = `
+                          <div style="display:flex; gap:0.5rem; align-items:center;">
+                            <button id="btnShowMoreTickets" class="btn-secondary">Show More</button>
+                            <button id="btnShowAllTickets" class="btn-secondary">Show All</button>
+                          </div>
+                        `;
+                        const btnMore =
+                          document.getElementById("btnShowMoreTickets");
+                        const btnAll =
+                          document.getElementById("btnShowAllTickets");
+                        const btnClose =
+                          document.getElementById("btnCloseTickets");
+                        if (btnMore)
+                          btnMore.onclick = () => {
+                            const next = Math.min(
+                              rlist.length,
+                              (window.__userTicketsLimit || 10) + 10
+                            );
+                            window.__userTicketsLimit = next;
+                            const htmlNext = rlist
+                              .slice(0, next)
+                              .map((t) => {
+                                const ca = t.created_at || t.createdAt || null;
+                                const created = ca?.toDate
+                                  ? ca.toDate().toLocaleDateString()
+                                  : ca || "";
+                                const status =
+                                  t.status ||
+                                  t.status_ticket ||
+                                  (t.qa === "Finish"
+                                    ? "Resolved"
+                                    : t.qa || "Open");
+                                const deviceDisplay =
+                                  t.device && String(t.device).trim()
+                                    ? t.device
+                                    : t.assignment_activity || t.activity || "";
+                                const locationDisplay =
+                                  t.location && String(t.location).trim()
+                                    ? t.location
+                                    : t.assignment_location || "";
+                                return `<div class="ticket-item"><div class="ticket-content"><div class="ticket-header"><div class="ticket-code">${
+                                  t.code || ""
+                                }</div><div class="ticket-priority">${
+                                  t.priority || "Medium"
+                                }</div></div><h4 class="ticket-subject">${
+                                  t.subject && String(t.subject).trim()
+                                    ? t.subject
+                                    : t.assignment_subject || ""
+                                }</h4><div class="ticket-meta"><span class="ticket-device">${
+                                  deviceDisplay || "Unknown"
+                                }</span><span class="ticket-location">${
+                                  locationDisplay || ""
+                                }</span><span class="ticket-status">${status}</span><span class="ticket-date">${created}</span></div></div></div>`;
+                              })
+                              .join("");
+                            ticketsList.innerHTML = htmlNext;
+                            ticketsFooter.innerHTML = `
+                              <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <button id="btnShowMoreTickets" class="btn-secondary">Show More</button>
+                                <button id="btnShowAllTickets" class="btn-secondary">Show All</button>
+                                <button id="btnCloseTickets" class="btn-secondary">Close</button>
+                              </div>
+                            `;
+                            const btnClose =
+                              document.getElementById("btnCloseTickets");
+                            if (btnClose)
+                              btnClose.onclick = () => {
+                                window.__userTicketsLimit = 10;
+                                const htmlReset = rlist
+                                  .slice(0, 10)
+                                  .map((t) => {
+                                    const ca =
+                                      t.created_at || t.createdAt || null;
+                                    const created = ca?.toDate
+                                      ? ca.toDate().toLocaleDateString()
+                                      : ca || "";
+                                    const status =
+                                      t.status ||
+                                      t.status_ticket ||
+                                      (t.qa === "Finish"
+                                        ? "Resolved"
+                                        : t.qa || "Open");
+                                    const deviceDisplay =
+                                      t.device && String(t.device).trim()
+                                        ? t.device
+                                        : t.assignment_activity ||
+                                          t.activity ||
+                                          "";
+                                    const locationDisplay =
+                                      t.location && String(t.location).trim()
+                                        ? t.location
+                                        : t.assignment_location || "";
+                                    return `<div class=\"ticket-item\"><div class=\"ticket-content\"><div class=\"ticket-header\"><div class=\"ticket-code\">${
+                                      t.code || ""
+                                    }</div><div class=\"ticket-priority\">${
+                                      t.priority || "Medium"
+                                    }</div></div><h4 class=\"ticket-subject\">${
+                                      t.subject && String(t.subject).trim()
+                                        ? t.subject
+                                        : t.assignment_subject || ""
+                                    }</h4><div class=\"ticket-meta\"><span class=\"ticket-device\">${
+                                      deviceDisplay || "Unknown"
+                                    }</span><span class=\"ticket-location\">${
+                                      locationDisplay || ""
+                                    }</span><span class=\"ticket-status\">${status}</span><span class=\"ticket-date\">${created}</span></div></div></div>`;
+                                  })
+                                  .join("");
+                                ticketsList.innerHTML = htmlReset;
+                                ticketsFooter.innerHTML = `
+                                  <div style=\"display:flex; gap:0.5rem; align-items:center;\">
+                                    <button id=\"btnShowMoreTickets\" class=\"btn-secondary\">Show More</button>
+                                    <button id=\"btnShowAllTickets\" class=\"btn-secondary\">Show All</button>
+                                  </div>
+                                `;
+                              };
+                          };
+                        if (btnAll)
+                          btnAll.onclick = () => {
+                            window.__userTicketsLimit = rlist.length;
+                            const htmlAll = rlist
+                              .map((t) => {
+                                const ca = t.created_at || t.createdAt || null;
+                                const created = ca?.toDate
+                                  ? ca.toDate().toLocaleDateString()
+                                  : ca || "";
+                                const status =
+                                  t.status ||
+                                  t.status_ticket ||
+                                  (t.qa === "Finish"
+                                    ? "Resolved"
+                                    : t.qa || "Open");
+                                const deviceDisplay =
+                                  t.device && String(t.device).trim()
+                                    ? t.device
+                                    : t.assignment_activity || t.activity || "";
+                                const locationDisplay =
+                                  t.location && String(t.location).trim()
+                                    ? t.location
+                                    : t.assignment_location || "";
+                                return `<div class="ticket-item"><div class="ticket-content"><div class="ticket-header"><div class="ticket-code">${
+                                  t.code || ""
+                                }</div><div class="ticket-priority">${
+                                  t.priority || "Medium"
+                                }</div></div><h4 class="ticket-subject">${
+                                  t.subject && String(t.subject).trim()
+                                    ? t.subject
+                                    : t.assignment_subject || ""
+                                }</h4><div class="ticket-meta"><span class="ticket-device">${
+                                  deviceDisplay || "Unknown"
+                                }</span><span class="ticket-location">${
+                                  locationDisplay || ""
+                                }</span><span class="ticket-status">${status}</span><span class="ticket-date">${created}</span></div></div></div>`;
+                              })
+                              .join("");
+                            ticketsList.innerHTML = htmlAll;
+                            ticketsFooter.innerHTML = `
+                              <div style="display:flex; gap:0.5rem; align-items:center;">
+                                <button id="btnShowMoreTickets" class="btn-secondary">Show More</button>
+                                <button id="btnShowAllTickets" class="btn-secondary">Show All</button>
+                                <button id="btnCloseTickets" class="btn-secondary">Close</button>
+                              </div>
+                            `;
+                            const btnClose2 =
+                              document.getElementById("btnCloseTickets");
+                            if (btnClose2)
+                              btnClose2.onclick = () => {
+                                window.__userTicketsLimit = 10;
+                                const htmlReset = rlist
+                                  .slice(0, 10)
+                                  .map((t) => {
+                                    const ca =
+                                      t.created_at || t.createdAt || null;
+                                    const created = ca?.toDate
+                                      ? ca.toDate().toLocaleDateString()
+                                      : ca || "";
+                                    const status =
+                                      t.status ||
+                                      t.status_ticket ||
+                                      (t.qa === "Finish"
+                                        ? "Resolved"
+                                        : t.qa || "Open");
+                                    const deviceDisplay =
+                                      t.device && String(t.device).trim()
+                                        ? t.device
+                                        : t.assignment_activity ||
+                                          t.activity ||
+                                          "";
+                                    const locationDisplay =
+                                      t.location && String(t.location).trim()
+                                        ? t.location
+                                        : t.assignment_location || "";
+                                    return `<div class=\"ticket-item\"><div class=\"ticket-content\"><div class=\"ticket-header\"><div class=\"ticket-code\">${
+                                      t.code || ""
+                                    }</div><div class=\"ticket-priority\">${
+                                      t.priority || "Medium"
+                                    }</div></div><h4 class=\"ticket-subject\">${
+                                      t.subject && String(t.subject).trim()
+                                        ? t.subject
+                                        : t.assignment_subject || ""
+                                    }</h4><div class=\"ticket-meta\"><span class=\"ticket-device\">${
+                                      deviceDisplay || "Unknown"
+                                    }</span><span class=\"ticket-location\">${
+                                      locationDisplay || ""
+                                    }</span><span class=\"ticket-status\">${status}</span><span class=\"ticket-date\">${created}</span></div></div></div>`;
+                                  })
+                                  .join("");
+                                ticketsList.innerHTML = htmlReset;
+                                ticketsFooter.innerHTML = `
+                                  <div style=\"display:flex; gap:0.5rem; align-items:center;\">
+                                    <button id=\"btnShowMoreTickets\" class=\"btn-secondary\">Show More</button>
+                                    <button id=\"btnShowAllTickets\" class=\"btn-secondary\">Show All</button>
+                                  </div>
+                                `;
+                              };
+                          };
+                        if (btnClose)
+                          btnClose.onclick = () => {
+                            window.__userTicketsLimit = 10;
+                            const htmlReset = rlist
+                              .slice(0, 10)
+                              .map((t) => {
+                                const ca = t.created_at || t.createdAt || null;
+                                const created = ca?.toDate
+                                  ? ca.toDate().toLocaleDateString()
+                                  : ca || "";
+                                const status =
+                                  t.status ||
+                                  t.status_ticket ||
+                                  (t.qa === "Finish"
+                                    ? "Resolved"
+                                    : t.qa || "Open");
+                                const deviceDisplay =
+                                  t.device && String(t.device).trim()
+                                    ? t.device
+                                    : t.assignment_activity || t.activity || "";
+                                const locationDisplay =
+                                  t.location && String(t.location).trim()
+                                    ? t.location
+                                    : t.assignment_location || "";
+                                return `<div class="ticket-item"><div class="ticket-content"><div class="ticket-header"><div class="ticket-code">${
+                                  t.code || ""
+                                }</div><div class="ticket-priority">${
+                                  t.priority || "Medium"
+                                }</div></div><h4 class="ticket-subject">${
+                                  t.subject && String(t.subject).trim()
+                                    ? t.subject
+                                    : t.assignment_subject || ""
+                                }</h4><div class="ticket-meta"><span class="ticket-device">${
+                                  deviceDisplay || "Unknown"
+                                }</span><span class="ticket-location">${
+                                  locationDisplay || ""
+                                }</span><span class="ticket-status">${status}</span><span class="ticket-date">${created}</span></div></div></div>`;
+                              })
+                              .join("");
+                            ticketsList.innerHTML = htmlReset;
+                          };
+                      } else {
+                        ticketsFooter.innerHTML = "";
+                      }
+                    }
+                  } catch (err) {
+                    if (errEl) {
+                      errEl.textContent =
+                        err?.message || "Failed to submit ticket";
+                      errEl.style.display = "block";
+                      setTimeout(() => (errEl.style.display = "none"), 5000);
+                    }
+                  } finally {
+                    if (submitBtn) submitBtn.disabled = false;
+                  }
+                });
+              }
+            } catch (_) {
+              showMain();
+            }
+          });
+        } catch (_) {
+          showMain();
+        }
+      });
+    </script>
   </body>
 </html>

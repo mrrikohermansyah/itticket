@@ -77,14 +77,14 @@ class SimpleAuth {
                 await setDoc(doc(db, "users", user.uid), userData);
             }
 
-            // 5. Persist lightweight user info for legacy pages
+            // 5. Expose lightweight user info for legacy pages (memory only)
             try {
                 const legacyUser = {
                     name: userData.full_name || userData.name || (email.split('@')[0]),
                     email: email,
                     role: userType
                 };
-                localStorage.setItem('userData', JSON.stringify(legacyUser));
+                window.__legacyUser = legacyUser;
             } catch (_) {}
 
             // 6. Show success message

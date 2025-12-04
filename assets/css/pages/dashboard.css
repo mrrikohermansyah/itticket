@@ -1094,3 +1094,47 @@ html[data-theme="dark"] .load-more-container .btn-secondary {
   transform: translateY(0);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
 }
+
+/* Ticket Delete Button */
+.ticket-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.btn-delete-ticket {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--red-500);
+  color: var(--red-500);
+  background: transparent;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-ticket i {
+  font-size: 0.95rem;
+}
+
+.btn-delete-ticket:hover:not(:disabled) {
+  background: var(--red-500);
+  color: var(--white);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.25);
+}
+
+.btn-delete-ticket:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border-color: var(--gray-300);
+  color: var(--gray-400);
+}
+
+html[data-theme="dark"] .btn-delete-ticket:hover:not(:disabled) {
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.35);
+}

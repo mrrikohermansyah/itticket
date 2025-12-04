@@ -1,124 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdnjs.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com https://smtpjs.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com https://smtpjs.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'"
+    />
+    <script src="../../assets/js/utils/config.js"></script>
+    <!-- TAMBAHKAN INI -->
+    <script
+      type="module"
+      src="../../assets/js/utils/firebase-config.js"
+    ></script>
+    <!-- Tambahkan di head -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+    <title>Admin Dashboard - IT Support</title>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdnjs.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'">
-  <script src="../../assets/js/utils/config.js"></script>
-  <!-- TAMBAHKAN INI -->
-  <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
-  <!-- Tambahkan di head -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-  <title>Admin Dashboard - IT Support</title>
+    <!-- Favicon -->
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="../../assets/images/meitech.png"
+    />
+    <link rel="stylesheet" href="../../assets/css/base/styles.css" />
+    <link rel="stylesheet" href="assets/css/admin.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css"
+    />
+  </head>
 
-  <!-- Favicon -->
-  <link rel="icon" type="image/x-icon" href="../../assets/images/meitech.png">
-  <link rel="stylesheet" href="../../assets/css/base/styles.css">
-  <link rel="stylesheet" href="assets/css/admin.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
-</head>
-
-<body class="admin-body">
-  <!-- Header -->
-  <header class="admin-header">
-    <div class="header-content">
-      <div class="logo-section">
-        <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="admin-logo">
-        <div class="header-text">
-          <h1>IT Support Admin Panel</h1>
-          <p>Ticket Management System</p>
-        </div>
-      </div>
-
-      <div class="admin-menu">
-        <div class="admin-info">
-          <div class="admin-name" id="adminName">Loading...</div>
-          <div class="admin-role" id="adminRole">Loading...</div>
-        </div>
-        <div class="header-actions">
-          <a href="manage-team.html" class="btn-primary" id="manageTeamBtn">
-            <i class="fas fa-users-cog"></i>
-            Manage Team
-          </a>
-          <button class="btn-logout" id="adminLogoutBtn">
-            <i class="fas fa-sign-out-alt"></i>
-            Logout
-          </button>
-          <button type="button" id="themeToggleBtn" class="theme-toggle theme-floating" aria-label="Toggle theme">
-            <i class="fas fa-moon"></i>
-          </button>
-          <button type="button" id="bulkDeleteFloating" class="bulk-delete-floating" aria-label="Delete selected tickets" style="display:none;">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Content -->
-  <main class="admin-main">
-    <div class="admin-container">
-      <!-- Statistics Section -->
-      <section class="stats-section">
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-icon open">
-              <i class="fas fa-clock"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number" id="totalOpenTickets">0</div>
-              <div class="stat-label">Open Tickets</div>
-              <div class="stat-number" id="myTickets">0</div>
-              <div class="stat-label">My Tickets</div>
-            </div>
-          </div>
-          <!-- Tambahkan di stats-grid, sebelum card pertama -->
-          
-          <div class="stat-card">
-            <div class="stat-icon progress">
-              <i class="fas fa-tools"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number" id="totalInProgress">0</div>
-              <div class="stat-label">In Progress</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon resolved">
-              <i class="fas fa-check-circle"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number" id="totalResolved">0</div>
-              <div class="stat-label">Resolved</div>
-            </div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-icon high">
-              <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-number" id="totalHighPriority">0</div>
-              <div class="stat-label">High Priority</div>
-            </div>
+  <body class="admin-body">
+    <!-- Header -->
+    <header class="admin-header">
+      <div class="header-content">
+        <div class="logo-section">
+          <img
+            src="../../assets/images/meitech-logo.png"
+            alt="Meitech"
+            class="admin-logo"
+          />
+          <div class="header-text">
+            <h1>IT Support Admin Panel</h1>
+            <p>Ticket Management System</p>
           </div>
         </div>
-      </section>
 
-      <!-- Tickets Management Section -->
-      <section class="tickets-section">
-        <div class="section-header">
-          <h2><i class="fas fa-tickets"></i> All Tickets</h2>
-          <div class="section-actions">
-            <button class="btn-export" id="exportTickets">
-              <i class="fas fa-file-excel"></i>
-              Export Excel
+        <div class="admin-menu">
+          <div class="admin-info">
+            <div class="admin-name" id="adminName">Loading...</div>
+            <div class="admin-role" id="adminRole">Loading...</div>
+          </div>
+          <div class="header-actions">
+            <a href="manage-team.html" class="btn-primary" id="manageTeamBtn">
+              <i class="fas fa-users-cog"></i>
+              Manage Team
+            </a>
+            <button class="btn-logout" id="adminLogoutBtn">
+              <i class="fas fa-sign-out-alt"></i>
+              Logout
             </button>
+            <button
+              type="button"
+              id="themeToggleBtn"
+              class="theme-toggle theme-floating"
+              aria-label="Toggle theme"
+            >
+              <i class="fas fa-moon"></i>
+            </button>
+            <button
+              type="button"
+              id="bulkDeleteFloating"
+              class="bulk-delete-floating"
+              aria-label="Delete selected tickets"
+              style="display: none"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <div class="admin-container">
+        <!-- Statistics Section -->
+        <section class="stats-section">
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon open">
+                <i class="fas fa-clock"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number" id="totalOpenTickets">0</div>
+                <div class="stat-label">Open Tickets</div>
+                <div class="stat-number" id="myTickets">0</div>
+                <div class="stat-label">My Tickets</div>
+              </div>
+            </div>
+            <!-- Tambahkan di stats-grid, sebelum card pertama -->
+
+            <div class="stat-card">
+              <div class="stat-icon progress">
+                <i class="fas fa-tools"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number" id="totalInProgress">0</div>
+                <div class="stat-label">In Progress</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon resolved">
+                <i class="fas fa-check-circle"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number" id="totalResolved">0</div>
+                <div class="stat-label">Resolved</div>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon high">
+                <i class="fas fa-exclamation-triangle"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-number" id="totalHighPriority">0</div>
+                <div class="stat-label">High Priority</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tickets Management Section -->
+        <section class="tickets-section">
+          <div class="section-header">
+            <h2><i class="fas fa-tickets"></i> All Tickets</h2>
+            <div class="section-actions">
+              <button
+                class="btn-export export-floating"
+                id="exportTickets"
+                aria-label="Export tickets to Excel"
+              >
+                <i class="fas fa-file-excel"></i>
+                <span class="btn-text">Export Excel</span>
+              </button>
               <div class="filter-group">
                 <select id="statusFilter">
                   <option value="all">All Status</option>
@@ -135,9 +172,9 @@
               </div>
               <div class="date-filter-group">
                 <div class="date-inputs">
-                  <input type="date" id="startDate" class="date-input">
+                  <input type="date" id="startDate" class="date-input" />
                   <span class="date-separator">to</span>
-                  <input type="date" id="endDate" class="date-input">
+                  <input type="date" id="endDate" class="date-input" />
                 </div>
                 <button class="btn-today" id="todayBtn">
                   <i class="fas fa-calendar-day"></i>
@@ -147,166 +184,222 @@
                   <i class="fas fa-calendar"></i>
                   This Month
                 </button>
-                <button class="btn-clear-date" id="clearDateBtn" title="Clear date filter">
+                <button
+                  class="btn-clear-date"
+                  id="clearDateBtn"
+                  title="Clear date filter"
+                >
                   <i class="fas fa-times"></i>
-                  </button>
+                </button>
               </div>
+            </div>
           </div>
+
+          <div class="tickets-table-container">
+            <table class="tickets-table" id="ticketsTable">
+              <thead>
+                <tr>
+                  <th style="width: 32px; text-align: center">
+                    <input
+                      type="checkbox"
+                      id="selectAllTickets"
+                      aria-label="Select all tickets"
+                    />
+                  </th>
+                  <th>Ticket Code</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Department</th>
+                  <th>Assigned Email</th>
+                  <th>Location</th>
+                  <th>Priority</th>
+                  <th>Status</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="ticketsTableBody">
+                <!-- Tickets will be loaded here -->
+              </tbody>
+            </table>
+            <!-- TAMBAHKAN INI: Mobile Cards Container -->
+            <div class="tickets-cards" id="ticketsCards">
+              <!-- Tickets cards will be loaded here -->
+            </div>
+            <div
+              class="empty-state"
+              id="emptyTicketsState"
+              style="display: none"
+            >
+              <i class="fas fa-ticket-alt"></i>
+              <h3>No tickets found</h3>
+              <p>There are no tickets matching your criteria</p>
+            </div>
+            <div
+              class="list-controls"
+              id="ticketsListControls"
+              style="
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+                justify-content: flex-end;
+                margin-top: 12px;
+                padding-right: 10px;
+              "
+            >
+              <button type="button" class="btn-primary" id="showMoreTickets">
+                Show More
+              </button>
+              <button type="button" class="btn-secondary" id="showAllTickets">
+                Show All
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                id="resetTicketsView"
+                title="Reset"
+              >
+                <i class="fas fa-times"></i>
+              </button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <!-- Ticket Detail Modal -->
+    <div id="ticketModal" class="modal" style="display: none">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h2><i class="fas fa-ticket-alt"></i> Ticket Details</h2>
+          <button
+            class="modal-close"
+            id="closeTicketModal"
+            aria-label="Close modal"
+          >
+            <i class="fas fa-times"></i>
+          </button>
         </div>
-
-        <div class="tickets-table-container">
-          <table class="tickets-table" id="ticketsTable">
-            <thead>
-              <tr>
-                <th style="width:32px; text-align:center;">
-                  <input type="checkbox" id="selectAllTickets" aria-label="Select all tickets">
-                </th>
-                <th>Ticket Code</th>
-                <th>Subject</th>
-                <th>User</th>
-                <th>Department</th>
-                <th>Assigned Email</th>
-                <th>Location</th>
-                <th>Priority</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="ticketsTableBody">
-              <!-- Tickets will be loaded here -->
-            </tbody>
-          </table>
-          <!-- TAMBAHKAN INI: Mobile Cards Container -->
-          <div class="tickets-cards" id="ticketsCards">
-            <!-- Tickets cards will be loaded here -->
-          </div>
-          <div class="empty-state" id="emptyTicketsState" style="display: none;">
-            <i class="fas fa-ticket-alt"></i>
-            <h3>No tickets found</h3>
-            <p>There are no tickets matching your criteria</p>
-          </div>
-          <div class="list-controls" id="ticketsListControls" style="display:flex; gap:.5rem; align-items:center; justify-content:flex-end; margin-top:12px; padding-right: 10px;">
-            <button type="button" class="btn-primary" id="showMoreTickets">Show More</button>
-            <button type="button" class="btn-secondary" id="showAllTickets">Show All</button>
-            <button type="button" class="btn-secondary" id="resetTicketsView" title="Reset">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          
+        <div class="modal-body" id="ticketModalBody">
+          <!-- Ticket details will be loaded here -->
         </div>
-      </section>
-    </div>
-  </main>
-
-  <!-- Ticket Detail Modal -->
-  <div id="ticketModal" class="modal" style="display: none;">
-    <div class="modal-content large">
-      <div class="modal-header">
-        <h2><i class="fas fa-ticket-alt"></i> Ticket Details</h2>
-        <button class="modal-close" id="closeTicketModal" aria-label="Close modal">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body" id="ticketModalBody">
-        <!-- Ticket details will be loaded here -->
       </div>
     </div>
-  </div>
 
-  <!-- Ticket Update Modal -->
-  <div id="updateTicketModal" class="modal" style="display: none;">
-    <div class="modal-content large">
-      <div class="modal-header">
-        <h2><i class="fas fa-edit"></i> Update Ticket</h2>
-        <button class="modal-close" onclick="adminDashboard.closeUpdateModal()" aria-label="Close modal">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-      <div class="modal-body">
-        <form id="updateTicketForm">
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="updateSubject">Subject:</label>
-              <input type="text" id="updateSubject" class="form-control" required>
+    <!-- Ticket Update Modal -->
+    <div id="updateTicketModal" class="modal" style="display: none">
+      <div class="modal-content large">
+        <div class="modal-header">
+          <h2><i class="fas fa-edit"></i> Update Ticket</h2>
+          <button
+            class="modal-close"
+            onclick="adminDashboard.closeUpdateModal()"
+            aria-label="Close modal"
+          >
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <form id="updateTicketForm">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="updateSubject">Subject:</label>
+                <input
+                  type="text"
+                  id="updateSubject"
+                  class="form-control"
+                  required
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="updatePriority">Priority:</label>
+                <select id="updatePriority" class="form-control" required>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="updateStatus">Status:</label>
+                <select id="updateStatus" class="form-control" required>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Resolved">Resolved</option>
+                </select>
+              </div>
+
+              <div class="form-group full-width">
+                <label for="updateAdminNotes">Admin Notes:</label>
+                <textarea
+                  id="updateAdminNotes"
+                  class="form-control"
+                  rows="4"
+                  placeholder="Add admin notes..."
+                ></textarea>
+              </div>
             </div>
-  
-            <div class="form-group">
-              <label for="updatePriority">Priority:</label>
-              <select id="updatePriority" class="form-control" required>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-                <option value="Critical">Critical</option>
-              </select>
+
+            <div class="form-actions">
+              <button
+                type="button"
+                class="btn-secondary"
+                onclick="adminDashboard.closeUpdateModal()"
+              >
+                <i class="fas fa-times"></i> Cancel
+              </button>
+              <button type="submit" class="btn-primary">
+                <i class="fas fa-save"></i> Update Ticket
+              </button>
             </div>
-  
-            <div class="form-group">
-              <label for="updateStatus">Status:</label>
-              <select id="updateStatus" class="form-control" required>
-                <option value="Open">Open</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Resolved">Resolved</option>
-              </select>
-            </div>
-  
-            <div class="form-group full-width">
-              <label for="updateAdminNotes">Admin Notes:</label>
-              <textarea id="updateAdminNotes" class="form-control" rows="4" placeholder="Add admin notes..."></textarea>
-            </div>
-          </div>
-  
-          <div class="form-actions">
-            <button type="button" class="btn-secondary" onclick="adminDashboard.closeUpdateModal()">
-              <i class="fas fa-times"></i> Cancel
-            </button>
-            <button type="submit" class="btn-primary">
-              <i class="fas fa-save"></i> Update Ticket
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
-  </div>
 
-  <button id="scrollTopBtn" class="scroll-top-btn" aria-label="Scroll to top" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
-    <i class="fas fa-arrow-up"></i>
-  </button>
+    <button
+      id="scrollTopBtn"
+      class="scroll-top-btn"
+      aria-label="Scroll to top"
+      onclick="window.scrollTo({ top: 0, behavior: 'smooth' })"
+    >
+      <i class="fas fa-arrow-up"></i>
+    </button>
 
-  <!-- Footer -->
-  <footer class="admin-footer">
-    <div class="footer-content">
-      <small>&copy; 2025 IT Support System - Admin Panel</small>
-      <small>IT Support Team - 71001-04-8314</small>
-    </div>
-  </footer>
+    <!-- Footer -->
+    <footer class="admin-footer">
+      <div class="footer-content">
+        <small>&copy; 2025 IT Support System - Admin Panel</small>
+        <small>IT Support Team - 71001-04-8314</small>
+      </div>
+    </footer>
 
-  <!-- ✅ FIXED SCRIPT LOADING ORDER -->
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- ✅ FIXED SCRIPT LOADING ORDER -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
-  <!-- Load export.js sebagai regular script -->
-  
-  <!-- Tambahkan device mapping config untuk export -->
-  <script>
-    window.CONFIG = {
-      DEVICE_TYPE_MAPPING: {
-        "PC Hardware": "HW",
-        "Laptop": "HW",
-        "Printer": "HW",
-        "Projector": "HW",
-        "PC Software": "SW",
-        "Network": "NW",
-        "Backup Data": "DR",
-        "Others": "OT"
-      },
-      
-    };
-    window.allTickets = [];
-  </script>
+    <!-- Load export.js sebagai regular script -->
 
-<script src="../../assets/js/utils/export.js"></script>
-<!-- Load admin.js sebagai module TERAKHIR (self-initializes) -->
-  <script type="module" src="assets/js/admin.js"></script>
-</body>
+    <!-- Tambahkan device mapping config untuk export -->
+    <script>
+      window.CONFIG = {
+        DEVICE_TYPE_MAPPING: {
+          "PC Hardware": "HW",
+          Laptop: "HW",
+          Printer: "HW",
+          Projector: "HW",
+          "PC Software": "SW",
+          Network: "NW",
+          "Backup Data": "DR",
+          Others: "OT",
+        },
+      };
+      window.allTickets = [];
+    </script>
 
+    <script src="../../assets/js/utils/export.js"></script>
+    <!-- Load admin.js sebagai module TERAKHIR (self-initializes) -->
+    <script type="module" src="assets/js/admin.js"></script>
+  </body>
 </html>

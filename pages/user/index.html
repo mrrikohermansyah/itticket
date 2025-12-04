@@ -1,20 +1,34 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <!-- Web App Manifest -->
-    
 
     <!-- Theme Color -->
     <meta name="theme-color" content="#3b82f6" />
 
     <!-- Apple Touch Icons (untuk iOS) -->
     <link rel="apple-touch-icon" href="../../assets/images/meitech.png" />
-    <link rel="apple-touch-icon" sizes="152x152" href="../../assets/images/meitech.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="../../assets/images/meitech.png" />
-    <link rel="apple-touch-icon" sizes="167x167" href="../../assets/images/meitech.png" />
+    <link
+      rel="apple-touch-icon"
+      sizes="152x152"
+      href="../../assets/images/meitech.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="../../assets/images/meitech.png"
+    />
+    <link
+      rel="apple-touch-icon"
+      sizes="167x167"
+      href="../../assets/images/meitech.png"
+    />
 
     <!-- Apple Launch Screen (untuk iOS Splash Screen) -->
-    <link rel="apple-touch-startup-image" href="../../assets/images/meitech.png" />
+    <link
+      rel="apple-touch-startup-image"
+      href="../../assets/images/meitech.png"
+    />
 
     <!-- Meta untuk iOS -->
     <!-- Untuk iOS Safari -->
@@ -31,20 +45,40 @@
     <meta name="msapplication-config" content="browserconfig.xml" />
 
     <!-- Favicon untuk browser biasa -->
-    <link rel="icon" type="image/x-icon" href="../../assets/images/meitech.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="../../assets/images/meitech.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="../../assets/images/meitech.png" />
+    <link
+      rel="icon"
+      type="image/x-icon"
+      href="../../assets/images/meitech.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="../../assets/images/meitech.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="../../assets/images/meitech.png"
+    />
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'">
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' https://www.gstatic.com https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://www.google.com https://smtpjs.com 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data:; connect-src 'self' https://www.gstatic.com https://fonts.gstatic.com https://cdnjs.cloudflare.com https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://script.google.com https://smtpjs.com; frame-src 'self' https://apis.google.com https://www.gstatic.com https://itticketing-f926e.firebaseapp.com https://accounts.google.com https://www.google.com; base-uri 'self'; form-action 'self'"
+    />
     <title>IT Support Ticketing System</title>
     <script src="../../assets/js/utils/config.js"></script>
-    <script type="module" src="../../assets/js/utils/firebase-config.js"></script>
+    <script
+      type="module"
+      src="../../assets/js/utils/firebase-config.js"
+    ></script>
 
     <!-- Styles -->
     <link rel="stylesheet" href="../../assets/css/base/styles.css" />
     <link rel="stylesheet" href="../../assets/css/pages/dashboard.css" />
-    
+
     <link rel="icon" type="image/png" href="../../assets/images/meitech.png" />
 
     <!-- Google Fonts -->
@@ -67,12 +101,16 @@
   </head>
 
   <body>
-    <main class="container" style="visibility:hidden">
+    <main class="container" style="visibility: hidden">
       <!-- Unified Header -->
       <header class="dashboard-header">
         <div class="header-content">
           <div class="logo-section">
-            <img src="../../assets/images/meitech-logo.png" alt="Meitech" class="dashboard-logo" />
+            <img
+              src="../../assets/images/meitech-logo.png"
+              alt="Meitech"
+              class="dashboard-logo"
+            />
             <div class="header-text">
               <h1>IT Support Ticketing System</h1>
               <p>Report technical issues and get support from our IT team</p>
@@ -85,7 +123,13 @@
               <div class="user-email" id="userEmail">Loading...</div>
             </div>
             <div class="header-actions">
-              <button class="theme-toggle theme-floating" id="themeToggleBtn" aria-label="Toggle theme"><i class="fas fa-moon"></i></button>
+              <button
+                class="theme-toggle theme-floating"
+                id="themeToggleBtn"
+                aria-label="Toggle theme"
+              >
+                <i class="fas fa-moon"></i>
+              </button>
               <button type="button" id="logoutBtn" class="btn-logout">
                 <i class="fas fa-sign-out-alt"></i>
                 Logout
@@ -348,36 +392,39 @@
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
     <!-- SweetAlert2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="https://smtpjs.com/v3/smtp.js"></script>
-    
-    
 
     <script type="module">
-      import firebaseAuthService from '../../assets/js/services/firebase-auth-service.js';
-      document.addEventListener('DOMContentLoaded', async () => {
+      import firebaseAuthService from "../../assets/js/services/firebase-auth-service.js";
+      document.addEventListener("DOMContentLoaded", async () => {
         try {
           const user = await firebaseAuthService.getCurrentUser();
-          if (!user) { window.location.href = '../auth/login.html'; return; }
+          if (!user) {
+            window.location.href = "../auth/login.html";
+            return;
+          }
           const profile = await firebaseAuthService.getUserProfile(user.uid);
-          const name = (profile && profile.full_name) || (user.email || '').split('@')[0] || 'User';
-          const email = (profile && profile.email) || user.email || '';
-          const nameEl = document.getElementById('userName');
-          const emailEl = document.getElementById('userEmail');
+          const name =
+            (profile && profile.full_name) ||
+            (user.email || "").split("@")[0] ||
+            "User";
+          const email = (profile && profile.email) || user.email || "";
+          const nameEl = document.getElementById("userName");
+          const emailEl = document.getElementById("userEmail");
           if (nameEl) nameEl.textContent = name;
           if (emailEl) emailEl.textContent = email;
 
-          const logoutBtn = document.getElementById('logoutBtn');
+          const logoutBtn = document.getElementById("logoutBtn");
           if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
+            logoutBtn.addEventListener("click", async () => {
               const res = await Swal.fire({
-                title: 'Logout Confirmation',
-                text: 'Are you sure you want to logout?',
-                icon: 'question',
+                title: "Logout Confirmation",
+                text: "Are you sure you want to logout?",
+                icon: "question",
                 showCancelButton: true,
-                confirmButtonColor: '#ef4444',
-                cancelButtonColor: '#6b7280',
-                confirmButtonText: 'Yes, Logout',
-                cancelButtonText: 'Cancel'
+                confirmButtonColor: "#ef4444",
+                cancelButtonColor: "#6b7280",
+                confirmButtonText: "Yes, Logout",
+                cancelButtonText: "Cancel",
               });
               if (res.isConfirmed) {
                 await firebaseAuthService.logout();
@@ -385,39 +432,52 @@
             });
           }
 
-          const adminBubble = document.getElementById('adminBubble');
-          let isExpanded = false; let autoCollapseTimer;
+          const adminBubble = document.getElementById("adminBubble");
+          let isExpanded = false;
+          let autoCollapseTimer;
           function expandBubble() {
             if (!isExpanded) {
-              adminBubble.classList.add('expanded');
+              adminBubble.classList.add("expanded");
               isExpanded = true;
-              adminBubble.setAttribute('aria-expanded', 'true');
-              autoCollapseTimer = setTimeout(() => { collapseBubble(); }, 4000);
+              adminBubble.setAttribute("aria-expanded", "true");
+              autoCollapseTimer = setTimeout(() => {
+                collapseBubble();
+              }, 4000);
             }
           }
           function collapseBubble() {
             if (isExpanded) {
-              adminBubble.classList.remove('expanded');
+              adminBubble.classList.remove("expanded");
               isExpanded = false;
-              adminBubble.setAttribute('aria-expanded', 'false');
+              adminBubble.setAttribute("aria-expanded", "false");
               clearTimeout(autoCollapseTimer);
             }
           }
-          adminBubble.addEventListener('mouseenter', () => expandBubble());
-          adminBubble.addEventListener('mouseleave', () => setTimeout(() => collapseBubble(), 300));
-          document.addEventListener('click', (e) => { if (isExpanded && !adminBubble.contains(e.target)) collapseBubble(); });
-          adminBubble.addEventListener('focus', () => expandBubble());
-          adminBubble.addEventListener('blur', () => collapseBubble());
+          adminBubble.addEventListener("mouseenter", () => expandBubble());
+          adminBubble.addEventListener("mouseleave", () =>
+            setTimeout(() => collapseBubble(), 300)
+          );
+          document.addEventListener("click", (e) => {
+            if (isExpanded && !adminBubble.contains(e.target)) collapseBubble();
+          });
+          adminBubble.addEventListener("focus", () => expandBubble());
+          adminBubble.addEventListener("blur", () => collapseBubble());
 
-          const mainEl = document.querySelector('main.container');
+          const mainEl = document.querySelector("main.container");
           if (mainEl) {
-            mainEl.style.visibility = 'visible';
-            mainEl.classList.add('page-enter-animate');
-            mainEl.addEventListener('animationend', function () { mainEl.classList.remove('page-enter-animate'); }, { once: true });
+            mainEl.style.visibility = "visible";
+            mainEl.classList.add("page-enter-animate");
+            mainEl.addEventListener(
+              "animationend",
+              function () {
+                mainEl.classList.remove("page-enter-animate");
+              },
+              { once: true }
+            );
           }
         } catch (_) {
-          const mainEl = document.querySelector('main.container');
-          if (mainEl) mainEl.style.visibility = 'visible';
+          const mainEl = document.querySelector("main.container");
+          if (mainEl) mainEl.style.visibility = "visible";
         }
       });
     </script>

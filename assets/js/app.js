@@ -693,18 +693,14 @@ function saveDraft() {
   }
 
   try {
-    localStorage.setItem("ticketDraft", JSON.stringify(draft));
-    
-  } catch (e) {
-    console.warn("Could not save draft to localStorage:", e);
-  }
+    window.__ticketDraft = draft;
+  } catch (e) {}
 }
 
 function loadDraft() {
   try {
-    const draft = localStorage.getItem("ticketDraft");
-    if (draft) {
-      const draftData = JSON.parse(draft);
+    const draftData = window.__ticketDraft;
+    if (draftData) {
 
       for (let key in draftData) {
         const element = form.querySelector(`[name="${key}"]`);
@@ -714,20 +710,16 @@ function loadDraft() {
         }
       }
 
-      
     }
   } catch (e) {
-    console.warn("Could not load draft from localStorage:", e);
+    
   }
 }
 
 function clearDraft() {
   try {
-    localStorage.removeItem("ticketDraft");
-    
-  } catch (e) {
-    console.warn("Could not clear draft from localStorage:", e);
-  }
+    window.__ticketDraft = null;
+  } catch (e) {}
 }
 
 // ==================== 🔹 Enhanced Character Counter ====================

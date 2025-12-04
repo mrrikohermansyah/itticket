@@ -39,20 +39,7 @@ class TeamManagement {
         await this.testServiceMethods();
         this.initializeEventListeners();
         this.toggleAddFormVisibility();
-        let usedCache = false;
-        try {
-            const key = `adminsCache:${this.adminUser?.uid || 'global'}`;
-            const cached = JSON.parse(localStorage.getItem(key) || 'null');
-            const now = Date.now();
-            if (cached && Array.isArray(cached.items) && cached.items.length && cached.ts && (now - cached.ts) < this.cacheTTL) {
-                this.itTeam = cached.items;
-                this.renderTeam();
-                usedCache = true;
-            }
-        } catch (_) {}
-        if (!usedCache) {
-            await this.loadTeamData();
-        }
+        await this.loadTeamData();
     }
     // ✅ TEST METHOD - Tambahkan di class
 // ✅ TEST METHOD - Tambahkan di testServiceMethods()
@@ -149,11 +136,7 @@ async loadAllAdmins() {
         }
         
             // console.log('📋 All admins loaded:', allAdmins.length);
-            try {
-                const key = `adminsCache:${this.adminUser?.uid || 'global'}`;
-                const cache = { ts: Date.now(), items: allAdmins };
-                localStorage.setItem(key, JSON.stringify(cache));
-            } catch (_) {}
+            
         // console.log('📊 Breakdown:', {
         //     total: allAdmins.length,
         //     active: allAdmins.filter(a => a.is_active).length,
