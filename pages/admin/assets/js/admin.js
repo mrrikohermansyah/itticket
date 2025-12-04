@@ -1442,8 +1442,10 @@ class AdminDashboard {
             mt.forEach(ds => items.push(toItem(ds)));
             mte.forEach(ds => items.push(toItem(ds)));
             at.forEach(ds => items.push(toItem(ds)));
+            // Dedupe by id to prevent duplicates across queries
+            const uniqueItems = Array.from(new Map(items.map(i => [i.id, i])).values());
             // Filter only assignments for current admin or ALL
-            const filtered = items.filter(a => a.scope === 'all' || a.target_uid === this.adminUser.uid || a.target_email === this.adminUser.email);
+            const filtered = uniqueItems.filter(a => a.scope === 'all' || a.target_uid === this.adminUser.uid || a.target_email === this.adminUser.email);
             // Sort newest first
             filtered.sort((a,b) => (b.created_at?.getTime()||0) - (a.created_at?.getTime()||0));
             this.assignments = filtered;

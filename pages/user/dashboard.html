@@ -1077,20 +1077,5 @@
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script type="module" src="../../assets/js/pages/dashboard.js"></script>
-    <script type="module">
-      try {
-        const m = document.getElementById("dashboardMain");
-        if (m) m.style.visibility = "visible";
-        if (!window.__dashModuleLoaded) {
-          await import("../../assets/js/pages/dashboard.js");
-          if (window.Dashboard) {
-            new window.Dashboard();
-            try {
-              window.__dashModuleLoaded = true;
-            } catch (_) {}
-          }
-        }
-      } catch (_) {}
-    </script>
   </body>
 </html>
