@@ -510,9 +510,15 @@ class Dashboard {
     return "Open";
   }
 
-  isTicketOpen(ticket) {
+  canDeleteTicket(ticket) {
     const d = this.getTicketStatusDisplay(ticket);
-    return d === "Open" || d === "In Progress" || d === "Pending";
+    const isOpen = d === "Open";
+    const isAssigned = !!(
+      ticket.admin_id ||
+      ticket.assigned_to ||
+      (ticket.action_by && ticket.action_by !== "Unassigned")
+    );
+    return !ticket.deleted && isOpen && !isAssigned;
   }
 
   canDeleteTicket(ticket) {
@@ -829,21 +835,22 @@ class Dashboard {
           deleted_by: this.currentUser.id,
           deleted_by_name: this.currentUser.full_name || "User",
           delete_reason: deleteReason,
+          deleted_at: serverTimestamp(),
           last_updated: serverTimestamp(),
         });
         await Swal.fire({
-          title: "Deleted!",
+          title: "Ticket Berhasil Dihapus",
           html: `
             <div class="delete-success">
-              <i class="fas fa-check-circle text-success"></i>
-              <p>Ticket ${ticketCode} has been deleted.</p>
+              <i class="fas fa-check-circle" style="color:#10b981;"></i>
+              <p>Ticket <strong>${ticketCode}</strong> berhasil dihapus dari daftar Anda.</p>
+              <p style="font-size:0.9rem;color:#6b7280;">Penghapusan bersifat <strong>soft delete</strong>: admin masih dapat melihat ticket ini untuk keperluan audit.</p>
+              <p style="font-size:0.9rem;color:#6b7280;">Ticket yang bisa dihapus adalah ticket <strong>Open</strong> dan <strong>belum diambil admin</strong>.</p>
             </div>
           `,
           icon: "success",
           confirmButtonText: "OK",
           confirmButtonColor: "#10b981",
-          timer: 3000,
-          timerProgressBar: true,
         });
       } catch (error) {
         await Swal.fire({

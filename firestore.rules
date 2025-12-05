@@ -65,15 +65,38 @@ service cloud.firestore {
                         && (resource.data.user_id == request.auth.uid 
                             || resource.data.user_email == request.auth.token.email));
 
+      function isUnassigned() {
+        return !('assigned_to' in resource.data) && !('action_by' in resource.data);
+      }
+
+      function isOpenStatus() {
+        return (('status' in resource.data) && resource.data.status == 'Open')
+               || (('qa' in resource.data) && resource.data.qa == 'Open');
+      }
+
+      function canUserSoftDelete() {
+        return isSignedIn()
+               && resource.data.user_id == request.auth.uid
+               && isUnassigned()
+               && isOpenStatus();
+      }
+
       allow update: if isAdmin()
-                    || (isSignedIn()
-                        && resource.data.user_id == request.auth.uid
-                        && request.resource.data.user_id == resource.data.user_id
-                        && request.resource.data.diff(resource.data).changedKeys().hasOnly([
-                          'note','updated_at','updatedAt','user_agent','platform','code',
-                          'user_name','user_department','user_email','user_phone','last_updated'
-                        ])
-                        );
+                    || (
+                      isSignedIn()
+                      && resource.data.user_id == request.auth.uid
+                      && request.resource.data.user_id == resource.data.user_id
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                        'note','updated_at','updatedAt','user_agent','platform','code',
+                        'user_name','user_department','user_email','user_phone','last_updated'
+                      ])
+                    )
+                    || (
+                      canUserSoftDelete()
+                      && request.resource.data.diff(resource.data).changedKeys().hasOnly([
+                        'deleted','deleted_by','deleted_by_name','delete_reason','deleted_at','last_updated'
+                      ])
+                    );
 
       allow delete: if isAdmin();
 
