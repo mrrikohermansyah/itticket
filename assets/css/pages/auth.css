@@ -11,16 +11,6 @@
   --gray-900: #18181b;
 }
 
-html[data-theme="dark"] {
-  --white: #151a20;
-  --black: #e6e7eb;
-  --gray-50: #0c0e12;
-  --gray-100: #12141b;
-  --gray-200: #1f2530;
-  --gray-400: #8b90a2;
-  --gray-600: #b8bcc9;
-  --gray-900: #e6e7eb;
-}
 html[data-theme="dark"] .auth-card {
   background: #1a1f27;
   border: 1px solid var(--gray-200);
@@ -33,7 +23,7 @@ html[data-theme="dark"] .auth-card::before {
 .auth-body {
   font-family: "Inter", sans-serif;
   background: var(--white);
-  min-height: 100vh;
+  min-height: 90vh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -238,7 +228,7 @@ html[data-theme="dark"] .btn-auth {
 .auth-link {
   text-align: center;
   margin-top: 1.5rem;
-  padding-top: 1.5rem;
+  padding-top: 1rem;
   border-top: 1px solid var(--gray-100);
   font-size: 0.875rem;
   color: var(--gray-600);
@@ -258,7 +248,7 @@ html[data-theme="dark"] .btn-auth {
 /* Responsive Design */
 @media (max-width: 480px) {
   .auth-body {
-    padding: 0.75rem;
+    padding: 1rem;
   }
 
   .auth-card {
@@ -281,7 +271,7 @@ html[data-theme="dark"] .btn-auth {
   }
 
   .auth-logo-container h2 {
-    font-size: 1.375rem;
+    font-size: 1.2rem;
   }
 }
 
