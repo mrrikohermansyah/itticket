@@ -13,7 +13,7 @@ html[data-theme="dark"] .landing-logo {
 }
 
 .landing-page {
-  min-height: 100vh;
+  min-height: 90vh;
   background: var(--white);
   font-family: "Inter", sans-serif;
   display: flex;
