@@ -72,6 +72,7 @@ window.generateTicketId = function (department, deviceType, location = "", fires
     'software config': 'SW',
     'install it standard apps': 'SW',
     'reinstall windows': 'SW',
+    'pc hardware': 'HW',
     'setup meeting': 'HW',
     'back up data': 'DR',
     'network': 'NW',

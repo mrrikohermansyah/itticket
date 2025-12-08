@@ -655,6 +655,20 @@
                   </div>
                   <div class="form-row">
                     <div class="form-group">
+                      <label for="assignment_inventory">
+                        <span class="required">Inventory Code</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="assignment_inventory"
+                        name="inventory"
+                        required
+                        placeholder="PCPRO-MEB001 / PC24001MEB / PRN24001MEB"
+                      />
+                    </div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
                       <label for="assignment_activity"
                         ><span class="required">Activity</span></label
                       >
@@ -683,6 +697,7 @@
                         <option value="Stand By Sunday">Stand By Sunday</option>
                         <option value="Back Up Data">Back Up Data</option>
                         <option value="Network">Network</option>
+                        <option value="PC Hardware">PC Hardware</option>
                         <option value="Connect Share Folder">
                           Connect Share Folder
                         </option>
@@ -1547,6 +1562,9 @@
                       const activity =
                         document.getElementById("assignment_activity")?.value ||
                         "";
+                      const inventory =
+                        document.getElementById("assignment_inventory")
+                          ?.value || "";
                       const location =
                         document.getElementById("assignment_location")?.value ||
                         "";
@@ -1617,6 +1635,7 @@
                         assignment_message: message,
                         assignment_activity: activity,
                         assignment_location: location,
+                        inventory: inventory,
                         priority,
                         status: "Open",
                         created_at: serverTimestamp(),
