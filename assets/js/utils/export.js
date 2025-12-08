@@ -776,6 +776,7 @@
     if (a === "software config") return "SW";
     if (a === "install it standard apps") return "SW";
     if (a === "reinstall windows") return "SW";
+    if (a === "pc hardware") return "HW";
     if (a === "setup meeting") return "HW";
     if (a === "network") return "NW";
     if (a === "connect share folder") return "NW";
